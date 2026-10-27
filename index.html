@@ -442,7 +442,7 @@
       <button id="resetBtn" title="Reset to the default example" aria-label="Reset">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
       </button>
-      <button id="copyBtn" title="Copy JSON" aria-label="Copy JSON">
+      <button id="copyBtn" title="Copy the JSON currently shown (Ideogram or Moss Image)" aria-label="Copy JSON">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
       </button>
       <button id="downloadBtn" title="Download Ideogram JSON" aria-label="Download Ideogram JSON">
@@ -776,10 +776,13 @@
   <!-- JSON -->
   <div class="grid-stack-item" gs-id="json" gs-x="3" gs-y="9" gs-w="9" gs-h="3" gs-min-w="2" gs-min-h="2">
     <div class="grid-stack-item-content tile">
-      <div class="tile-bar"><span class="tile-title">JSON output</span></div>
+      <div class="tile-bar"><span class="tile-title">JSON output</span>
+        <label class="toggle" title="Which model's prompt JSON is shown below">Showing <select id="jsonFormat" class="bar-select"><option value="ideogram">Ideogram</option><option value="moss">Moss Image</option></select></label>
+      </div>
       <div class="tile-body json-body">
         <div class="json-toolbar">
-          <button id="copyBtn2" class="primary">Copy</button>
+          <button id="copyBtn2" class="primary" title="Copy the Ideogram 4 prompt JSON">Copy for Ideogram</button>
+          <button id="copyMossBtn" class="primary" title="Copy the Moss Image prompt JSON">Copy for Moss Image</button>
           <button id="downloadBtn2" title="Ideogram 4 prompt JSON (re-importable)">Download for Ideogram</button>
           <button id="downloadMossBtn" title="Moss Image prompt JSON (abs_centralized, yxyx bboxes)">Download for Moss Image</button>
         </div>
@@ -1874,7 +1877,17 @@ function renderJSONThrottled() {
   jsonThrottle = requestAnimationFrame(() => { jsonThrottle = null; renderJSON(); });
 }
 
-function renderJSON() { $("json").innerHTML = highlight(JSON.stringify(buildJSON(), null, 2)); scheduleSaveState(); }
+// Which model's JSON the output tile shows ("ideogram" | "moss"); a per-browser preference.
+let jsonFormat = (() => { try { return localStorage.getItem("ideogrammar.jsonFormat") === "moss" ? "moss" : "ideogram"; } catch (_) { return "ideogram"; } })();
+function buildJSONFor(fmt) { return fmt === "moss" ? buildMossJSON() : buildJSON(); }
+function setJSONFormat(fmt) {
+  jsonFormat = fmt === "moss" ? "moss" : "ideogram";
+  try { localStorage.setItem("ideogrammar.jsonFormat", jsonFormat); } catch (_) {}
+  if ($("jsonFormat")) $("jsonFormat").value = jsonFormat;
+  renderJSON();
+}
+
+function renderJSON() { $("json").innerHTML = highlight(JSON.stringify(buildJSONFor(jsonFormat), null, 2)); scheduleSaveState(); }
 
 function highlight(json) {
   return escapeHtml(json).replace(/("(\\.|[^"\\])*")(\s*:)?|\b(-?\d+\.?\d*)\b|([{}\[\],])/g,
@@ -1904,10 +1917,15 @@ function removeElement(id) {
   render();
 }
 
-async function doCopy() {
-  const str = JSON.stringify(buildJSON(), null, 2);
+// fmt: "ideogram" | "moss"; omitted (header button) = whatever the tile is showing.
+// Copying also switches the tile to that format so what you see is what you copied.
+async function doCopy(fmt) {
+  fmt = fmt || jsonFormat;
+  if (fmt !== jsonFormat) setJSONFormat(fmt);
+  const str = JSON.stringify(buildJSONFor(fmt), null, 2);
   const ok = await copyText(str);
-  toast(ok ? "Copied to clipboard ✓" : "Copy failed — select the JSON manually", ok ? "ok" : "bad");
+  const name = fmt === "moss" ? "Moss Image" : "Ideogram";
+  toast(ok ? `Copied ${name} prompt ✓` : "Copy failed — select the JSON manually", ok ? "ok" : "bad");
 }
 
 // Works on http:// LAN (insecure context) where navigator.clipboard is unavailable.
@@ -2625,8 +2643,11 @@ $("st-medium").addEventListener("input", e => { state.style_description.medium =
 $("bg").addEventListener("input", e => { state.background = e.target.value; renderJSON(); });
 
 $("addEl").addEventListener("click", addElement);
-$("copyBtn").addEventListener("click", doCopy);
-$("copyBtn2").addEventListener("click", doCopy);
+$("copyBtn").addEventListener("click", () => doCopy());
+$("copyBtn2").addEventListener("click", () => doCopy("ideogram"));
+$("copyMossBtn").addEventListener("click", () => doCopy("moss"));
+$("jsonFormat").value = jsonFormat;
+$("jsonFormat").addEventListener("change", () => setJSONFormat($("jsonFormat").value));
 $("downloadBtn").addEventListener("click", doDownload);
 $("downloadBtn2").addEventListener("click", doDownload);
 $("downloadMossBtn").addEventListener("click", doDownloadMoss);
