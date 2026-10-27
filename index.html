@@ -1499,6 +1499,12 @@ function renderCanvas() {
     }
   }
 
+  // Stack by size, smallest on top, so a large box (a full-canvas panel, a
+  // figure spanning the frame) can never sit over smaller ones and swallow
+  // every click. Selection doesn't raise a box for the same reason.
+  const areaOf = el => Math.abs(el.bbox[2] - el.bbox[0]) * Math.abs(el.bbox[3] - el.bbox[1]);
+  const zRank = new Map([...state.elements].sort((a, b) => areaOf(b) - areaOf(a)).map((el, k) => [el._id, k + 1]));
+
   state.elements.forEach((el, i) => {
     const [x1, y1, x2, y2] = el.bbox;
     const left = Math.min(x1, x2), top = Math.min(y1, y2);
@@ -1506,6 +1512,7 @@ function renderCanvas() {
     const box = document.createElement("div");
     box.className = "box" + ((el._id === selectedId || selectedIds.has(el._id)) ? " selected" : "") + (el.enabled === false ? " disabled" : "");
     box.dataset.elId = el._id;
+    box.style.zIndex = zRank.get(el._id);
     box.style.left = (left / COORD * 100) + "%";
     box.style.top = (top / COORD * 100) + "%";
     box.style.width = (w / COORD * 100) + "%";
