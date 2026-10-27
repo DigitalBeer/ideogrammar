@@ -108,6 +108,7 @@ Rules:
 - The image canvas is a 1000 x 1000 coordinate space. Origin (0,0) is the TOP-LEFT. x grows right, y grows down. Every bbox is [x1, y1, x2, y2] with 0 <= x1 < x2 <= 1000 and 0 <= y1 < y2 <= 1000.
 - Place elements sensibly: titles near the top, taglines/credits near the bottom, the main subject roughly centered. Boxes may overlap when layered (e.g. text over a subject).
 - Use 3 to 6 elements unless the description clearly calls for more. Any text the image should literally show goes in a "text" element with the exact words in its desc (e.g. reading 'NEON TIDE'), and the same words verbatim in its "text" field.
+- Every person, animal or main character gets its own "subject" element (one per individual, never one box for a group), with a box that covers that individual's whole visible body.
 - All colors are uppercase 6-digit hex like "#1A2B3C". Give each element a small palette (1-4 colors) that matches it.
 - For "text" and "logo" elements you MAY add a "font" describing the typography (weight, serif/sans/script/display, era or mood) — e.g. "elegant high-contrast serif lettering". Omit "font" entirely for non-text elements.
 - Be concrete and specific. Return valid JSON only.`;

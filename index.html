@@ -730,6 +730,7 @@
         <span class="tile-title">Layout preview</span>
         <div class="tile-bar-controls" id="canvasControls">
           <label class="toggle" title="Output aspect ratio — reshapes the canvas and sets the JSON canvas block (also editable in ComfyUI settings)">AR <select id="canvasAspect" class="bar-select"></select></label>
+          <label class="toggle" title="Output size in megapixels — sets the pixel size of the canvas block and of Moss Image's absolute bboxes. Match your workflow (e.g. 1 for 1 MP). Also editable in ComfyUI settings.">MP <input type="number" id="canvasMegapixels" class="bar-select" min="0.1" step="0.1" style="width:4.2em"></label>
           <label class="toggle"><input type="checkbox" id="gridToggle" checked> Grid</label>
           <label class="toggle"><input type="checkbox" id="labelToggle" checked> Labels</label>
           <span class="toggle comfy-only" id="backdropCtrls" style="gap:6px;">
@@ -1832,6 +1833,19 @@ function mossTextFromDesc(desc) {
          || String(desc || "").match(/["“]([^"“”]+)["”]/);
   return m ? m[1].trim() : "";
 }
+// Plain-words position for a 0..1000 X-first box, e.g. "positioned center-right
+// (centre at about 64% from the left, 48% from the top), spanning nearly the full height".
+function mossPosition([x1, y1, x2, y2]) {
+  const cx = (x1 + x2) / 2 / COORD, cy = (y1 + y2) / 2 / COORD;
+  const w = Math.abs(x2 - x1) / COORD, h = Math.abs(y2 - y1) / COORD;
+  const horiz = cx < 0.2 ? "at the far left" : cx < 0.4 ? "left of center" : cx <= 0.6 ? "in the center" : cx <= 0.8 ? "right of center" : "at the far right";
+  const vert = cy < 0.25 ? "near the top" : cy < 0.42 ? "in the upper half" : cy <= 0.58 ? "at mid-height" : cy <= 0.75 ? "in the lower half" : "near the bottom";
+  const span = [];
+  if (h >= 0.85) span.push("spanning nearly the full height");
+  if (w >= 0.85) span.push("spanning nearly the full width");
+  return `positioned ${horiz}, ${vert} (centre at about ${Math.round(cx * 100)}% from the left and ${Math.round(cy * 100)}% from the top)` +
+    (span.length ? ", " + span.join(" and ") : "");
+}
 function buildMossJSON() {
   const { width: W, height: H } = computeDims();
   const hw = W / 2, hh = H / 2;
@@ -1840,8 +1854,26 @@ function buildMossJSON() {
   const box = ([x1, y1, x2, y2]) => [toY(y1), toX(x1), toY(y2), toX(x2)];
   const sentence = s => { s = String(s || "").trim(); return !s ? "" : /[.!?]$/.test(s) ? s : s + "."; };
   const sd = state.style_description;
+  const active = state.elements.filter(el => el.enabled !== false);
+  // Moss reads boxes as text, so its own examples restate positions in words and
+  // state how many people/subjects there are. Do the same: a subject count with a
+  // left-to-right roll call (curbs extra people and swapped identities), and a
+  // position phrase on every caption derived from its box, so words and box
+  // always agree even after boxes are moved.
+  const subjects = active.filter(el => el.type === "subject")
+    .sort((a, b) => (a.bbox[0] + a.bbox[2]) - (b.bbox[0] + b.bbox[2]));
+  const shortName = el => {
+    const first = String(el.desc || "").split(/[.;,]/)[0].trim().replace(/^(a|an|the)\s+/i, "");
+    const words = first.split(/\s+/);
+    return words.length > 10 ? words.slice(0, 10).join(" ") + "…" : first;
+  };
+  let countLine = "";
+  if (subjects.length === 1) countLine = `The image contains exactly one main subject: ${shortName(subjects[0]) || "the subject"}, ${mossPosition(subjects[0].bbox)}.`;
+  else if (subjects.length > 1) countLine = `The image contains exactly ${subjects.length} main subjects and no others; from left to right: ` +
+    subjects.map((el, i) => `(${i + 1}) ${shortName(el) || "subject " + (i + 1)}, ${mossPosition(el.bbox)}`).join("; ") + ".";
   const caption = [
     sentence(state.high_level_description),
+    countLine,
     sentence(sd.medium && sd.medium.charAt(0).toUpperCase() + sd.medium.slice(1)),
     sentence(sd.aesthetics && "Style: " + sd.aesthetics),
     sentence(sd.lighting && "Lighting: " + sd.lighting),
@@ -1852,12 +1884,13 @@ function buildMossJSON() {
   const panel = { label: "panel", caption: state.background || state.high_level_description || "", bbox: box([0, 0, COORD, COORD]) };
   if (sd.color_palette.length) panel.palette = sd.color_palette.slice();
   items.push(panel);
-  state.elements.filter(el => el.enabled !== false).forEach(el => {
+  active.forEach(el => {
     const textual = el.type === "text" || el.type === "logo";
     const text = textual ? (el.text || mossTextFromDesc(el.desc)) : "";
     let label = MOSS_LABEL[el.type] || "object";
     if (el.type === "logo" && !text) label = "object";
-    const o = { label, caption: sentence(el.desc) + (el.font ? " Typography: " + sentence(el.font) : "") };
+    const where = " " + mossPosition(el.bbox).replace(/^./, c => c.toUpperCase()) + ".";
+    const o = { label, caption: sentence(el.desc) + (el.font ? " Typography: " + sentence(el.font) : "") + where };
     if (el.tags && el.tags.length) o.tags = el.tags.slice();
     if (el.color_palette.length) o.palette = el.color_palette.slice();
     o.bbox = box(el.bbox.map(n => Math.round(n)));
@@ -3090,6 +3123,7 @@ function applyComfyForm() {
   $("cf-aspect").value = comfyCfg.aspect_ratio;
   if ($("cf-aspect").selectedIndex < 0) { comfyCfg.aspect_ratio = "1:1 (Square)"; $("cf-aspect").value = comfyCfg.aspect_ratio; saveComfyCfg(); }
   $("cf-megapixels").value = comfyCfg.megapixels;
+  if ($("canvasMegapixels")) $("canvasMegapixels").value = comfyCfg.megapixels;
   $("cf-workflow").value = comfyCfg.workflow;
   $("cf-preset").value = comfyCfg.preset;
   $("cf-seed").value = comfyCfg.seed;
@@ -3153,6 +3187,7 @@ function readComfyForm() {
   sanitizeComfyCfg();
   // reflect any corrected numeric values back into the fields
   $("cf-megapixels").value = comfyCfg.megapixels;
+  if ($("canvasMegapixels")) $("canvasMegapixels").value = comfyCfg.megapixels;
   $("cf-cfg").value = comfyCfg.cfg;
   $("cf-cfgo").value = comfyCfg.cfg_override;
   $("cf-start").value = comfyCfg.start_percent;
@@ -4633,6 +4668,17 @@ $("cf-rerollSeed").addEventListener("click", () => { comfyCfg.seed = randomSeed(
 ["cf-url", "cf-save", "cf-megapixels", "cf-preset", "cf-seed", "cf-randomize", "cf-cfg", "cf-sampler", "cf-cfgo", "cf-start", "cf-end", "cf-diff", "cf-uncond", "cf-lora-name", "cf-lora-strength", "cf-rtxsr-quality", "cf-rtxsr-scale", "cf-vae", "cf-clip", "cf-cliptype", "cf-batch", "cf-queue-count", "cf-queue-reseed", "cf-queue-regen", "cf-queue-guidance"].forEach(id => {
   const e = $(id); if (e) e.addEventListener("change", readComfyForm);
 });
+// Canvas-header megapixels mirrors cf-megapixels both ways (manual mode needs it
+// for the Moss export's pixel-space bboxes, where the ComfyUI panel is hidden).
+$("cf-megapixels").addEventListener("change", () => { $("canvasMegapixels").value = comfyCfg.megapixels; renderJSON(); });
+$("canvasMegapixels").addEventListener("change", () => {
+  const v = parseFloat($("canvasMegapixels").value);
+  if (!(v > 0)) { $("canvasMegapixels").value = comfyCfg.megapixels; return; }
+  comfyCfg.megapixels = v; $("cf-megapixels").value = v;
+  saveComfyCfg(); renderJSON();
+});
+$("canvasMegapixels").addEventListener("keydown", e => e.stopPropagation());
+$("canvasMegapixels").value = comfyCfg.megapixels;
 $("cf-lora-enabled").addEventListener("change", () => { readComfyForm(); syncLoraFields(); });
 $("cf-rtxsr-enabled").addEventListener("change", () => { readComfyForm(); syncRtxsrFields(); });
 
