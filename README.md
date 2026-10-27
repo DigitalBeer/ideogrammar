@@ -60,6 +60,23 @@ Coordinates are a 1000×1000 space, origin top-left, `bbox = [x1, y1, x2, y2]`. 
 
 A **downloaded** file additionally carries a `canvas` block (output pixel size / aspect, used to restore the frame on import) and an optional `_editor` block (the reference/compare image and backdrop render). Both are editor round-trip metadata — they're ignored by the model and never appear in the copied prompt or the prompt text sent to ComfyUI.
 
+### Moss Image export
+
+The JSON output tile has two download buttons: **Download for Ideogram** (the shape above, re-importable) and **Download for Moss Image**, which converts the same setup to the format of mossimage.org's layout builder:
+
+```json
+{
+  "summary": { "canvas": "single", "caption": "...", "meta": ["photograph"] },
+  "items": [
+    { "label": "panel|subject|object|text", "caption": "...", "tags": ["..."], "palette": ["#RRGGBB"], "bbox": [ymin, xmin, ymax, xmax], "text": "literal words" }
+  ],
+  "bbox_coord_space": "abs_centralized",
+  "bbox_format": "yxyx"
+}
+```
+
+Boxes are in output-pixel units of the selected aspect ratio / megapixels, **origin at the image centre**, Y-first (e.g. a 2:3 portrait at 2 MP spans `[-888, -592, 887, 591]`). The style block is folded into `summary.caption`, the background becomes the first full-canvas `panel` item, and `meta` is inferred from the medium. Each element card has optional **Literal text** (text/logo) and **Tags** fields that map to Moss's `text` and `tags`; if a text element has no literal text, the quoted words in its description are used.
+
 ## Settings (⚙)
 
 The **⚙ Settings** button (header) opens one dialog for everything not tied to a specific render:

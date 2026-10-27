@@ -445,7 +445,7 @@
       <button id="copyBtn" title="Copy JSON" aria-label="Copy JSON">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
       </button>
-      <button id="downloadBtn" title="Download JSON" aria-label="Download">
+      <button id="downloadBtn" title="Download Ideogram JSON" aria-label="Download Ideogram JSON">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
       </button>
       <button id="quickSaveBtn" title="Quick-save setup" aria-label="Quick-save setup">
@@ -772,7 +772,8 @@
       <div class="tile-body json-body">
         <div class="json-toolbar">
           <button id="copyBtn2" class="primary">Copy</button>
-          <button id="downloadBtn2">Download .json</button>
+          <button id="downloadBtn2" title="Ideogram 4 prompt JSON (re-importable)">Download for Ideogram</button>
+          <button id="downloadMossBtn" title="Moss Image prompt JSON (abs_centralized, yxyx bboxes)">Download for Moss Image</button>
         </div>
         <pre id="json"></pre>
       </div>
@@ -1033,6 +1034,8 @@ function emptyElement(seed = {}) {
     bbox: seed.bbox ?? [100, 100, 500, 500],
     desc: seed.desc ?? "",
     font: seed.font ?? "",
+    text: seed.text ?? "",                                  // literal words to render (text/logo) — Moss "text" field
+    tags: Array.isArray(seed.tags) ? seed.tags.slice() : [], // short keywords — Moss "tags" field
     color_palette: seed.color_palette ?? ["#FFFFFF"],
     vectorize: seed.vectorize ?? "auto",
     enabled: seed.enabled !== false,   // off elements stay in the setup but drop out of the prompt
@@ -1097,7 +1100,7 @@ function loadEditorState() {
     elements: s.elements.map(e => emptyElement({
       type: e.type,
       bbox: Array.isArray(e.bbox) && e.bbox.length === 4 ? e.bbox.slice() : undefined,
-      desc: e.desc, font: e.font, color_palette: e.color_palette,
+      desc: e.desc, font: e.font, text: e.text, tags: e.tags, color_palette: e.color_palette,
       vectorize: e.vectorize, enabled: e.enabled, _collapsed: e._collapsed
     }))
   };
@@ -1363,10 +1366,24 @@ function renderElements() {
     if (isTextual(el.type)) ensureFontPreviewCss();
     body.appendChild(fontWrap);
 
+    // Literal text — the exact words to render (text/logo only). Exported as the
+    // Moss "text" field; Ideogram still reads the words from the description.
+    const textWrap = document.createElement("div");
+    const textLabel = document.createElement("label"); textLabel.textContent = "Literal text (exact words, one line per row)";
+    const textArea = document.createElement("textarea");
+    textArea.rows = 2; textArea.value = el.text || "";
+    textArea.placeholder = "e.g. STRONGER\nHAPPIER";
+    textArea.addEventListener("keydown", e => e.stopPropagation());
+    textArea.addEventListener("input", () => { el.text = textArea.value; renderJSON(); });
+    textWrap.append(textLabel, textArea);
+    textWrap.style.display = isTextual(el.type) ? "" : "none";
+    body.appendChild(textWrap);
+
     typeSel.addEventListener("change", () => {
       el.type = typeSel.value;
       const textual = isTextual(el.type);
       fontWrap.style.display = textual ? "" : "none";
+      textWrap.style.display = textual ? "" : "none";
       if (textual) ensureFontPreviewCss();
       renderJSON();
     });
@@ -1386,6 +1403,15 @@ function renderElements() {
     desc.rows = 3; desc.value = el.desc;
     desc.addEventListener("input", () => { el.desc = desc.value; title.innerHTML = escapeHtml(el.desc) || "<em style='color:var(--faint)'>empty object</em>"; renderCanvas(); renderJSON(); });
     body.appendChild(desc);
+
+    const tagsLabel = document.createElement("label"); tagsLabel.textContent = "Tags (comma-separated, used by Moss)";
+    body.appendChild(tagsLabel);
+    const tagsInput = document.createElement("input");
+    tagsInput.type = "text"; tagsInput.placeholder = "e.g. trainer, man, spotting";
+    tagsInput.value = (el.tags || []).join(", ");
+    tagsInput.addEventListener("keydown", e => e.stopPropagation());
+    tagsInput.addEventListener("input", () => { el.tags = normalizeTags(tagsInput.value); renderJSON(); });
+    body.appendChild(tagsInput);
 
     const refLabel = document.createElement("label"); refLabel.textContent = "Refine with AI";
     body.appendChild(refLabel);
@@ -1741,6 +1767,8 @@ function buildLayoutJSON() {
       elements: state.elements.filter(el => el.enabled !== false).map(el => {
         const o = { type: el.type, bbox: el.bbox.map(n => Math.round(n)), desc: el.desc, color_palette: el.color_palette.slice() };
         if (el.font) o.font = el.font;
+        if (el.text) o.text = el.text;
+        if (el.tags && el.tags.length) o.tags = el.tags.slice();
         return o;
       })
     }
@@ -1757,6 +1785,73 @@ function buildLayoutJSON() {
 // distribution, so we stay on the 0..1000 grid like KJNodes.) canvas comes
 // first so the model reads the frame/aspect up front.
 function buildJSON() { return buildPromptObj(buildLayoutJSON()); }  // engine in llmcore.js
+
+// Tags arrive as an array (state/JSON) or a comma-separated string (the input box).
+function normalizeTags(t) {
+  const arr = Array.isArray(t) ? t : (typeof t === "string" ? t.split(",") : []);
+  return arr.map(s => String(s).trim()).filter(Boolean);
+}
+
+// Moss Image prompt — the shape mossimage.org's layout builder emits:
+//   { summary: { meta, canvas, caption }, items: [{ label, caption, tags, palette, bbox, text }],
+//     bbox_coord_space: "abs_centralized", bbox_format: "yxyx" }
+// abs_centralized = output-pixel units with the origin at the image CENTRE, so
+// a 1184x1776 portrait spans y -888..887, x -592..591. Boxes are Y-first.
+// Moss has no separate style block, so style folds into summary.caption, and
+// the editor's background becomes the first full-canvas "panel" item.
+const MOSS_LABEL = { obj: "object", subject: "subject", text: "text", logo: "text", bg: "panel" };
+function mossMeta(sd) {
+  const s = `${sd.medium || ""} ${sd.aesthetics || ""}`.toLowerCase();
+  if (sd.photo || /photo/.test(s)) return ["photograph"];
+  if (/3d|render|cgi/.test(s)) return ["3d render"];
+  if (/illustr|anime|manga|cartoon|comic|drawing|paint|sketch|vector/.test(s)) return ["illustration"];
+  return [];
+}
+// Fallback for text elements with no literal text set: pull the quoted words
+// out of the description (the LLM writes e.g. "a title reading 'NEON TIDE'").
+function mossTextFromDesc(desc) {
+  const m = String(desc || "").match(/(?:reading|reads|saying|says|spelling|text|words?)\s*:?\s*["'“‘]([^"“”‘’]+?)["'”’](?=[\s,.;)]|$)/i)
+         || String(desc || "").match(/["“]([^"“”]+)["”]/);
+  return m ? m[1].trim() : "";
+}
+function buildMossJSON() {
+  const { width: W, height: H } = computeDims();
+  const hw = W / 2, hh = H / 2;
+  const toX = v => Math.min(Math.round(v / COORD * W - hw), hw - 1);
+  const toY = v => Math.min(Math.round(v / COORD * H - hh), hh - 1);
+  const box = ([x1, y1, x2, y2]) => [toY(y1), toX(x1), toY(y2), toX(x2)];
+  const sentence = s => { s = String(s || "").trim(); return !s ? "" : /[.!?]$/.test(s) ? s : s + "."; };
+  const sd = state.style_description;
+  const caption = [
+    sentence(state.high_level_description),
+    sentence(sd.medium && sd.medium.charAt(0).toUpperCase() + sd.medium.slice(1)),
+    sentence(sd.aesthetics && "Style: " + sd.aesthetics),
+    sentence(sd.lighting && "Lighting: " + sd.lighting),
+    sentence(sd.photo && "Camera: " + sd.photo)
+  ].filter(Boolean).join(" ");
+
+  const items = [];
+  const panel = { label: "panel", caption: state.background || state.high_level_description || "", bbox: box([0, 0, COORD, COORD]) };
+  if (sd.color_palette.length) panel.palette = sd.color_palette.slice();
+  items.push(panel);
+  state.elements.filter(el => el.enabled !== false).forEach(el => {
+    const textual = el.type === "text" || el.type === "logo";
+    const text = textual ? (el.text || mossTextFromDesc(el.desc)) : "";
+    let label = MOSS_LABEL[el.type] || "object";
+    if (el.type === "logo" && !text) label = "object";
+    const o = { label, caption: sentence(el.desc) + (el.font ? " Typography: " + sentence(el.font) : "") };
+    if (el.tags && el.tags.length) o.tags = el.tags.slice();
+    if (el.color_palette.length) o.palette = el.color_palette.slice();
+    o.bbox = box(el.bbox.map(n => Math.round(n)));
+    if (text) o.text = text;
+    items.push(o);
+  });
+
+  const meta = mossMeta(sd);
+  const summary = { canvas: "single", caption };
+  if (meta.length) summary.meta = meta;
+  return { summary, items, bbox_coord_space: "abs_centralized", bbox_format: "yxyx" };
+}
 
 let jsonThrottle = null;
 function renderJSONThrottled() {
@@ -1864,6 +1959,18 @@ function doDownload() {
   toast("Downloaded ✓", "ok");
 }
 
+// Moss Image export — prompt only (no _editor/canvas round-trip data, since
+// Moss's own tools read this file). Import still uses the Ideogram download.
+function doDownloadMoss() {
+  const blob = new Blob([JSON.stringify(buildMossJSON(), null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "moss-image-prompt.json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast("Downloaded Moss Image prompt ✓", "ok");
+}
+
 function doImport(file) {
   const reader = new FileReader();
   reader.onload = () => {
@@ -1917,6 +2024,8 @@ function loadFromJSON(data) {
       bbox: decodeBbox(e.bbox),
       desc: e.desc || "",
       font: e.font || "",
+      text: typeof e.text === "string" ? e.text : "",
+      tags: normalizeTags(e.tags),
       color_palette: Array.isArray(e.color_palette) ? e.color_palette.map(normalizeUpper) : [],
       enabled: e.enabled
     }))
@@ -2419,6 +2528,7 @@ $("copyBtn").addEventListener("click", doCopy);
 $("copyBtn2").addEventListener("click", doCopy);
 $("downloadBtn").addEventListener("click", doDownload);
 $("downloadBtn2").addEventListener("click", doDownload);
+$("downloadMossBtn").addEventListener("click", doDownloadMoss);
 $("resetBtn").addEventListener("click", () => { if (confirm("Reset to the default example? Current work will be lost.")) { state = defaultState(); selectedId = null; selectedIds.clear(); sourceImageDataUrl = null; sourceImageRef = null; showRenderInPreview(null); render(); } });
 $("importBtn").addEventListener("click", () => $("fileInput").click());
 $("fileInput").addEventListener("change", e => { if (e.target.files[0]) doImport(e.target.files[0]); e.target.value = ""; });
@@ -3707,7 +3817,7 @@ function captureSetup() {
     high_level_description: state.high_level_description,
     style_description: JSON.parse(JSON.stringify(state.style_description)),
     background: state.background,
-    elements: state.elements.map(e => ({ type: e.type, bbox: e.bbox.slice(), desc: e.desc, font: e.font || "", color_palette: e.color_palette.slice(), vectorize: e.vectorize || "auto", enabled: e.enabled !== false })),
+    elements: state.elements.map(e => ({ type: e.type, bbox: e.bbox.slice(), desc: e.desc, font: e.font || "", text: e.text || "", tags: (e.tags || []).slice(), color_palette: e.color_palette.slice(), vectorize: e.vectorize || "auto", enabled: e.enabled !== false })),
     comfy,
     gen_prompt: ($("genPrompt").value || "").trim(),   // the free-text Generate description, so a loaded setup can regenerate its prompt in the render queue
     render: lastRenderImage ? { ...lastRenderImage } : null
@@ -3766,7 +3876,7 @@ function applySetup(s, beforeImage, beforeRef) {
     elements: Array.isArray(s.elements) ? s.elements.map(e => emptyElement({
       type: e.type || "obj",
       bbox: Array.isArray(e.bbox) && e.bbox.length === 4 ? e.bbox.map(n => clamp(Math.round(+n || 0), 0, COORD)) : [100, 100, 500, 500],
-      desc: e.desc || "", font: e.font || "", color_palette: Array.isArray(e.color_palette) ? e.color_palette.map(normalizeUpper) : [], vectorize: e.vectorize || "auto", enabled: e.enabled
+      desc: e.desc || "", font: e.font || "", text: typeof e.text === "string" ? e.text : "", tags: normalizeTags(e.tags), color_palette: Array.isArray(e.color_palette) ? e.color_palette.map(normalizeUpper) : [], vectorize: e.vectorize || "auto", enabled: e.enabled
     })) : []
   };
   if (s.comfy) SETUP_COMFY_KEYS.forEach(k => { if (k in s.comfy) comfyCfg[k] = s.comfy[k]; });
