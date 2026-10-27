@@ -296,9 +296,15 @@ function parseAspectRatio(s) {
   return 1;
 }
 const ASPECT_OPTIONS = ["1:1 (Square)", "3:2 (Photo)", "4:3 (Standard)", "16:9 (Widescreen)", "21:9 (Ultrawide)", "2:3 (Portrait Photo)", "3:4 (Portrait Standard)", "9:16 (Portrait Widescreen)"];
-function nearestAspect(ar) {
-  let best = ASPECT_OPTIONS[0], bestD = Infinity;
-  for (const opt of ASPECT_OPTIONS) { const d = Math.abs(Math.log(parseAspectRatio(opt) / ar)); if (d < bestD) { bestD = d; best = opt; } }
+// Extra-wide/tall frames for Moss Image layouts (e.g. its 4:1 panoramas). The
+// Ideogram workflow's ResolutionSelector only knows ASPECT_OPTIONS, so these
+// shape the canvas and the Moss export but can't be rendered in ComfyUI.
+const MOSS_ASPECT_OPTIONS = ["2:1 (Panorama, Moss only)", "3:1 (Wide Panorama, Moss only)", "4:1 (Banner, Moss only)", "1:2 (Tall, Moss only)", "1:3 (Tall Panorama, Moss only)", "1:4 (Tall Banner, Moss only)"];
+function isMossOnlyAspect(label) { return MOSS_ASPECT_OPTIONS.includes(label); }
+function nearestAspect(ar, includeMoss = false) {
+  const opts = includeMoss ? ASPECT_OPTIONS.concat(MOSS_ASPECT_OPTIONS) : ASPECT_OPTIONS;
+  let best = opts[0], bestD = Infinity;
+  for (const opt of opts) { const d = Math.abs(Math.log(parseAspectRatio(opt) / ar)); if (d < bestD) { bestD = d; best = opt; } }
   return best;
 }
 function aspectInfo(label) {
@@ -333,6 +339,7 @@ function buildPromptObj(layout) {
     const [x1, y1, x2, y2] = b;
     const out = { type: e.type || "obj", bbox: [y1, x1, y2, x2], desc: e.desc || "", color_palette: Array.isArray(e.color_palette) ? e.color_palette : [] };
     if (e.font) out.font = e.font;
+    if (e.text) out.text = e.text;
     return out;
   });
   return {
@@ -358,6 +365,8 @@ function buildWorkflow(layout) {
   const base = comfyCfg.workflow === "v2" ? WORKFLOW_TEMPLATE_V2 : WORKFLOW_TEMPLATE;
   const wf = (typeof structuredClone === "function") ? structuredClone(base) : JSON.parse(JSON.stringify(base));
   wf[NODE.prompt].inputs.text = buildPromptText(layout);
+  if (isMossOnlyAspect(comfyCfg.aspect_ratio))
+    throw new Error(`${comfyCfg.aspect_ratio.replace(/\s*\(.*/, "")} is a Moss Image-only aspect ratio — pick 21:9 or narrower to render with Ideogram in ComfyUI.`);
   wf[NODE.resolution].inputs.aspect_ratio = comfyCfg.aspect_ratio;
   wf[NODE.resolution].inputs.megapixels = comfyCfg.megapixels;
   wf[NODE.seed].inputs.noise_seed = comfyCfg.seed;
