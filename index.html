@@ -1985,7 +1985,64 @@ function scaleBoxFromPixels(b, w, h) {
           clamp(Math.round((+b[2] || 0) / w * COORD), 0, COORD), clamp(Math.round((+b[3] || 0) / h * COORD), 0, COORD)];
 }
 
+// Moss Image JSON (see buildMossJSON) — both shapes their layout builder emits:
+//   • { summary, items: [{ label, caption, tags, palette, bbox, text }] }
+//   • { scene_type, gen_brief, elements: [{ type, salience, identity, bbox }] }
+// Converted to our download shape (canvas + Y-first 0..1000 boxes) so the rest
+// of loadFromJSON handles it like any other import.
+function isMossJSON(data) {
+  return !!data && (data.bbox_coord_space === "abs_centralized" || Array.isArray(data.items) || typeof data.gen_brief === "string");
+}
+function mossToLayout(data) {
+  const src = Array.isArray(data.items) ? data.items : (Array.isArray(data.elements) ? data.elements : []);
+  const boxes = src.map(it => it.bbox).filter(b => Array.isArray(b) && b.length === 4).map(b => b.map(n => +n || 0));
+  // abs_centralized has no explicit size — the frame is the extent of the boxes
+  // (the full-canvas panel spans it), i.e. y in [-H/2, H/2), x in [-W/2, W/2).
+  const hh = Math.max(1, ...boxes.flatMap(b => [Math.abs(b[0]), Math.abs(b[2])]));
+  const hw = Math.max(1, ...boxes.flatMap(b => [Math.abs(b[1]), Math.abs(b[3])]));
+  const ny = v => clamp(Math.round((v + hh) / (2 * hh) * COORD), 0, COORD);
+  const nx = v => clamp(Math.round((v + hw) / (2 * hw) * COORD), 0, COORD);
+  const isFull = b => b && ny(b[0]) <= 5 && nx(b[1]) <= 5 && ny(b[2]) >= 995 && nx(b[3]) >= 995;
+  const TYPE = { object: "obj", obj: "obj", subject: "subject", text: "text", panel: "bg" };
+
+  // The first full-canvas panel is the background; every other item is an element.
+  const bgIdx = src.findIndex(it => (it.label || it.type) === "panel" && isFull(it.bbox));
+  const bgItem = bgIdx >= 0 ? src[bgIdx] : null;
+  const summary = data.summary || {};
+  const elements = src.filter((_, i) => i !== bgIdx && Array.isArray(src[i].bbox) && src[i].bbox.length === 4).map(it => {
+    const b = it.bbox.map(n => +n || 0);
+    const text = typeof it.text === "string" ? it.text : "";
+    let desc = it.caption || it.identity || "";
+    if (!desc) desc = (it.tags || []).join(", ");
+    // Ideogram reads literal words from the description, so make sure they're there.
+    if (text && !desc.includes(text)) desc = (desc ? desc + " " : "") + `Text reads: "${text.replace(/\n/g, " / ")}"`;
+    const tags = normalizeTags(it.tags);
+    if (it.salience) tags.push("salience:" + it.salience);
+    return {
+      type: TYPE[it.label || it.type] || "obj",
+      bbox: [ny(b[0]), nx(b[1]), ny(b[2]), nx(b[3])],
+      desc, text, tags,
+      color_palette: Array.isArray(it.palette) ? it.palette : []
+    };
+  });
+  return {
+    canvas: { width: Math.round(hw * 2), height: Math.round(hh * 2) },
+    high_level_description: summary.caption || data.gen_brief || data.scene_type || (bgItem && (bgItem.caption || bgItem.identity)) || "",
+    style_description: {
+      aesthetics: data.scene_type && summary.caption === undefined && data.gen_brief ? data.scene_type : "",
+      lighting: "", photo: "",
+      medium: Array.isArray(summary.meta) ? summary.meta.join(", ") : "",
+      color_palette: bgItem && Array.isArray(bgItem.palette) ? bgItem.palette : []
+    },
+    compositional_deconstruction: {
+      background: bgItem ? (bgItem.caption || bgItem.identity || (bgItem.tags || []).join(", ")) : "",
+      elements
+    }
+  };
+}
+
 function loadFromJSON(data) {
+  if (isMossJSON(data)) data = mossToLayout(data);
   const sd = data.style_description || {};
   const cd = data.compositional_deconstruction || {};
   const srcEls = Array.isArray(cd.elements) ? cd.elements : [];

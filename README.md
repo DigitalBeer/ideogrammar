@@ -77,6 +77,8 @@ The JSON output tile has two download buttons: **Download for Ideogram** (the sh
 
 Boxes are in output-pixel units of the selected aspect ratio / megapixels, **origin at the image centre**, Y-first (e.g. a 2:3 portrait at 2 MP spans `[-888, -592, 887, 591]`). The style block is folded into `summary.caption`, the background becomes the first full-canvas `panel` item, and `meta` is inferred from the medium. Each element card has optional **Literal text** (text/logo) and **Tags** fields that map to Moss's `text` and `tags`; if a text element has no literal text, the quoted words in its description are used.
 
+**Importing Moss JSON.** The import button also accepts Moss Image files — both the `summary`/`items` shape and the older `scene_type`/`gen_brief`/`elements` shape — so you can load layouts from mossimage.org and edit them. The frame size is taken from the extent of the boxes and snapped to the nearest aspect-ratio option (very wide panoramas such as 4:1 land on 21:9, so their boxes keep their relative positions but are drawn in a narrower frame). The full-canvas `panel` becomes the background, other panels become `bg` elements, `summary.caption` (or `gen_brief`) becomes the high-level description, `meta` becomes the medium, and `salience` is kept as a `salience:<level>` tag.
+
 ## Settings (⚙)
 
 The **⚙ Settings** button (header) opens one dialog for everything not tied to a specific render:
