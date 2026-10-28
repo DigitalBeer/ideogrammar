@@ -86,6 +86,7 @@ Output ONLY a single JSON object (no markdown, no commentary) with EXACTLY this 
     "lighting": "lighting description",
     "photo": "camera / lens / film / rendering notes",
     "medium": "the medium, e.g. 'digital illustration', 'oil painting', '35mm photography'",
+    "art_style": "for NON-photographic images only: the art style (e.g. 'vintage poster design, textured paper'); leave \\"\\" for photos, and leave \\"photo\\" as \\"\\" when you use this",
     "color_palette": ["#RRGGBB", "..."]
   },
   "compositional_deconstruction": {
@@ -327,40 +328,73 @@ function computeDims() {
   const lat = x => Math.max(256, Math.floor((x + 15) / 16) * 16);
   return { width: lat(rs8(Math.sqrt(area * ar))), height: lat(rs8(Math.sqrt(area / ar))) };
 }
-// Turn an X-first 0..1000 layout into the diffusion-facing prompt object:
-// Ideogram 4 was trained on a 0..1000 normalized grid in Gemini-style
-// [ymin,xmin,ymax,xmax] order, so the only transform is transposing X/Y (the
-// range stays 0..1000). canvas comes first so the model reads the frame up front.
-function buildPromptObj(layout) {
-  const info = aspectInfo(), d = computeDims();
+// Pull the quoted words out of a description (the LLM writes e.g. "a title
+// reading 'NEON TIDE'"), for text elements whose literal text field is empty.
+function mossTextFromDesc(desc) {
+  const m = String(desc || "").match(/(?:reading|reads|saying|says|spelling|text|words?)\s*:?\s*["'“‘]([^"“”‘’]+?)["'”’](?=[\s,.;)]|$)/i)
+         || String(desc || "").match(/["“]([^"“”]+)["”]/);
+  return m ? m[1].trim() : "";
+}
+// Turn an X-first 0..1000 layout into the Ideogram 4 caption, shaped exactly
+// like the official ComfyUI node (KJNodes Ideogram4PromptBuilderKJ):
+//   • high_level_description only when non-blank
+//   • style_description: one of the two official key sets, every key present
+//     in order — photo: {aesthetics, lighting, photo, medium} or art:
+//     {aesthetics, lighting, medium, art_style} — plus color_palette only when
+//     non-empty; omitted entirely when every style field is blank
+//   • elements: type is "obj" or "text" only; keys in order type, bbox,
+//     text (text elements, always present), desc, color_palette (non-empty, max 5)
+//   • bbox [ymin,xmin,ymax,xmax] on the 0..1000 grid (a transpose of our X-first boxes)
+// The editor's extra element types map onto obj/text and its font descriptor
+// folds into desc, since the official format has no field for either.
+// opts.canvas prepends this app's canvas block — used only for ComfyUI renders
+// (with buildPromptText's orientation lead), never in copied/downloaded prompts.
+function buildPromptObj(layout, opts = {}) {
   const sd = layout.style_description || {};
   const cd = layout.compositional_deconstruction || {};
   const elements = (Array.isArray(cd.elements) ? cd.elements : []).map(e => {
     const b = (Array.isArray(e.bbox) && e.bbox.length === 4) ? e.bbox.map(n => Math.round(+n || 0)) : [100, 100, 500, 500];
     const [x1, y1, x2, y2] = b;
-    const out = { type: e.type || "obj", bbox: [y1, x1, y2, x2], desc: e.desc || "", color_palette: Array.isArray(e.color_palette) ? e.color_palette : [] };
-    if (e.font) out.font = e.font;
-    if (e.text) out.text = e.text;
+    const textual = e.type === "text" || e.type === "logo";
+    const text = textual ? (e.text || mossTextFromDesc(e.desc)) : "";
+    const isText = e.type === "text" || (e.type === "logo" && !!text);
+    const out = { type: isText ? "text" : "obj", bbox: [Math.min(y1, y2), Math.min(x1, x2), Math.max(y1, y2), Math.max(x1, x2)] };
+    if (isText) out.text = text;
+    let desc = String(e.desc || "").trim();
+    if (e.font) desc += (desc && !/[.!?]$/.test(desc) ? ". " : desc ? " " : "") + "Typography: " + e.font;
+    out.desc = desc;
+    const pal = (Array.isArray(e.color_palette) ? e.color_palette : []).filter(Boolean).map(c => String(c).toUpperCase());
+    if (pal.length) out.color_palette = pal.slice(0, 5);
     return out;
   });
-  return {
-    canvas: { width: d.width, height: d.height, aspect_ratio: info.ratio, orientation: info.orientation },
-    high_level_description: layout.high_level_description || "",
-    style_description: { aesthetics: sd.aesthetics || "", lighting: sd.lighting || "", photo: sd.photo || "", medium: sd.medium || "", color_palette: Array.isArray(sd.color_palette) ? sd.color_palette : [] },
-    compositional_deconstruction: { background: cd.background || "", elements }
-  };
+  const caption = {};
+  if (opts.canvas) {
+    const info = aspectInfo(), d = computeDims();
+    caption.canvas = { width: d.width, height: d.height, aspect_ratio: info.ratio, orientation: info.orientation };
+  }
+  if (String(layout.high_level_description || "").trim()) caption.high_level_description = layout.high_level_description;
+  const pal = (Array.isArray(sd.color_palette) ? sd.color_palette : []).filter(Boolean).map(c => String(c).toUpperCase());
+  if (sd.aesthetics || sd.lighting || sd.photo || sd.medium || sd.art_style || pal.length) {
+    const style = { aesthetics: sd.aesthetics || "", lighting: sd.lighting || "" };
+    if (!sd.photo && sd.art_style) { style.medium = sd.medium || ""; style.art_style = sd.art_style; }
+    else { style.photo = sd.photo || ""; style.medium = sd.medium || ""; }
+    if (pal.length) style.color_palette = pal;
+    caption.style_description = style;
+  }
+  caption.compositional_deconstruction = { background: cd.background || "", elements };
+  return caption;
 }
 // The diffusion model's only prompt is this text (CLIPTextEncode, NOT parsed as
 // JSON). Lead with a strong, plain orientation + exact-dimension statement so
 // the model doesn't guess orientation per-seed and rotate the result.
 function buildPromptText(layout) {
-  const obj = buildPromptObj(layout), info = aspectInfo(), d = obj.canvas;
+  const obj = buildPromptObj(layout, { canvas: true }), info = aspectInfo(), d = obj.canvas;
   const coord = ` Element bboxes are [ymin,xmin,ymax,xmax] on a 0-1000 normalized grid (each axis 0-1000 independent of the ${d.width}x${d.height} pixel size), origin top-left, x right, y down; place each element exactly there, do not rotate or mirror the layout.`;
   let lead;
   if (info.orientation === "landscape") lead = `LANDSCAPE orientation: a wide horizontal ${info.ratio} image, ${d.width}x${d.height} pixels (wider than tall).` + coord;
   else if (info.orientation === "portrait") lead = `PORTRAIT orientation: a tall vertical ${info.ratio} image, ${d.width}x${d.height} pixels (taller than wide).` + coord;
   else lead = `SQUARE ${info.ratio} image, ${d.width}x${d.height} pixels.` + coord;
-  return lead + "\n\n" + JSON.stringify(obj, null, 2);
+  return lead + "\n\n" + JSON.stringify(obj);   // compact, like the official node
 }
 function buildWorkflow(layout) {
   const base = comfyCfg.workflow === "v2" ? WORKFLOW_TEMPLATE_V2 : WORKFLOW_TEMPLATE;

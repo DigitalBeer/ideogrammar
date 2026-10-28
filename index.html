@@ -521,6 +521,8 @@
         <input type="text" id="st-photo">
         <label>Medium</label>
         <input type="text" id="st-medium">
+        <label title="Ideogram 4 takes either Photo or Art style: when Photo is filled, Art style is not sent">Art style <span style="color:var(--faint)">(non-photo images; used when Photo is empty)</span></label>
+        <input type="text" id="st-artstyle" placeholder="e.g. vintage poster design, textured paper">
         <label>Color palette</label>
         <div class="palette" id="st-palette"></div>
         <button type="button" id="st-palette-presets" class="ghost" style="margin-top:8px;padding:5px 11px;font-size:12px;">🎨 Preset palettes…</button>
@@ -779,6 +781,7 @@
     <div class="grid-stack-item-content tile">
       <div class="tile-bar"><span class="tile-title">JSON output</span>
         <label class="toggle" title="Which model's prompt JSON is shown below">Showing <select id="jsonFormat" class="bar-select"><option value="ideogram">Ideogram</option><option value="moss">Moss Image</option></select></label>
+        <label class="toggle" title="Extra, non-official wording in the Moss export: each caption gets its position in words, and the summary states how many subjects there are, left to right. Off = exactly the official node's output."><input type="checkbox" id="mossHints"> Moss layout hints</label>
       </div>
       <div class="tile-body json-body">
         <div class="json-toolbar">
@@ -1063,6 +1066,7 @@ function defaultState() {
       lighting: "soft, even studio lighting with gentle, diffused shadows",
       photo: "high-resolution product photography, 50mm lens, shallow depth of field",
       medium: "digital photography",
+      art_style: "",
       color_palette: ["#F5F5F5", "#1A1A1A", "#6366F1"]
     },
     background: "A smooth, seamless light-grey studio backdrop with a subtle top-to-bottom gradient.",
@@ -1105,7 +1109,7 @@ function loadEditorState() {
     high_level_description: s.high_level_description || "",
     style_description: {
       aesthetics: sd.aesthetics || "", lighting: sd.lighting || "",
-      photo: sd.photo || "", medium: sd.medium || "",
+      photo: sd.photo || "", medium: sd.medium || "", art_style: sd.art_style || "",
       color_palette: Array.isArray(sd.color_palette) ? sd.color_palette.slice() : []
     },
     background: s.background || "",
@@ -1219,6 +1223,7 @@ function renderForm() {
   $("st-lighting").value = state.style_description.lighting;
   $("st-photo").value = state.style_description.photo;
   $("st-medium").value = state.style_description.medium;
+  $("st-artstyle").value = state.style_description.art_style || "";
   $("bg").value = state.background;
   renderPalette($("st-palette"), state.style_description.color_palette);
   $("elCount").textContent = state.elements.length;
@@ -1777,6 +1782,7 @@ function buildLayoutJSON() {
       lighting: state.style_description.lighting,
       photo: state.style_description.photo,
       medium: state.style_description.medium,
+      art_style: state.style_description.art_style || "",
       color_palette: state.style_description.color_palette.slice()
     },
     compositional_deconstruction: {
@@ -1811,27 +1817,26 @@ function normalizeTags(t) {
   return arr.map(s => String(s).trim()).filter(Boolean);
 }
 
-// Moss Image prompt — the shape mossimage.org's layout builder emits:
-//   { summary: { meta, canvas, caption }, items: [{ label, caption, tags, palette, bbox, text }],
+// Moss Image prompt, shaped exactly like the official ComfyUI node
+// (KJNodes MossImagePromptBuilderKJ, which mirrors comfy_extras/nodes_moss_image.py):
+//   { summary: { meta?, caption, palette? },
+//     items: [{ label, caption, text (text items, always), tags?, palette?, bbox }],
 //     bbox_coord_space: "abs_centralized", bbox_format: "yxyx" }
-// abs_centralized = output-pixel units with the origin at the image CENTRE, so
-// a 1184x1776 portrait spans y -888..887, x -592..591. Boxes are Y-first.
-// Moss has no separate style block, so style folds into summary.caption, and
-// the editor's background becomes the first full-canvas "panel" item.
-const MOSS_LABEL = { obj: "object", subject: "subject", text: "text", logo: "text", bg: "panel" };
+// Labels are object / character / text. abs_centralized = output-pixel edges with
+// the origin at the image CENTRE, Y-first: a 1184x1776 portrait spans
+// [-888, -592, 888, 592]. There is no background item or style block: the
+// background and style fold into summary.caption, the style palette is
+// summary.palette, and summary.canvas is left out (the node's default).
+const MOSS_LABEL = { obj: "object", subject: "character", text: "text", logo: "text", bg: "object" };
+// Optional extras (not in the official node): position words on each caption and
+// a subject count / left-to-right roll call in the summary. Off by default.
+let mossLayoutHints = (() => { try { return localStorage.getItem("ideogrammar.mossHints") === "1"; } catch (_) { return false; } })();
 function mossMeta(sd) {
   const s = `${sd.medium || ""} ${sd.aesthetics || ""}`.toLowerCase();
   if (sd.photo || /photo/.test(s)) return ["photograph"];
   if (/3d|render|cgi/.test(s)) return ["3d render"];
   if (/illustr|anime|manga|cartoon|comic|drawing|paint|sketch|vector/.test(s)) return ["illustration"];
   return [];
-}
-// Fallback for text elements with no literal text set: pull the quoted words
-// out of the description (the LLM writes e.g. "a title reading 'NEON TIDE'").
-function mossTextFromDesc(desc) {
-  const m = String(desc || "").match(/(?:reading|reads|saying|says|spelling|text|words?)\s*:?\s*["'“‘]([^"“”‘’]+?)["'”’](?=[\s,.;)]|$)/i)
-         || String(desc || "").match(/["“]([^"“”]+)["”]/);
-  return m ? m[1].trim() : "";
 }
 // Plain-words position for a 0..1000 X-first box, e.g. "positioned center-right
 // (centre at about 64% from the left, 48% from the top), spanning nearly the full height".
@@ -1848,59 +1853,70 @@ function mossPosition([x1, y1, x2, y2]) {
 }
 function buildMossJSON() {
   const { width: W, height: H } = computeDims();
-  const hw = W / 2, hh = H / 2;
-  const toX = v => Math.min(Math.round(v / COORD * W - hw), hw - 1);
-  const toY = v => Math.min(Math.round(v / COORD * H - hh), hh - 1);
-  const box = ([x1, y1, x2, y2]) => [toY(y1), toX(x1), toY(y2), toX(x2)];
+  const hx = Math.floor(W / 2), hy = Math.floor(H / 2);
+  // Same rounding as the official node: min edges floor, max edges ceil.
+  const fr = v => Math.max(0, Math.min(1, v / COORD));
+  const box = ([x1, y1, x2, y2]) => {
+    const [ax, bx] = [x1, x2].map(fr).sort((p, q) => p - q), [ay, by] = [y1, y2].map(fr).sort((p, q) => p - q);
+    const r9 = v => Math.round(v * 1e9) / 1e9;
+    return [Math.floor(r9(ay * H)) - hy, Math.floor(r9(ax * W)) - hx, Math.ceil(r9(by * H)) - hy, Math.ceil(r9(bx * W)) - hx];
+  };
   const sentence = s => { s = String(s || "").trim(); return !s ? "" : /[.!?]$/.test(s) ? s : s + "."; };
   const sd = state.style_description;
   const active = state.elements.filter(el => el.enabled !== false);
-  // Moss reads boxes as text, so its own examples restate positions in words and
-  // state how many people/subjects there are. Do the same: a subject count with a
-  // left-to-right roll call (curbs extra people and swapped identities), and a
-  // position phrase on every caption derived from its box, so words and box
-  // always agree even after boxes are moved.
-  const subjects = active.filter(el => el.type === "subject")
-    .sort((a, b) => (a.bbox[0] + a.bbox[2]) - (b.bbox[0] + b.bbox[2]));
-  const shortName = el => {
-    const first = String(el.desc || "").split(/[.;,]/)[0].trim().replace(/^(a|an|the)\s+/i, "");
-    const words = first.split(/\s+/);
-    return words.length > 10 ? words.slice(0, 10).join(" ") + "…" : first;
-  };
+  // Optional hints: Moss reads boxes as text, so restating positions in words and
+  // stating how many subjects there are can curb swapped or extra people.
   let countLine = "";
-  if (subjects.length === 1) countLine = `The image contains exactly one main subject: ${shortName(subjects[0]) || "the subject"}, ${mossPosition(subjects[0].bbox)}.`;
-  else if (subjects.length > 1) countLine = `The image contains exactly ${subjects.length} main subjects and no others; from left to right: ` +
-    subjects.map((el, i) => `(${i + 1}) ${shortName(el) || "subject " + (i + 1)}, ${mossPosition(el.bbox)}`).join("; ") + ".";
+  if (mossLayoutHints) {
+    const subjects = active.filter(el => el.type === "subject")
+      .sort((a, b) => (a.bbox[0] + a.bbox[2]) - (b.bbox[0] + b.bbox[2]));
+    const shortName = el => {
+      const first = String(el.desc || "").split(/[.;,]/)[0].trim().replace(/^(a|an|the)\s+/i, "");
+      const words = first.split(/\s+/);
+      return words.length > 10 ? words.slice(0, 10).join(" ") + "…" : first;
+    };
+    if (subjects.length === 1) countLine = `The image contains exactly one main subject: ${shortName(subjects[0]) || "the subject"}, ${mossPosition(subjects[0].bbox)}.`;
+    else if (subjects.length > 1) countLine = `The image contains exactly ${subjects.length} main subjects and no others; from left to right: ` +
+      subjects.map((el, i) => `(${i + 1}) ${shortName(el) || "subject " + (i + 1)}, ${mossPosition(el.bbox)}`).join("; ") + ".";
+  }
+  // summary.caption = "description of the whole scene and its style".
   const caption = [
     sentence(state.high_level_description),
     countLine,
+    sentence(state.background && "Background: " + state.background),
     sentence(sd.medium && sd.medium.charAt(0).toUpperCase() + sd.medium.slice(1)),
     sentence(sd.aesthetics && "Style: " + sd.aesthetics),
+    sentence(sd.art_style && !sd.photo && "Art style: " + sd.art_style),
     sentence(sd.lighting && "Lighting: " + sd.lighting),
     sentence(sd.photo && "Camera: " + sd.photo)
   ].filter(Boolean).join(" ");
 
-  const items = [];
-  const panel = { label: "panel", caption: state.background || state.high_level_description || "", bbox: box([0, 0, COORD, COORD]) };
-  if (sd.color_palette.length) panel.palette = sd.color_palette.slice();
-  items.push(panel);
-  active.forEach(el => {
+  const items = active.map(el => {
     const textual = el.type === "text" || el.type === "logo";
     const text = textual ? (el.text || mossTextFromDesc(el.desc)) : "";
     let label = MOSS_LABEL[el.type] || "object";
     if (el.type === "logo" && !text) label = "object";
-    const where = " " + mossPosition(el.bbox).replace(/^./, c => c.toUpperCase()) + ".";
-    const o = { label, caption: sentence(el.desc) + (el.font ? " Typography: " + sentence(el.font) : "") + where };
+    // Caption is the description as written (the official node adds nothing);
+    // font and the optional position hint are appended as extra sentences.
+    let cap = String(el.desc || "").trim();
+    const add = t => { cap = cap ? (/[.!?]$/.test(cap) ? cap + " " : cap + ". ") + t : t; };
+    if (el.font) add("Typography: " + el.font);
+    if (mossLayoutHints) add(mossPosition(el.bbox).replace(/^./, c => c.toUpperCase()) + ".");
+    const o = { label, caption: cap };
+    if (label === "text") o.text = text;
     if (el.tags && el.tags.length) o.tags = el.tags.slice();
     if (el.color_palette.length) o.palette = el.color_palette.slice();
-    o.bbox = box(el.bbox.map(n => Math.round(n)));
-    if (text) o.text = text;
-    items.push(o);
+    o.bbox = box(el.bbox);
+    return o;
   });
+  // No boxes: the official node outputs the plain prompt instead of a layout.
+  if (!items.length) return caption;
 
+  const summary = {};
   const meta = mossMeta(sd);
-  const summary = { canvas: "single", caption };
   if (meta.length) summary.meta = meta;
+  summary.caption = caption;
+  if (sd.color_palette.length) summary.palette = sd.color_palette.slice();
   return { summary, items, bbox_coord_space: "abs_centralized", bbox_format: "yxyx" };
 }
 
@@ -1913,6 +1929,9 @@ function renderJSONThrottled() {
 // Which model's JSON the output tile shows ("ideogram" | "moss"); a per-browser preference.
 let jsonFormat = (() => { try { return localStorage.getItem("ideogrammar.jsonFormat") === "moss" ? "moss" : "ideogram"; } catch (_) { return "ideogram"; } })();
 function buildJSONFor(fmt) { return fmt === "moss" ? buildMossJSON() : buildJSON(); }
+// What gets copied/downloaded: compact JSON, the official nodes' default output.
+// A Moss setup with no boxes is a plain-text prompt (buildMossJSON returns a string).
+function promptString(fmt) { const v = buildJSONFor(fmt); return typeof v === "string" ? v : JSON.stringify(v); }
 function setJSONFormat(fmt) {
   jsonFormat = fmt === "moss" ? "moss" : "ideogram";
   try { localStorage.setItem("ideogrammar.jsonFormat", jsonFormat); } catch (_) {}
@@ -1920,7 +1939,12 @@ function setJSONFormat(fmt) {
   renderJSON();
 }
 
-function renderJSON() { $("json").innerHTML = highlight(JSON.stringify(buildJSONFor(jsonFormat), null, 2)); scheduleSaveState(); }
+// Shown indented for readability; Copy/Download send the compact form (promptString).
+function renderJSON() {
+  const v = buildJSONFor(jsonFormat);
+  $("json").innerHTML = typeof v === "string" ? escapeHtml(v) : highlight(JSON.stringify(v, null, 2));
+  scheduleSaveState();
+}
 
 function highlight(json) {
   return escapeHtml(json).replace(/("(\\.|[^"\\])*")(\s*:)?|\b(-?\d+\.?\d*)\b|([{}\[\],])/g,
@@ -1955,8 +1979,7 @@ function removeElement(id) {
 async function doCopy(fmt) {
   fmt = fmt || jsonFormat;
   if (fmt !== jsonFormat) setJSONFormat(fmt);
-  const str = JSON.stringify(buildJSONFor(fmt), null, 2);
-  const ok = await copyText(str);
+  const ok = await copyText(promptString(fmt));
   const name = fmt === "moss" ? "Moss Image" : "Ideogram";
   toast(ok ? `Copied ${name} prompt ✓` : "Copy failed — select the JSON manually", ok ? "ok" : "bad");
 }
@@ -2014,9 +2037,11 @@ function restoreEditorRefs(ed) {
 
 function doDownload() {
   const obj = buildJSON();
-  const ed = collectEditorRefs();
-  if (ed) obj._editor = ed;
-  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
+  // The official caption has no canvas block, so the frame (aspect + pixel size)
+  // rides in _editor with the images, letting a re-import restore it.
+  const info = aspectInfo(), d = computeDims();
+  obj._editor = Object.assign({ canvas: { width: d.width, height: d.height, aspect_ratio: info.ratio, orientation: info.orientation } }, collectEditorRefs() || {});
+  const blob = new Blob([JSON.stringify(obj)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "ideogram-prompt.json";
@@ -2028,7 +2053,7 @@ function doDownload() {
 // Moss Image export — prompt only (no _editor/canvas round-trip data, since
 // Moss's own tools read this file). Import still uses the Ideogram download.
 function doDownloadMoss() {
-  const blob = new Blob([JSON.stringify(buildMossJSON(), null, 2)], { type: "application/json" });
+  const blob = new Blob([promptString("moss")], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "moss-image-prompt.json";
@@ -2044,7 +2069,7 @@ function doImport(file) {
       const data = JSON.parse(reader.result);
       const r = loadFromJSON(data, { guessOrder: true });
       restoreEditorRefs(data._editor);
-      toast(isMossJSON(data) ? "Imported Moss Image layout ✓" : r.yFirstGuess ? "Imported ✓ (boxes read as [y1, x1, y2, x2])" : "Imported ✓", "ok");
+      toast(isMossJSON(data) ? "Imported Moss Image layout ✓" : r.xFirstGuess ? "Imported ✓ (boxes read as [x1, y1, x2, y2])" : "Imported ✓", "ok");
     }
     catch (err) { toast("Invalid JSON: " + err.message, "bad"); }
   };
@@ -2074,7 +2099,7 @@ function mossToLayout(data) {
   const ny = v => clamp(Math.round((v + hh) / (2 * hh) * COORD), 0, COORD);
   const nx = v => clamp(Math.round((v + hw) / (2 * hw) * COORD), 0, COORD);
   const isFull = b => b && ny(b[0]) <= 5 && nx(b[1]) <= 5 && ny(b[2]) >= 995 && nx(b[3]) >= 995;
-  const TYPE = { object: "obj", obj: "obj", subject: "subject", text: "text", panel: "bg" };
+  const TYPE = { object: "obj", obj: "obj", character: "subject", subject: "subject", text: "text", panel: "bg" };
 
   // The first full-canvas panel is the background; every other item is an element.
   const bgIdx = src.findIndex(it => (it.label || it.type) === "panel" && isFull(it.bbox));
@@ -2103,7 +2128,7 @@ function mossToLayout(data) {
       aesthetics: data.scene_type && summary.caption === undefined && data.gen_brief ? data.scene_type : "",
       lighting: "", photo: "",
       medium: Array.isArray(summary.meta) ? summary.meta.join(", ") : "",
-      color_palette: bgItem && Array.isArray(bgItem.palette) ? bgItem.palette : []
+      color_palette: Array.isArray(summary.palette) ? summary.palette : (bgItem && Array.isArray(bgItem.palette) ? bgItem.palette : [])
     },
     compositional_deconstruction: {
       background: bgItem ? (bgItem.caption || bgItem.identity || (bgItem.tags || []).join(", ")) : "",
@@ -2112,9 +2137,10 @@ function mossToLayout(data) {
   };
 }
 
-// True when the text/logo boxes are tall-and-narrow read X-first but wide read
-// Y-first — i.e. the file stores [ymin, xmin, ymax, xmax].
-function looksYFirst(els) {
+// Text is almost always wider than tall, so the text/logo boxes vote on the
+// file's box order: tall-and-narrow read X-first means it's [ymin,xmin,ymax,xmax].
+function looksXFirst(els) { return boxOrderVotes(els).x > boxOrderVotes(els).y; }
+function boxOrderVotes(els) {
   let yVotes = 0, xVotes = 0;
   els.forEach(e => {
     if ((e.type !== "text" && e.type !== "logo") || !Array.isArray(e.bbox) || e.bbox.length !== 4) return;
@@ -2122,10 +2148,10 @@ function looksYFirst(els) {
     const asXFirst = (c - a) / Math.max(1, d - b);   // width / height if [x1,y1,x2,y2]
     if (asXFirst < 0.5) yVotes++; else if (asXFirst > 2) xVotes++;
   });
-  return yVotes > xVotes;
+  return { x: xVotes, y: yVotes };
 }
 
-// Returns { yFirstGuess } so the importer can say when it flipped box order.
+// Returns { xFirstGuess } so the importer can say when it read a file X-first.
 function loadFromJSON(data, opts = {}) {
   const isMoss = isMossJSON(data);
   if (isMoss) data = mossToLayout(data);
@@ -2137,15 +2163,16 @@ function loadFromJSON(data, opts = {}) {
   //    bboxes Y-first ([ymin,xmin,ymax,xmax]), normally on the 0..1000 grid
   //    (very old exports scaled them to pixels). Decode = transpose to X-first,
   //    and only divide by the canvas size if the values are actually in pixels.
-  //  • External / LLM JSON — no canvas, bboxes already X-first 0..1000.
-  //    Exception: a hand-written Ideogram prompt (opts.guessOrder, file import
-  //    only) uses Ideogram's native Y-first order without a canvas block. Text
-  //    is almost always wider than tall, so if the text boxes only make sense
-  //    read Y-first, treat the file as Y-first.
-  const cv = data.canvas || {};
+  //    Current downloads keep the canvas in _editor.canvas (the official
+  //    caption has no canvas block); older ones have it at the top level.
+  //  • An imported file with no canvas (opts.guessOrder) — an official Ideogram
+  //    caption, e.g. from the KJNodes builder: Y-first 0..1000, unless its text
+  //    boxes only make sense read X-first.
+  //  • LLM JSON — no canvas, bboxes X-first 0..1000 (see SYSTEM_PROMPT).
+  const cv = data.canvas || (data._editor && data._editor.canvas) || {};
   const hasCanvasBlock = (+cv.width > 0 && +cv.height > 0) || !!cv.aspect_ratio || !!cv.orientation;
-  const yFirstGuess = !hasCanvasBlock && !!opts.guessOrder && looksYFirst(srcEls);
-  const hasCanvas = hasCanvasBlock || yFirstGuess;
+  const xFirstGuess = !hasCanvasBlock && !!opts.guessOrder && looksXFirst(srcEls);
+  const hasCanvas = hasCanvasBlock || (!!opts.guessOrder && !xFirstGuess);
   const srcW = (+cv.width > 0) ? +cv.width : COORD;
   const srcH = (+cv.height > 0) ? +cv.height : COORD;
   // Pixel-space only if some coordinate exceeds the normalized 0..1000 range.
@@ -2163,10 +2190,8 @@ function loadFromJSON(data, opts = {}) {
   state = {
     high_level_description: data.high_level_description || "",
     style_description: {
-      // art_style (used in some hand-written Ideogram prompts) has no field of
-      // its own here, so it's folded into aesthetics rather than dropped.
-      aesthetics: [sd.aesthetics, sd.art_style].filter(Boolean).join("; "), lighting: sd.lighting || "",
-      photo: sd.photo || "", medium: sd.medium || "",
+      aesthetics: sd.aesthetics || "", lighting: sd.lighting || "",
+      photo: sd.photo || "", medium: sd.medium || "", art_style: sd.art_style || "",
       color_palette: Array.isArray(sd.color_palette) ? sd.color_palette.map(normalizeUpper) : []
     },
     background: cd.background || "",
@@ -2193,7 +2218,7 @@ function loadFromJSON(data, opts = {}) {
   }
   render();
   applyCanvasAspect();
-  return { yFirstGuess };
+  return { xFirstGuess };
 }
 
 function normalizeUpper(c) { return typeof c === "string" ? c.toUpperCase() : "#FFFFFF"; }
@@ -2673,6 +2698,7 @@ $("st-aesthetics").addEventListener("input", e => { state.style_description.aest
 $("st-lighting").addEventListener("input", e => { state.style_description.lighting = e.target.value; renderJSON(); });
 $("st-photo").addEventListener("input", e => { state.style_description.photo = e.target.value; renderJSON(); });
 $("st-medium").addEventListener("input", e => { state.style_description.medium = e.target.value; renderJSON(); });
+$("st-artstyle").addEventListener("input", e => { state.style_description.art_style = e.target.value; renderJSON(); });
 $("bg").addEventListener("input", e => { state.background = e.target.value; renderJSON(); });
 
 $("addEl").addEventListener("click", addElement);
@@ -2680,6 +2706,12 @@ $("copyBtn").addEventListener("click", () => doCopy());
 $("copyBtn2").addEventListener("click", () => doCopy("ideogram"));
 $("copyMossBtn").addEventListener("click", () => doCopy("moss"));
 $("jsonFormat").value = jsonFormat;
+$("mossHints").checked = mossLayoutHints;
+$("mossHints").addEventListener("change", () => {
+  mossLayoutHints = $("mossHints").checked;
+  try { localStorage.setItem("ideogrammar.mossHints", mossLayoutHints ? "1" : "0"); } catch (_) {}
+  renderJSON();
+});
 $("jsonFormat").addEventListener("change", () => setJSONFormat($("jsonFormat").value));
 $("downloadBtn").addEventListener("click", doDownload);
 $("downloadBtn2").addEventListener("click", doDownload);
@@ -4026,7 +4058,7 @@ function applySetup(s, beforeImage, beforeRef) {
   state = {
     high_level_description: s.high_level_description || "",
     style_description: {
-      aesthetics: sd.aesthetics || "", lighting: sd.lighting || "", photo: sd.photo || "", medium: sd.medium || "",
+      aesthetics: sd.aesthetics || "", lighting: sd.lighting || "", photo: sd.photo || "", medium: sd.medium || "", art_style: sd.art_style || "",
       color_palette: Array.isArray(sd.color_palette) ? sd.color_palette.map(normalizeUpper) : []
     },
     background: s.background || "",

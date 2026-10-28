@@ -40,48 +40,61 @@ A toggle in the header switches between:
 
 ## Prompt JSON shape
 
+Copied and downloaded prompts match the official ComfyUI prompt-builder nodes (KJNodes `Ideogram4PromptBuilderKJ` and `MossImagePromptBuilderKJ`) field for field, in compact JSON (the tile shows it indented for reading).
+
+### Ideogram 4 (Copy / Download for Ideogram)
+
 ```json
 {
-  "high_level_description": "one vivid sentence describing the whole image",
+  "high_level_description": "omitted when blank",
   "style_description": {
     "aesthetics": "...", "lighting": "...", "photo": "...", "medium": "...",
-    "color_palette": ["#RRGGBB", "..."]
+    "color_palette": ["#RRGGBB"]
   },
   "compositional_deconstruction": {
     "background": "...",
     "elements": [
-      { "type": "obj|subject|text|logo|bg", "bbox": [x1, y1, x2, y2], "desc": "...", "color_palette": ["#RRGGBB"], "font": "optional — text/logo only" }
+      { "type": "obj", "bbox": [ymin, xmin, ymax, xmax], "desc": "...", "color_palette": ["#RRGGBB"] },
+      { "type": "text", "bbox": [ymin, xmin, ymax, xmax], "text": "EXACT WORDS", "desc": "...", "color_palette": ["#RRGGBB"] }
     ]
   }
 }
 ```
 
-Coordinates are a 1000×1000 space, origin top-left, `bbox = [x1, y1, x2, y2]`. `font` is optional and only carried for `text`/`logo` elements (a typography descriptor like *"bold geometric sans-serif lettering"*); it's omitted everywhere else.
+- Boxes are on the 0–1000 grid, `[ymin, xmin, ymax, xmax]`.
+- `style_description` uses one of the two official key sets, every key present in order: **photo** `{aesthetics, lighting, photo, medium}` or, when Photo is empty and **Art style** is filled, **art** `{aesthetics, lighting, medium, art_style}`. `color_palette` is included only when it has colours, and the whole block is left out when every style field is blank.
+- Element `type` is `obj` or `text` only. The editor's extra types map onto them: `subject`/`bg` → `obj`, `logo` → `text` when it has literal text (else `obj`). The font-style picker's descriptor is appended to `desc` (`Typography: …`), since the format has no font field. Element palettes are capped at 5 colours and omitted when empty.
+- The editor still works in its own X-first `[x1, y1, x2, y2]` space and richer types; that's what the LLM produces and what setups store.
 
-A **downloaded** file additionally carries a `canvas` block (output pixel size / aspect, used to restore the frame on import) and an optional `_editor` block (the reference/compare image and backdrop render). Both are editor round-trip metadata — they're ignored by the model and never appear in the copied prompt or the prompt text sent to ComfyUI.
+A **downloaded** file also carries an `_editor` block (the canvas frame plus the reference/compare image and backdrop render) so re-importing restores them; it's never in the copied prompt. ComfyUI renders send the same caption prefixed by an orientation statement and a `canvas` block, which keep the model from rotating the layout.
 
-### Moss Image export
-
-The JSON output tile has two download buttons: **Download for Ideogram** (the shape above, re-importable) and **Download for Moss Image**, which converts the same setup to the format of mossimage.org's layout builder:
+### Moss Image (Copy / Download for Moss Image)
 
 ```json
 {
-  "summary": { "canvas": "single", "caption": "...", "meta": ["photograph"] },
+  "summary": { "meta": ["photograph"], "caption": "scene, background and style", "palette": ["#RRGGBB"] },
   "items": [
-    { "label": "panel|subject|object|text", "caption": "...", "tags": ["..."], "palette": ["#RRGGBB"], "bbox": [ymin, xmin, ymax, xmax], "text": "literal words" }
+    { "label": "character", "caption": "...", "tags": ["..."], "palette": ["#RRGGBB"], "bbox": [ymin, xmin, ymax, xmax] },
+    { "label": "text", "caption": "...", "text": "EXACT WORDS", "bbox": [ymin, xmin, ymax, xmax] }
   ],
   "bbox_coord_space": "abs_centralized",
   "bbox_format": "yxyx"
 }
 ```
 
-Boxes are in output-pixel units of the selected aspect ratio / megapixels, **origin at the image centre**, Y-first (e.g. a 2:3 portrait at 2 MP spans `[-888, -592, 887, 591]`). The style block is folded into `summary.caption`, the background becomes the first full-canvas `panel` item, and `meta` is inferred from the medium. Each element card has optional **Literal text** (text/logo) and **Tags** fields that map to Moss's `text` and `tags`; if a text element has no literal text, the quoted words in its description are used.
+- Boxes are **output pixels with the origin at the image centre**, Y-first, rounded outward like the official node (a 2:3 portrait at 1 MP spans `[-632, -424, 632, 424]`). Set **AR** and **MP** in the layout header to match your workflow's generation size.
+- Labels are `object`, `character` (from `subject` elements) and `text` (always with a `text` field). There's no background item: the high-level description, background and style fold into `summary.caption`; the style palette is `summary.palette`; `meta` is inferred from the medium; `summary.canvas` is left out. With no boxes at all, the plain caption is output instead of a layout, as the node does.
+- Element cards have optional **Literal text** and **Tags** fields for `text` and `tags`; a text element with no literal text uses the quoted words from its description.
+- **Moss layout hints** (checkbox in the JSON tile bar, off by default) adds non-official wording: each caption gets its position in words, and the summary states how many `subject` elements there are, left to right. It can reduce swapped or extra people; leave it off for exactly the official output.
 
 **Moss-only aspect ratios.** Both aspect-ratio pickers have an extra group — 2:1, 3:1, 4:1 and their tall counterparts 1:2, 1:3, 1:4 — for Moss's panoramas and banners. They shape the canvas and the Moss export; the Ideogram ComfyUI workflow can't render them, so rendering with one selected stops with a message asking for 21:9 or narrower.
 
-**Importing hand-written Ideogram prompts.** Ideogram's native box order is `[ymin, xmin, ymax, xmax]`. A file that has no `canvas` block is normally read X-first (the shape the LLM produces), but when its text boxes only make sense read Y-first (tall and narrow otherwise), the importer reads the file Y-first and says so in the toast. A `style_description.art_style` field is folded into Aesthetics, and an element's `text` field is kept and passed through to the Ideogram output.
+### Importing
 
-**Importing Moss JSON.** The import button also accepts Moss Image files — both the `summary`/`items` shape and the older `scene_type`/`gen_brief`/`elements` shape — so you can load layouts from mossimage.org and edit them. The frame size is taken from the extent of the boxes and snapped to the nearest aspect-ratio option (including the Moss-only ratios below). The full-canvas `panel` becomes the background, other panels become `bg` elements, `summary.caption` (or `gen_brief`) becomes the high-level description, `meta` becomes the medium, and `salience` is kept as a `salience:<level>` tag.
+The import button accepts:
+- **This app's downloads** (current and older).
+- **Official Ideogram captions** (e.g. from the KJNodes builder) with no canvas info: read `[ymin, xmin, ymax, xmax]`, unless the text boxes only make sense X-first (the toast says when that happens). `art_style` fills the Art style field.
+- **Moss Image files** — the official `summary`/`items` shape and mossimage.org's older `scene_type`/`gen_brief`/`elements` shape. The frame is taken from the extent of the boxes and snapped to the nearest aspect ratio (Moss-only ratios included). `character` becomes `subject`; a full-canvas `panel` (mossimage.org files) becomes the background and other panels become `bg` elements; `summary.caption` (or `gen_brief`) becomes the high-level description, `summary.palette` the style palette, `meta` the medium, and `salience` a `salience:<level>` tag.
 
 ## Settings (⚙)
 
