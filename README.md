@@ -40,7 +40,7 @@ A toggle in the header switches between:
 
 ## Prompt JSON shape
 
-Copied and downloaded prompts match the official ComfyUI prompt-builder nodes (KJNodes `Ideogram4PromptBuilderKJ` and `MossImagePromptBuilderKJ`) field for field, in compact JSON (the tile shows it indented for reading).
+Copied and downloaded prompts match the official ComfyUI prompt-builder nodes (KJNodes `Ideogram4PromptBuilderKJ` and `MossImagePromptBuilderKJ`) field for field, in compact JSON — the nodes' default (the tile shows it indented for reading). Tick **Indented copy** in the JSON tile bar to copy/download the nodes' "pretty" form instead (4-space indent, plain arrays on one line); it's off by default.
 
 ### Ideogram 4 (Copy / Download for Ideogram)
 
@@ -96,7 +96,9 @@ The editor holds more than either official format, so exports fold the extras in
 - **Ideogram downloads → editor:** the official caption only has `obj`/`text`, so a download's `_editor.elements` keeps each element's editor type (subject/logo/bg), tags, font and vectorize mode, and re-importing restores them exactly.
 - **Copied or external Ideogram captions → editor:** with no `_editor`, `obj` elements whose description starts with a person or animal ("a trainer…", "the client…", "a dog…") are imported as subjects (the toast says how many), and `Typography: …` returns to the font field.
 
-Unavoidable: Moss has no logo or background-element types (they come back as text/object), and a copied Ideogram caption has nowhere to keep tags — use **Download for Ideogram** to keep them.
+- **Logo / background elements in Moss:** Moss has no labels for these, so the export adds a `logo` or `background` tag (a real Moss field the model reads); import turns the tag back into the element type and removes it from the tag list.
+
+A copied Ideogram caption has nowhere to keep tags (the official format has no tags field, and Ideogram doesn't use them) — use **Download for Ideogram** to keep them.
 
 **Moss-only aspect ratios.** Both aspect-ratio pickers have an extra group — 2:1, 3:1, 4:1 and their tall counterparts 1:2, 1:3, 1:4 — for Moss's panoramas and banners. They shape the canvas and the Moss export; the Ideogram ComfyUI workflow can't render them, so rendering with one selected stops with a message asking for 21:9 or narrower.
 

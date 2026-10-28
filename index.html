@@ -782,6 +782,7 @@
       <div class="tile-bar"><span class="tile-title">JSON output</span>
         <label class="toggle" title="Which model's prompt JSON is shown below">Showing <select id="jsonFormat" class="bar-select"><option value="ideogram">Ideogram</option><option value="moss">Moss Image</option></select></label>
         <label class="toggle" title="Extra, non-official wording in the Moss export: each caption gets its position in words, and the summary states how many subjects there are, left to right. Off = exactly the official node's output."><input type="checkbox" id="mossHints"> Moss layout hints</label>
+        <label class="toggle" title="Copy and download the prompt indented over several lines (the official nodes' 'pretty' option) instead of compact single-line JSON (their default)."><input type="checkbox" id="indentedCopy"> Indented copy</label>
       </div>
       <div class="tile-body json-body">
         <div class="json-toolbar">
@@ -1828,6 +1829,8 @@ function normalizeTags(t) {
 // background and style fold into summary.caption, the style palette is
 // summary.palette, and summary.canvas is left out (the node's default).
 const MOSS_LABEL = { obj: "object", subject: "character", text: "text", logo: "text", bg: "object" };
+const MOSS_ROLE_TAG = { logo: "logo", bg: "background" };
+const MOSS_ROLE_TAGS = Object.values(MOSS_ROLE_TAG);
 // Optional extras (not in the official node): position words on each caption and
 // a subject count / left-to-right roll call in the summary. Off by default.
 let mossLayoutHints = (() => { try { return localStorage.getItem("ideogrammar.mossHints") === "1"; } catch (_) { return false; } })();
@@ -1904,7 +1907,11 @@ function buildMossJSON() {
     if (mossLayoutHints) add(mossPosition(el.bbox).replace(/^./, c => c.toUpperCase()) + ".");
     const o = { label, caption: cap };
     if (label === "text") o.text = text;
-    if (el.tags && el.tags.length) o.tags = el.tags.slice();
+    // Moss has no logo/background-element labels, so the role rides in tags
+    // (the model reads tags; import turns them back into the element type).
+    const tags = (el.tags || []).filter(t => !MOSS_ROLE_TAGS.includes(t));
+    if (MOSS_ROLE_TAG[el.type]) tags.push(MOSS_ROLE_TAG[el.type]);
+    if (tags.length) o.tags = tags;
     if (el.color_palette.length) o.palette = el.color_palette.slice();
     o.bbox = box(el.bbox);
     return o;
@@ -1931,7 +1938,25 @@ let jsonFormat = (() => { try { return localStorage.getItem("ideogrammar.jsonFor
 function buildJSONFor(fmt) { return fmt === "moss" ? buildMossJSON() : buildJSON(); }
 // What gets copied/downloaded: compact JSON, the official nodes' default output.
 // A Moss setup with no boxes is a plain-text prompt (buildMossJSON returns a string).
-function promptString(fmt) { const v = buildJSONFor(fmt); return typeof v === "string" ? v : JSON.stringify(v); }
+// "Indented copy" (off by default) = the official nodes' "pretty" output:
+// 4-space indent, arrays of plain values kept on one line.
+let indentedCopy = (() => { try { return localStorage.getItem("ideogrammar.indentedCopy") === "1"; } catch (_) { return false; } })();
+function prettyJSON(v, lvl = 0) {
+  const ind = "    ", pad = ind.repeat(lvl + 1), end = ind.repeat(lvl);
+  if (Array.isArray(v)) {
+    if (!v.length) return "[]";
+    if (v.every(x => x === null || typeof x !== "object")) return "[" + v.map(x => JSON.stringify(x)).join(", ") + "]";
+    return "[\n" + v.map(x => pad + prettyJSON(x, lvl + 1)).join(",\n") + "\n" + end + "]";
+  }
+  if (v && typeof v === "object") {
+    const keys = Object.keys(v);
+    if (!keys.length) return "{}";
+    return "{\n" + keys.map(k => pad + JSON.stringify(k) + ": " + prettyJSON(v[k], lvl + 1)).join(",\n") + "\n" + end + "}";
+  }
+  return JSON.stringify(v);
+}
+function stringifyPrompt(v) { return typeof v === "string" ? v : indentedCopy ? prettyJSON(v) : JSON.stringify(v); }
+function promptString(fmt) { return stringifyPrompt(buildJSONFor(fmt)); }
 function setJSONFormat(fmt) {
   jsonFormat = fmt === "moss" ? "moss" : "ideogram";
   try { localStorage.setItem("ideogrammar.jsonFormat", jsonFormat); } catch (_) {}
@@ -2036,7 +2061,7 @@ function restoreEditorRefs(ed) {
 }
 
 function doDownload() {
-  const blob = new Blob([JSON.stringify(buildIdeogramDownload())], { type: "application/json" });
+  const blob = new Blob([stringifyPrompt(buildIdeogramDownload())], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "ideogram-prompt.json";
@@ -2181,10 +2206,13 @@ function mossToLayout(data) {
     const text = typeof it.text === "string" ? it.text : "";
     const { desc: d0, font } = splitDescExtras(it.caption || it.identity || "");
     const desc = d0 || (it.tags || []).join(", ");
-    const tags = normalizeTags(it.tags);
+    let tags = normalizeTags(it.tags);
     if (it.salience) tags.push("salience:" + it.salience);
+    let type = TYPE[it.label || it.type] || "obj";
+    const role = Object.keys(MOSS_ROLE_TAG).find(k => tags.includes(MOSS_ROLE_TAG[k]));
+    if (role && type !== "subject") { type = role; tags = tags.filter(t => t !== MOSS_ROLE_TAG[role]); }
     return {
-      type: TYPE[it.label || it.type] || "obj",
+      type,
       bbox: [ny(b[0]), nx(b[1]), ny(b[2], true), nx(b[3], true)],
       desc, font, text, tags,
       color_palette: Array.isArray(it.palette) ? it.palette : []
@@ -2788,6 +2816,11 @@ $("copyBtn").addEventListener("click", () => doCopy());
 $("copyBtn2").addEventListener("click", () => doCopy("ideogram"));
 $("copyMossBtn").addEventListener("click", () => doCopy("moss"));
 $("jsonFormat").value = jsonFormat;
+$("indentedCopy").checked = indentedCopy;
+$("indentedCopy").addEventListener("change", () => {
+  indentedCopy = $("indentedCopy").checked;
+  try { localStorage.setItem("ideogrammar.indentedCopy", indentedCopy ? "1" : "0"); } catch (_) {}
+});
 $("mossHints").checked = mossLayoutHints;
 $("mossHints").addEventListener("change", () => {
   mossLayoutHints = $("mossHints").checked;
