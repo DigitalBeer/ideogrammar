@@ -1884,7 +1884,7 @@ function buildMossJSON() {
     sentence(state.high_level_description),
     countLine,
     sentence(state.background && "Background: " + state.background),
-    sentence(sd.medium && sd.medium.charAt(0).toUpperCase() + sd.medium.slice(1)),
+    sentence(sd.medium && "Medium: " + sd.medium),
     sentence(sd.aesthetics && "Style: " + sd.aesthetics),
     sentence(sd.art_style && !sd.photo && "Art style: " + sd.art_style),
     sentence(sd.lighting && "Lighting: " + sd.lighting),
@@ -2036,18 +2036,32 @@ function restoreEditorRefs(ed) {
 }
 
 function doDownload() {
-  const obj = buildJSON();
-  // The official caption has no canvas block, so the frame (aspect + pixel size)
-  // rides in _editor with the images, letting a re-import restore it.
-  const info = aspectInfo(), d = computeDims();
-  obj._editor = Object.assign({ canvas: { width: d.width, height: d.height, aspect_ratio: info.ratio, orientation: info.orientation } }, collectEditorRefs() || {});
-  const blob = new Blob([JSON.stringify(obj)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify(buildIdeogramDownload())], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "ideogram-prompt.json";
   a.click();
   URL.revokeObjectURL(a.href);
   toast("Downloaded ✓", "ok");
+}
+function buildIdeogramDownload() {
+  const obj = buildJSON();
+  // The official caption has no canvas block, so the frame (aspect + pixel size)
+  // rides in _editor with the images, letting a re-import restore it.
+  const info = aspectInfo(), d = computeDims();
+  obj._editor = Object.assign({
+    canvas: { width: d.width, height: d.height, aspect_ratio: info.ratio, orientation: info.orientation },
+    // Same order as the caption's elements (enabled ones), so a re-import restores
+    // what the official format can't say: subject/logo/bg types, tags, font.
+    elements: state.elements.filter(el => el.enabled !== false).map(el => {
+      const x = { type: el.type };
+      if (el.tags && el.tags.length) x.tags = el.tags.slice();
+      if (el.font) x.font = el.font;
+      if (el.vectorize && el.vectorize !== "auto") x.vectorize = el.vectorize;
+      return x;
+    })
+  }, collectEditorRefs() || {});
+  return obj;
 }
 
 // Moss Image export — prompt only (no _editor/canvas round-trip data, since
@@ -2069,7 +2083,11 @@ function doImport(file) {
       const data = JSON.parse(reader.result);
       const r = loadFromJSON(data, { guessOrder: true });
       restoreEditorRefs(data._editor);
-      toast(isMossJSON(data) ? "Imported Moss Image layout ✓" : r.xFirstGuess ? "Imported ✓ (boxes read as [x1, y1, x2, y2])" : "Imported ✓", "ok");
+      const notes = [];
+      if (r.xFirstGuess) notes.push("boxes read as [x1, y1, x2, y2]");
+      if (r.inferredSubjects) notes.push(`${r.inferredSubjects} element${r.inferredSubjects > 1 ? "s" : ""} recognised as people/animals → subject`);
+      if (r.frameFromCanvas) notes.push("boxes placed in the current AR/MP frame");
+      toast((isMossJSON(data) ? "Imported Moss Image layout ✓" : "Imported ✓") + (notes.length ? " (" + notes.join("; ") + ")" : ""), "ok");
     }
     catch (err) { toast("Invalid JSON: " + err.message, "bad"); }
   };
@@ -2089,49 +2107,102 @@ function scaleBoxFromPixels(b, w, h) {
 function isMossJSON(data) {
   return !!data && (data.bbox_coord_space === "abs_centralized" || Array.isArray(data.items) || typeof data.gen_brief === "string");
 }
+// ---- Lossless round trips -------------------------------------------------
+// The official formats have fewer fields than the editor, so exports fold the
+// extras into prose with fixed labels, and imports split them back out:
+//   element desc/caption: "<desc>. Typography: <font>[. Positioned … (centre at about …).]"
+//   Moss summary.caption: "<high-level>[ The image contains exactly …] Background: … Medium: …
+//                          Style: … Art style: … Lighting: … Camera: …"
+const POSITION_HINT_RE = /\s*Positioned [^.]*?\(centre at about [^)]*\)[^.]*\.\s*$/;
+function splitDescExtras(desc) {
+  let d = String(desc || "");
+  const hinted = POSITION_HINT_RE.test(d);
+  d = d.replace(POSITION_HINT_RE, "");
+  let font = "";
+  const m = d.match(/^(.*?)(?:^|(?<=[.!?])\s+|\s+)Typography: (.+?)\.?\s*$/s);
+  if (m) { d = m[1]; font = m[2]; }
+  // The exporter adds ". " before Typography when desc had no end punctuation.
+  if (m || hinted) d = d.replace(/\.$/, "");   // the exporter adds ". " before each extra
+  return { desc: d.trim(), font: font.trim() };
+}
+const MOSS_CAPTION_LABELS = { "Background": "background", "Medium": "medium", "Style": "aesthetics", "Art style": "art_style", "Lighting": "lighting", "Camera": "photo" };
+function parseMossSummaryCaption(caption) {
+  let c = String(caption || "");
+  // Drop the optional layout-hints count line (regenerated from the boxes on export).
+  c = c.replace(/\s*The image contains exactly .*?\.(?=\s+(?:Background|Medium|Style|Art style|Lighting|Camera): |\s*$)/s, "");
+  const re = /(?:^|\s)(Background|Medium|Style|Art style|Lighting|Camera): /g;
+  const out = {}; const marks = []; let m;
+  while ((m = re.exec(c))) marks.push({ key: MOSS_CAPTION_LABELS[m[1]], start: m.index, valueStart: m.index + m[0].length });
+  out.high_level_description = (marks.length ? c.slice(0, marks[0].start) : c).trim();
+  marks.forEach((mk, i) => {
+    const v = c.slice(mk.valueStart, i + 1 < marks.length ? marks[i + 1].start : c.length).trim();
+    out[mk.key] = v.replace(/\.$/, "");
+  });
+  return out;
+}
+// The official Ideogram format has only obj/text, so a person is an "obj".
+// For files that didn't come from this editor, recognise people and animals
+// from the start of the description so they become subjects again (and Moss
+// "character" items on export).
+const SUBJECT_WORDS = /\b(man|men|woman|women|person|people|boy|boys|girl|girls|child|children|kid|kids|baby|lady|ladies|guy|guys|gentleman|couple|family|crowd|figure|character|portrait|self-portrait|trainer|athlete|player|musician|trumpeter|guitarist|pianist|drummer|singer|dancer|model|warrior|knight|soldier|worker|chef|doctor|nurse|student|teacher|client|customer|officer|detective|wizard|witch|princess|prince|king|queen|hero|heroine|robot|android|dog|puppy|cat|kitten|horse|bird|animal|creature|dragon|fox|wolf|bear)\b/i;
+function looksLikeSubject(desc) {
+  const head = String(desc || "").split(/[,.;:]/)[0];
+  return SUBJECT_WORDS.test(head);
+}
+
 function mossToLayout(data) {
   const src = Array.isArray(data.items) ? data.items : (Array.isArray(data.elements) ? data.elements : []);
   const boxes = src.map(it => it.bbox).filter(b => Array.isArray(b) && b.length === 4).map(b => b.map(n => +n || 0));
-  // abs_centralized has no explicit size — the frame is the extent of the boxes
-  // (the full-canvas panel spans it), i.e. y in [-H/2, H/2), x in [-W/2, W/2).
-  const hh = Math.max(1, ...boxes.flatMap(b => [Math.abs(b[0]), Math.abs(b[2])]));
-  const hw = Math.max(1, ...boxes.flatMap(b => [Math.abs(b[1]), Math.abs(b[3])]));
-  const ny = v => clamp(Math.round((v + hh) / (2 * hh) * COORD), 0, COORD);
-  const nx = v => clamp(Math.round((v + hw) / (2 * hw) * COORD), 0, COORD);
-  const isFull = b => b && ny(b[0]) <= 5 && nx(b[1]) <= 5 && ny(b[2]) >= 995 && nx(b[3]) >= 995;
+  // abs_centralized carries no frame size. mossimage.org files have a full-canvas
+  // panel, so the extent of the boxes is the frame. Official-node files (and this
+  // editor's exports) don't: like the node, which is given width/height, use the
+  // current canvas when every box fits inside it; otherwise fall back to the extent.
+  const eh = Math.max(1, ...boxes.flatMap(b => [Math.abs(b[0]), Math.abs(b[2])]));
+  const ew = Math.max(1, ...boxes.flatMap(b => [Math.abs(b[1]), Math.abs(b[3])]));
+  const spansAll = boxes.some(b => -b[0] >= eh * 0.99 && b[2] >= eh * 0.99 && -b[1] >= ew * 0.99 && b[3] >= ew * 0.99);
+  const cur = computeDims(), cy = Math.floor(cur.height / 2), cx = Math.floor(cur.width / 2);
+  const useCurrent = !spansAll && eh <= cy && ew <= cx;
+  const hh = useCurrent ? cy : eh, hw = useCurrent ? cx : ew;
+  // Exports floor min edges and ceil max edges (official rounding), so map each
+  // pixel edge back to the middle of the 0..1000 interval that produced it —
+  // re-exporting then gives the same pixels. Edges on the frame stay on it.
+  const back = (v, h, max) => v <= -h ? 0 : v >= h ? COORD : clamp(Math.round((v + h + (max ? -0.5 : 0.5)) / (2 * h) * COORD), 0, COORD);
+  const ny = (v, max) => back(v, hh, max);
+  const nx = (v, max) => back(v, hw, max);
+  const isFull = b => b && ny(b[0]) <= 5 && nx(b[1]) <= 5 && ny(b[2], true) >= 995 && nx(b[3], true) >= 995;
   const TYPE = { object: "obj", obj: "obj", character: "subject", subject: "subject", text: "text", panel: "bg" };
 
-  // The first full-canvas panel is the background; every other item is an element.
+  // The first full-canvas panel (mossimage.org files) is the background; every other item is an element.
   const bgIdx = src.findIndex(it => (it.label || it.type) === "panel" && isFull(it.bbox));
   const bgItem = bgIdx >= 0 ? src[bgIdx] : null;
   const summary = data.summary || {};
   const elements = src.filter((_, i) => i !== bgIdx && Array.isArray(src[i].bbox) && src[i].bbox.length === 4).map(it => {
     const b = it.bbox.map(n => +n || 0);
     const text = typeof it.text === "string" ? it.text : "";
-    let desc = it.caption || it.identity || "";
-    if (!desc) desc = (it.tags || []).join(", ");
-    // Ideogram reads literal words from the description, so make sure they're there.
-    if (text && !desc.includes(text)) desc = (desc ? desc + " " : "") + `Text reads: "${text.replace(/\n/g, " / ")}"`;
+    const { desc: d0, font } = splitDescExtras(it.caption || it.identity || "");
+    const desc = d0 || (it.tags || []).join(", ");
     const tags = normalizeTags(it.tags);
     if (it.salience) tags.push("salience:" + it.salience);
     return {
       type: TYPE[it.label || it.type] || "obj",
-      bbox: [ny(b[0]), nx(b[1]), ny(b[2]), nx(b[3])],
-      desc, text, tags,
+      bbox: [ny(b[0]), nx(b[1]), ny(b[2], true), nx(b[3], true)],
+      desc, font, text, tags,
       color_palette: Array.isArray(it.palette) ? it.palette : []
     };
   });
+  const cap = typeof summary.caption === "string" ? parseMossSummaryCaption(summary.caption) : {};
   return {
     canvas: { width: Math.round(hw * 2), height: Math.round(hh * 2) },
-    high_level_description: summary.caption || data.gen_brief || data.scene_type || (bgItem && (bgItem.caption || bgItem.identity)) || "",
+    frameFromCanvas: useCurrent,
+    high_level_description: cap.high_level_description || data.gen_brief || data.scene_type || (bgItem && (bgItem.caption || bgItem.identity)) || "",
     style_description: {
-      aesthetics: data.scene_type && summary.caption === undefined && data.gen_brief ? data.scene_type : "",
-      lighting: "", photo: "",
-      medium: Array.isArray(summary.meta) ? summary.meta.join(", ") : "",
+      aesthetics: cap.aesthetics || (data.scene_type && summary.caption === undefined && data.gen_brief ? data.scene_type : ""),
+      lighting: cap.lighting || "", photo: cap.photo || "", art_style: cap.art_style || "",
+      medium: cap.medium || (Array.isArray(summary.meta) ? summary.meta.join(", ") : ""),
       color_palette: Array.isArray(summary.palette) ? summary.palette : (bgItem && Array.isArray(bgItem.palette) ? bgItem.palette : [])
     },
     compositional_deconstruction: {
-      background: bgItem ? (bgItem.caption || bgItem.identity || (bgItem.tags || []).join(", ")) : "",
+      background: cap.background || (bgItem ? (bgItem.caption || bgItem.identity || (bgItem.tags || []).join(", ")) : ""),
       elements
     }
   };
@@ -2179,6 +2250,8 @@ function loadFromJSON(data, opts = {}) {
   const maxCoord = Math.max(0, ...srcEls.flatMap(e => Array.isArray(e.bbox) ? e.bbox.map(n => +n || 0) : []));
   const pixelSpace = maxCoord > COORD;
   const clampBox = b => b.map(v => clamp(Math.round(+v || 0), 0, COORD));
+  const edEls = data._editor && Array.isArray(data._editor.elements) && data._editor.elements.length === srcEls.length ? data._editor.elements : null;
+  let inferredSubjects = 0;
   const decodeBbox = (b) => {
     if (!Array.isArray(b) || b.length !== 4) return [100, 100, 500, 500];
     if (hasCanvas) {
@@ -2195,22 +2268,31 @@ function loadFromJSON(data, opts = {}) {
       color_palette: Array.isArray(sd.color_palette) ? sd.color_palette.map(normalizeUpper) : []
     },
     background: cd.background || "",
-    elements: srcEls.map(e => emptyElement({
-      type: e.type || "obj",
-      bbox: decodeBbox(e.bbox),
-      desc: e.desc || "",
-      font: e.font || "",
-      text: typeof e.text === "string" ? e.text : "",
-      tags: normalizeTags(e.tags),
-      color_palette: Array.isArray(e.color_palette) ? e.color_palette.map(normalizeUpper) : [],
-      enabled: e.enabled
-    }))
+    elements: srcEls.map((e, i) => {
+      // Editor-only detail that the official format can't hold (element type,
+      // tags, font, vectorize) rides in a download's _editor.elements.
+      const x = edEls ? edEls[i] || {} : {};
+      const split = e.font ? { desc: e.desc || "", font: e.font } : splitDescExtras(e.desc);
+      let type = x.type || e.type || "obj";
+      if (!x.type && !isMoss && opts.guessOrder && type === "obj" && looksLikeSubject(split.desc)) { type = "subject"; inferredSubjects++; }
+      return emptyElement({
+        type,
+        bbox: decodeBbox(e.bbox),
+        desc: split.desc,
+        font: x.font || split.font || "",
+        text: typeof e.text === "string" ? e.text : "",
+        tags: normalizeTags(x.tags || e.tags),
+        color_palette: Array.isArray(e.color_palette) ? e.color_palette.map(normalizeUpper) : [],
+        vectorize: x.vectorize,
+        enabled: e.enabled
+      });
+    })
   };
   selectedId = null;
   selectedIds.clear();
   // Reshape the preview frame (and the next render) to the imported canvas so
   // the boxes sit in the aspect ratio they were authored for.
-  if (hasCanvasBlock) {
+  if (hasCanvasBlock && !data.frameFromCanvas) {   // a Moss file sized to the current canvas keeps it
     const ar = (+cv.width > 0 && +cv.height > 0) ? (+cv.width / +cv.height) : parseAspectRatio(cv.aspect_ratio || "1:1");
     comfyCfg.aspect_ratio = nearestAspect(ar, isMoss);   // Moss panoramas may need a Moss-only frame
     if ($("cf-aspect")) $("cf-aspect").value = comfyCfg.aspect_ratio;
@@ -2218,7 +2300,7 @@ function loadFromJSON(data, opts = {}) {
   }
   render();
   applyCanvasAspect();
-  return { xFirstGuess };
+  return { xFirstGuess, inferredSubjects, frameFromCanvas: !!data.frameFromCanvas };
 }
 
 function normalizeUpper(c) { return typeof c === "string" ? c.toUpperCase() : "#FFFFFF"; }

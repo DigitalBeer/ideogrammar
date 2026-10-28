@@ -87,6 +87,17 @@ A **downloaded** file also carries an `_editor` block (the canvas frame plus the
 - Element cards have optional **Literal text** and **Tags** fields for `text` and `tags`; a text element with no literal text uses the quoted words from its description.
 - **Moss layout hints** (checkbox in the JSON tile bar, off by default) adds non-official wording: each caption gets its position in words, and the summary states how many `subject` elements there are, left to right. It can reduce swapped or extra people; leave it off for exactly the official output.
 
+### Converting between Ideogram and Moss without losing detail
+
+The editor holds more than either official format, so exports fold the extras into prose with fixed labels and imports split them back out:
+
+- **Moss → editor:** `summary.caption` is written as `<high-level description> Background: … Medium: … Style: … Art style: … Lighting: … Camera: …`, and import puts each labelled part back in its field. `Typography: …` at the end of a caption returns to the element's font, and layout-hint wording (position sentences, subject count) is stripped since it's regenerated from the boxes. `character` items become subjects. Box edges map back to the centre of the grid cell they came from, so re-exporting gives identical pixels; at 2 MP and above the round trip is exact, below that (fewer pixels than the 1000-unit grid) a box can move by ±1 unit.
+- **Moss frame size:** a Moss file has no width/height. Files with a full-canvas panel (mossimage.org) use the extent of the boxes; others use the current **AR/MP** canvas when every box fits in it — the same as the official node, which is given width/height — and say so in the import toast.
+- **Ideogram downloads → editor:** the official caption only has `obj`/`text`, so a download's `_editor.elements` keeps each element's editor type (subject/logo/bg), tags, font and vectorize mode, and re-importing restores them exactly.
+- **Copied or external Ideogram captions → editor:** with no `_editor`, `obj` elements whose description starts with a person or animal ("a trainer…", "the client…", "a dog…") are imported as subjects (the toast says how many), and `Typography: …` returns to the font field.
+
+Unavoidable: Moss has no logo or background-element types (they come back as text/object), and a copied Ideogram caption has nowhere to keep tags — use **Download for Ideogram** to keep them.
+
 **Moss-only aspect ratios.** Both aspect-ratio pickers have an extra group — 2:1, 3:1, 4:1 and their tall counterparts 1:2, 1:3, 1:4 — for Moss's panoramas and banners. They shape the canvas and the Moss export; the Ideogram ComfyUI workflow can't render them, so rendering with one selected stops with a message asking for 21:9 or narrower.
 
 ### Importing
