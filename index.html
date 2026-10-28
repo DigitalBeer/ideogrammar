@@ -803,6 +803,7 @@
         <label class="toggle" title="Which model's prompt JSON is shown below">Showing <select id="jsonFormat" class="bar-select"><option value="ideogram">Ideogram</option><option value="moss">Moss Image</option></select></label>
         <label class="toggle" title="Extra, non-official wording in the Moss export: each caption gets its position in words, and the summary states how many subjects there are, left to right. Off = exactly the official node's output."><input type="checkbox" id="mossHints"> Moss layout hints</label>
         <label class="toggle" title="Copy and download the prompt indented over several lines (the official nodes' 'pretty' option) instead of compact single-line JSON (their default)."><input type="checkbox" id="indentedCopy"> Indented copy</label>
+        <label class="toggle" title="Start the Moss layout with a full-frame 'panel' item holding the background, as mossimage.org's builder does. Moss works out the image frame from how far the boxes reach, so without it the image can come out with borders or black bars. Turn off only for the bare official-node output."><input type="checkbox" id="mossFrame"> Moss frame panel</label>
       </div>
       <div class="tile-body json-body">
         <div class="json-toolbar">
@@ -1889,6 +1890,12 @@ const MOSS_ROLE_TAG = { logo: "logo", bg: "background" };
 const MOSS_ROLE_TAGS = Object.values(MOSS_ROLE_TAG);
 // Optional extras (not in the official node): position words on each caption and
 // a subject count / left-to-right roll call in the summary. Off by default.
+// Full-frame background panel (on by default). abs_centralized boxes carry no
+// image size, so Moss infers the frame from how far the boxes reach; without a
+// box spanning the whole canvas it composes into a smaller (often differently
+// shaped) area and pads the rest with borders or black bars. mossimage.org's
+// own builder always starts with this panel; the KJ node leaves it to the user.
+let mossFramePanel = (() => { try { return localStorage.getItem("ideogrammar.mossFrame") !== "0"; } catch (_) { return true; } })();
 let mossLayoutHints = (() => { try { return localStorage.getItem("ideogrammar.mossHints") === "1"; } catch (_) { return false; } })();
 function mossMeta(sd) {
   const s = `${sd.medium || ""} ${sd.aesthetics || ""}`.toLowerCase();
@@ -1942,7 +1949,7 @@ function buildMossJSON() {
   const caption = [
     sentence(state.high_level_description),
     countLine,
-    sentence(state.background && "Background: " + state.background),
+    sentence(!mossFramePanel && state.background && "Background: " + state.background),   // else it's the panel's caption
     sentence(sd.medium && "Medium: " + sd.medium),
     sentence(sd.aesthetics && "Style: " + sd.aesthetics),
     sentence(sd.art_style && !sd.photo && "Art style: " + sd.art_style),
@@ -1974,6 +1981,12 @@ function buildMossJSON() {
   });
   // No boxes: the official node outputs the plain prompt instead of a layout.
   if (!items.length) return caption;
+  if (mossFramePanel) {
+    const panel = { label: "panel", caption: state.background || state.high_level_description || "" };
+    if (sd.color_palette.length) panel.palette = sd.color_palette.slice();
+    panel.bbox = box([0, 0, COORD, COORD]);
+    items.unshift(panel);
+  }
 
   const summary = {};
   const meta = mossMeta(sd);
@@ -3140,6 +3153,12 @@ $("copyBtn").addEventListener("click", () => doCopy());
 $("copyBtn2").addEventListener("click", () => doCopy("ideogram"));
 $("copyMossBtn").addEventListener("click", () => doCopy("moss"));
 $("jsonFormat").value = jsonFormat;
+$("mossFrame").checked = mossFramePanel;
+$("mossFrame").addEventListener("change", () => {
+  mossFramePanel = $("mossFrame").checked;
+  try { localStorage.setItem("ideogrammar.mossFrame", mossFramePanel ? "1" : "0"); } catch (_) {}
+  renderJSON();
+});
 $("indentedCopy").checked = indentedCopy;
 $("indentedCopy").addEventListener("change", () => {
   indentedCopy = $("indentedCopy").checked;
