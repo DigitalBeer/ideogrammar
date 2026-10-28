@@ -250,6 +250,24 @@
   .handle { position: absolute; width: 11px; height: 11px; background: #fff; border: 1.5px solid var(--accent); border-radius: 3px; }
   .handle.se { right: -6px; bottom: -6px; cursor: nwse-resize; }
   .box, .handle { touch-action: none; }
+  .lock-btn { margin-left: auto; background: none; border: 0; padding: 0 4px; font-size: 13px; cursor: pointer; opacity: .55; }
+  .lock-btn.on { opacity: 1; }
+  .iconbtn.on { opacity: 1; }
+  .element.locked { box-shadow: inset 3px 0 0 var(--accent); }
+  .box.locked { outline: 1px dashed rgba(255,255,255,.55); outline-offset: 2px; }
+  .ai-target { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+  .ai-target-sel { width: auto; padding: 3px 6px; }
+  .rv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 640px) { .rv-grid { grid-template-columns: 1fr; } }
+  .rv-list { list-style: none; margin: 0; padding: 0; font-size: 12.5px; max-height: 220px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
+  .rv-list li { display: flex; gap: 8px; align-items: flex-start; padding: 6px 9px; border-bottom: 1px solid var(--border); line-height: 1.4; }
+  .rv-list li:last-child { border-bottom: 0; }
+  .rv-list li > span:first-child { flex: 0 0 auto; font-weight: 700; }
+  .rv-list i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-left: 2px; border: 1px solid var(--border); }
+  .rv-list em { color: var(--muted); font-style: normal; }
+  .rv-add > span:first-child { color: #22c55e; } .rv-del > span:first-child { color: var(--danger); } .rv-chg > span:first-child { color: #f59e0b; }
+  .rv-none, .rv-note { color: var(--faint); }
+  .rv-issues input { margin-top: 2px; width: auto; }
   .marquee { position: absolute; border: 1px solid rgba(255,255,255,.7); background: rgba(99,102,241,.18); pointer-events: none; z-index: 60; border-radius: 2px; }
   .grid-line { position: absolute; background: rgba(255,255,255,.05); }
   .toggle { display: flex; align-items: center; gap: 7px; margin: 0; color: var(--muted); font-size: 12px; cursor: pointer; }
@@ -432,6 +450,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>
         <span>Generate prompt</span>
       </button>
+      <button id="undoAiBtn" title="Nothing to undo" aria-label="Undo AI change" disabled>↶</button>
       <button class="has-label" id="refineBtn" title="Ask the model to adjust the current setup" aria-label="Refine">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></svg>
         <span>Refine</span>
@@ -511,7 +530,7 @@
     </section>
 
     <section class="panel" data-collapsible>
-      <div class="panel-head"><span class="chev">▶</span><h2>Style description</h2></div>
+      <div class="panel-head"><span class="chev">▶</span><h2>Style description</h2><button type="button" class="lock-btn" id="lockStyle" title="Lock: Generate/Refine keep the style unchanged">🔓</button></div>
       <div class="panel-body">
         <label>Aesthetics</label>
         <textarea id="st-aesthetics" rows="2"></textarea>
@@ -530,7 +549,7 @@
     </section>
 
     <section class="panel" data-collapsible>
-      <div class="panel-head"><span class="chev">▶</span><h2>Background</h2></div>
+      <div class="panel-head"><span class="chev">▶</span><h2>Background</h2><button type="button" class="lock-btn" id="lockBackground" title="Lock: Generate/Refine keep the background unchanged">🔓</button></div>
       <div class="panel-body">
         <textarea id="bg" rows="3"></textarea>
       </div>
@@ -544,6 +563,7 @@
       <div class="panel-body">
         <div class="el-tools">
           <span class="hint">Drag the ⠿ handle or use ↑↓ to reorder. Click a row to expand.</span>
+          <button id="checkLayoutBtn" title="Check the layout for problems that cause misplaced, merged or extra people, and review fixes">🩺 Check</button>
           <button class="primary" id="addEl">+ Add</button>
         </div>
         <div id="elements"></div>
@@ -807,6 +827,7 @@
     </div>
     <div class="modal-body">
       <div class="hint" style="margin-bottom:10px;">Uses the model configured in <b>⚙ Settings</b>. <button type="button" id="genOpenSettings" style="padding:2px 8px;font-size:11px;">Open settings</button></div>
+      <div class="ai-target">Optimise for <select id="genTarget" class="ai-target-sel"><option value="ideogram">Ideogram 4</option><option value="moss">Moss Image</option></select> <span class="hint" style="margin:0">— follows the JSON panel's “Showing”; locked parts (🔒) are kept.</span></div>
       <label>Describe the image you want</label>
       <textarea id="genPrompt" rows="5" placeholder="e.g. A bold 80s synthwave concert poster for a band called NEON TIDE, with a retro sports car driving toward a setting sun, palm trees, and a grid floor. Big chrome title at the top, tour dates at the bottom."></textarea>
       <label style="margin-top:12px;">…or build from an image <span style="color:var(--faint)">(optional — needs a vision-capable model)</span></label>
@@ -841,6 +862,31 @@
   </div>
 </div>
 
+<!-- AI REVIEW MODAL -->
+<div class="overlay" id="reviewOverlay">
+  <div class="modal" style="max-width:860px;">
+    <div class="modal-head">
+      <h2>Review: <span id="reviewTitle"></span></h2>
+      <button class="close" id="reviewClose">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="rv-grid">
+        <div><label>Before</label><div id="reviewBefore"></div></div>
+        <div><label>After <span style="color:var(--faint)">(green = added, amber = changed, dashed = locked)</span></label><div id="reviewAfter"></div></div>
+      </div>
+      <label style="margin-top:12px;">Changes</label>
+      <ul class="rv-list" id="reviewChanges"></ul>
+      <label id="reviewIssuesHead" style="margin-top:12px;">Layout check <span style="color:var(--faint)">(ticked fixes are applied with the change)</span></label>
+      <ul class="rv-list rv-issues" id="reviewIssues"></ul>
+    </div>
+    <div class="modal-foot">
+      <span class="status">Applied changes can be undone with ↶ in the header.</span>
+      <button id="reviewDiscard">Discard</button>
+      <button class="primary" id="reviewApply">Apply</button>
+    </div>
+  </div>
+</div>
+
 <!-- REFINE MODAL -->
 <div class="overlay" id="refineOverlay">
   <div class="modal">
@@ -849,7 +895,8 @@
       <button class="close" id="refineClose">×</button>
     </div>
     <div class="modal-body">
-      <div class="hint" style="margin-bottom:10px;">Describe a change and the model rewrites the <b>entire current setup</b> (style, background, every positioned element) to reflect it — keeping everything else intact. Uses the model in <b>⚙ Settings</b>.</div>
+      <div class="hint" style="margin-bottom:10px;">Describe a change and the model rewrites the current setup (style, background, positioned elements) to reflect it — keeping everything else and anything 🔒 locked intact. You review the result before it's applied. Uses the model in <b>⚙ Settings</b>.</div>
+      <div class="ai-target">Optimise for <select id="refineTarget" class="ai-target-sel"><option value="ideogram">Ideogram 4</option><option value="moss">Moss Image</option></select> <span class="hint" style="margin:0">— follows the JSON panel's “Showing”; locked parts (🔒) are kept.</span></div>
       <label>What should change?</label>
       <textarea id="refinePrompt" rows="3" placeholder="e.g. Make it a lighter, airier composition · Move the title to the bottom · Swap the palette to autumn tones · Add a small bird in the top-right"></textarea>
       <div class="chips" id="refineChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
@@ -876,6 +923,7 @@
     <div class="modal-foot">
       <span class="status" id="refineStatus"></span>
       <button id="refineCancel">Cancel</button>
+      <button id="refineCheck" title="Check the current layout for problems (no AI call) and review fixes">🩺 Check layout</button>
       <button class="primary" id="refineRun">Refine</button>
       <button id="refineRenderRun" title="Apply the change and render it on ComfyUI" style="display:none;">🎨 Refine &amp; Render</button>
     </div>
@@ -1050,6 +1098,7 @@ function emptyElement(seed = {}) {
     bbox: seed.bbox ?? [100, 100, 500, 500],
     desc: seed.desc ?? "",
     font: seed.font ?? "",
+    locked: !!seed.locked,                                  // Generate/Refine leave it untouched
     text: seed.text ?? "",                                  // literal words to render (text/logo) — Moss "text" field
     tags: Array.isArray(seed.tags) ? seed.tags.slice() : [], // short keywords — Moss "tags" field
     color_palette: seed.color_palette ?? ["#FFFFFF"],
@@ -1118,8 +1167,9 @@ function loadEditorState() {
       type: e.type,
       bbox: Array.isArray(e.bbox) && e.bbox.length === 4 ? e.bbox.slice() : undefined,
       desc: e.desc, font: e.font, text: e.text, tags: e.tags, color_palette: e.color_palette,
-      vectorize: e.vectorize, enabled: e.enabled, _collapsed: e._collapsed
-    }))
+      vectorize: e.vectorize, enabled: e.enabled, locked: e.locked, _collapsed: e._collapsed
+    })),
+    locks: { style: !!(s.locks && s.locks.style), background: !!(s.locks && s.locks.background) }
   };
 }
 
@@ -1226,6 +1276,9 @@ function renderForm() {
   $("st-medium").value = state.style_description.medium;
   $("st-artstyle").value = state.style_description.art_style || "";
   $("bg").value = state.background;
+  [["lockStyle", "style"], ["lockBackground", "background"]].forEach(([id, k]) => {
+    const on = !!locksOf(state)[k]; $(id).textContent = on ? "🔒" : "🔓"; $(id).classList.toggle("on", on);
+  });
   renderPalette($("st-palette"), state.style_description.color_palette);
   $("elCount").textContent = state.elements.length;
 }
@@ -1265,7 +1318,7 @@ function renderElements() {
   wrap.innerHTML = "";
   state.elements.forEach((el, i) => {
     const card = document.createElement("div");
-    card.className = "element" + (el._id === selectedId ? " selected" : "") + (el._collapsed ? " collapsed" : "") + (el.enabled === false ? " disabled" : "");
+    card.className = "element" + (el._id === selectedId ? " selected" : "") + (el._collapsed ? " collapsed" : "") + (el.enabled === false ? " disabled" : "") + (el.locked ? " locked" : "");
     card.dataset.index = i;
 
     /* ---- header ---- */
@@ -1300,7 +1353,10 @@ function renderElements() {
       () => { el.enabled = !on; selectedId = el._id; render(); });
     const del = iconBtn("🗑", "Delete", () => removeElement(el._id));
     del.classList.add("del");
-    acts.append(eye, up, down, del);
+    const lock = iconBtn(el.locked ? "🔒" : "🔓", el.locked ? "Locked — Generate/Refine keep this element exactly as is. Click to unlock." : "Lock this element so Generate/Refine can't change it",
+      () => { el.locked = !el.locked; render(); });
+    if (el.locked) lock.classList.add("on");
+    acts.append(lock, eye, up, down, del);
 
     const toggle = () => { el._collapsed = !el._collapsed; selectedId = el._id; render(); };
     chev.addEventListener("click", (e) => { e.stopPropagation(); toggle(); });
@@ -1520,7 +1576,7 @@ function renderCanvas() {
     const left = Math.min(x1, x2), top = Math.min(y1, y2);
     const w = Math.abs(x2 - x1), h = Math.abs(y2 - y1);
     const box = document.createElement("div");
-    box.className = "box" + ((el._id === selectedId || selectedIds.has(el._id)) ? " selected" : "") + (el.enabled === false ? " disabled" : "");
+    box.className = "box" + ((el._id === selectedId || selectedIds.has(el._id)) ? " selected" : "") + (el.enabled === false ? " disabled" : "") + (el.locked ? " locked" : "");
     box.dataset.elId = el._id;
     box.style.zIndex = zRank.get(el._id);
     box.style.left = (left / COORD * 100) + "%";
@@ -1961,6 +2017,7 @@ function setJSONFormat(fmt) {
   jsonFormat = fmt === "moss" ? "moss" : "ideogram";
   try { localStorage.setItem("ideogrammar.jsonFormat", jsonFormat); } catch (_) {}
   if ($("jsonFormat")) $("jsonFormat").value = jsonFormat;
+  ["genTarget", "refineTarget"].forEach(id => { if ($(id)) $(id).value = jsonFormat; });
   renderJSON();
 }
 
@@ -2395,6 +2452,277 @@ STYLE-TRANSFER MODE: You are given an EXISTING setup as JSON and a reference IMA
 
 KEEP the composition and content identical to the given setup: the SAME elements in the SAME order, the SAME types, the SAME bbox for every element (do not move, resize, add or remove anything), the SAME fonts, and the SAME subject/words of every element description and the background — you may only adjust COLOR words inside a description to fit the new palette. Take ONLY the image's visual style and colors; do NOT take its subjects, objects, layout or any text. Return JSON only.`;
 
+/* ------------------------------------------------------------------ */
+/*  AI changes: target model, locks, review & undo, layout check      */
+/* ------------------------------------------------------------------ */
+// Every Generate / Refine result goes through proposeChange(): the reply is
+// loaded into a candidate state, locked parts are put back, and the user sees a
+// before/after review (with any layout issues) before it replaces their work.
+// Applied changes can be undone.
+
+// ---- 1. Target model: extra guidance for the model the prompt is meant for ----
+// Follows the JSON tile's "Showing" format, so the layout is designed for the
+// model you're about to copy it to.
+const TARGET_GUIDANCE = {
+  ideogram: `
+
+TARGET MODEL: Ideogram 4. Keep each element desc to one or two vivid, concrete sentences. Every word the image must show goes in a "text" element with the exact words in its "text" field. Use "subject" for each person or animal (one element per individual).`,
+  moss: `
+
+TARGET MODEL: Moss Image. Moss reads the whole layout as text and is prone to swapping similar-looking people, adding people nobody asked for, and merging limbs where people overlap. Design against that:
+- One "subject" element per person or animal, never one box for a group.
+- Make every subject visually distinct — different clothing colours, hair, build, age or pose — and say so in its desc.
+- State the exact number of people in high_level_description (e.g. "three people: a coach, a client and a spotter").
+- Keep subjects' boxes from overlapping by more than about a fifth unless they physically interact; when they do, describe the contact explicitly in both descs (whose hand is on whose shoulder).
+- Describe each subject in 1-3 detailed sentences: appearance, clothing, pose, expression, and what each hand is doing.
+- Never write position words in a desc ("on the left", "at the top") that disagree with its bbox; the bbox is the position.
+- Give every text element its exact words in "text".`
+};
+function aiTarget() { return jsonFormat === "moss" ? "moss" : "ideogram"; }
+function targetDirective() { return TARGET_GUIDANCE[aiTarget()]; }
+
+// ---- 2. Locks: parts of the setup the AI must not change ----
+function locksOf(s) { return (s && s.locks) || {}; }
+// The layout the model may edit (enabled, unlocked elements) plus the locked
+// context it must respect. Locked elements are sent as context only and are put
+// back afterwards by enforceLocks(), so a model that ignores the instruction
+// can't change, drop or duplicate them.
+function llmLayoutWithLocks() {
+  const layout = buildLayoutJSON();
+  const enabled = state.elements.filter(e => e.enabled !== false);
+  const editable = [], locked = [];
+  layout.compositional_deconstruction.elements.forEach((e, i) => (enabled[i] && enabled[i].locked ? locked : editable).push(e));
+  layout.compositional_deconstruction.elements = editable;
+  return { layout, locked };
+}
+function lockDirective(locked) {
+  const L = locksOf(state), parts = [];
+  if (L.style) parts.push("style_description is LOCKED — return it exactly as given:\n" + JSON.stringify(buildLayoutJSON().style_description));
+  if (L.background) parts.push("compositional_deconstruction.background is LOCKED — return it exactly as given:\n" + JSON.stringify(state.background));
+  if (locked.length) parts.push("These elements are LOCKED and fixed in place. Do NOT include them in your elements array — they are added back automatically. Treat them as part of the scene: don't duplicate them, keep new or moved elements clear of them unless layering is intended, and keep everything consistent with them:\n" + JSON.stringify(locked));
+  return parts.length ? "\n\nLOCKED PARTS (must not change):\n" + parts.join("\n\n") : "";
+}
+function enforceLocks(prev) {
+  const L = locksOf(prev);
+  if (L.style) state.style_description = JSON.parse(JSON.stringify(prev.style_description));
+  if (L.background) state.background = prev.background;
+  // Put locked elements back at their original positions in the list.
+  prev.elements.forEach((e, i) => { if (e.locked) state.elements.splice(Math.min(i, state.elements.length), 0, JSON.parse(JSON.stringify(e))); });
+  state.locks = JSON.parse(JSON.stringify(L));
+}
+// Load a model reply into state as the candidate. keepRest (refine/transfer)
+// carries per-element vectorize modes over by position and re-appends disabled
+// elements the model never saw; a fresh Generate replaces those.
+function applyLLMLayout(parsed, prev, keepRest) {
+  const prevEditable = prev.elements.filter(e => e.enabled !== false && !e.locked);
+  const disabled = prev.elements.filter(e => e.enabled === false && !e.locked);
+  loadFromJSON(parsed);
+  if (keepRest) state.elements.forEach((e, i) => { if (prevEditable[i]) e.vectorize = prevEditable[i].vectorize || "auto"; });
+  enforceLocks(prev);
+  if (keepRest && disabled.length) state.elements.push(...JSON.parse(JSON.stringify(disabled)));
+}
+
+// ---- 3. Review & undo ----
+const undoStack = [];
+function cloneState(s) { return JSON.parse(JSON.stringify(s)); }
+function syncUndoBtn() {
+  const b = $("undoAiBtn"); if (!b) return;
+  b.disabled = !undoStack.length;
+  b.title = undoStack.length ? "Undo: " + undoStack[undoStack.length - 1].label : "Nothing to undo";
+}
+function commitState(next, label) {
+  undoStack.push({ label, state: cloneState(state) });
+  if (undoStack.length > 15) undoStack.shift();
+  state = next; selectedId = null; selectedIds.clear();
+  render(); syncUndoBtn();
+}
+function undoAiChange() {
+  const u = undoStack.pop(); if (!u) return;
+  state = u.state; selectedId = null; selectedIds.clear();
+  render(); syncUndoBtn();
+  toast("Undid: " + u.label, "ok");
+}
+// build(prev) mutates state into the candidate. With review, the user sees the
+// before/after and any layout issues and picks Apply or Discard; resolves true
+// when applied. Without review (render queue) the candidate is applied directly.
+async function proposeChange({ label, build, review = true }) {
+  const prev = cloneState(state);
+  build(prev);
+  const candidate = cloneState(state);
+  state = prev;
+  if (!review) { commitState(candidate, label); return true; }
+  render();
+  return openReview(label, prev, candidate);
+}
+
+// Pair before/after elements: same id first (locked/untouched), then by overlap.
+function iou(a, b) {
+  const ix = Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0])), iy = Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
+  const inter = ix * iy, u = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - inter;
+  return u > 0 ? inter / u : 0;
+}
+function matchElements(A, B) {
+  const pairs = [], usedA = new Set(), usedB = new Set();
+  A.forEach((a, i) => { const j = B.findIndex((b, k) => !usedB.has(k) && b._id === a._id); if (j >= 0) { pairs.push([i, j]); usedA.add(i); usedB.add(j); } });
+  const cand = [];
+  A.forEach((a, i) => { if (usedA.has(i)) return; B.forEach((b, j) => { if (usedB.has(j)) return; const o = iou(a.bbox, b.bbox); if (o > 0.3) cand.push([o + (a.type === b.type ? 0.15 : 0), i, j]); }); });
+  cand.sort((p, q) => q[0] - p[0]).forEach(([, i, j]) => { if (!usedA.has(i) && !usedB.has(j)) { pairs.push([i, j]); usedA.add(i); usedB.add(j); } });
+  return { pairs, removed: A.map((_, i) => i).filter(i => !usedA.has(i)), added: B.map((_, j) => j).filter(j => !usedB.has(j)) };
+}
+const short = (s, n = 70) => { s = String(s || "").replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
+function diffStates(a, b) {
+  const out = [];
+  if (a.high_level_description !== b.high_level_description) out.push({ k: "chg", t: `Description → “${short(b.high_level_description, 110)}”` });
+  ["aesthetics", "lighting", "photo", "medium", "art_style"].forEach(f => {
+    if ((a.style_description[f] || "") !== (b.style_description[f] || "")) out.push({ k: "chg", t: `Style · ${f.replace("_", " ")} → “${short(b.style_description[f]) || "(empty)"}”` });
+  });
+  if (JSON.stringify(a.style_description.color_palette) !== JSON.stringify(b.style_description.color_palette)) out.push({ k: "chg", t: "Style · colour palette changed", pal: b.style_description.color_palette });
+  if (a.background !== b.background) out.push({ k: "chg", t: `Background → “${short(b.background, 110)}”` });
+  const A = a.elements, B = b.elements, m = matchElements(A, B);
+  m.pairs.forEach(([i, j]) => {
+    const x = A[i], y = B[j], what = [];
+    if (x.type !== y.type) what.push(`${x.type} → ${y.type}`);
+    const d = Math.max(...x.bbox.map((v, k) => Math.abs(v - y.bbox[k])));
+    if (d > 15) { const moved = Math.hypot((x.bbox[0] + x.bbox[2] - y.bbox[0] - y.bbox[2]) / 2, (x.bbox[1] + x.bbox[3] - y.bbox[1] - y.bbox[3]) / 2) > 15; const resized = Math.abs((x.bbox[2] - x.bbox[0]) - (y.bbox[2] - y.bbox[0])) > 15 || Math.abs((x.bbox[3] - x.bbox[1]) - (y.bbox[3] - y.bbox[1])) > 15; what.push([moved && "moved", resized && "resized"].filter(Boolean).join(" & ")); }
+    if (x.desc !== y.desc) what.push(`reworded → “${short(y.desc)}”`);
+    if ((x.text || "") !== (y.text || "")) what.push(`text → “${short(y.text, 40)}”`);
+    if (what.length) out.push({ k: "chg", t: `#${j + 1} ${y.type} (${short(y.desc, 40)}): ${what.join("; ")}` });
+  });
+  m.added.forEach(j => out.push({ k: "add", t: `Added #${j + 1} ${B[j].type}: “${short(B[j].desc)}”` }));
+  m.removed.forEach(i => out.push({ k: "del", t: `Removed ${A[i].type}: “${short(A[i].desc)}”` }));
+  return { lines: out, match: m };
+}
+function previewSvg(s, highlight) {
+  const { width: W, height: H } = computeDims();
+  const vw = 1000, vh = Math.round(1000 * H / W);
+  const col = { subject: "#f472b6", text: "#60a5fa", logo: "#a78bfa", bg: "#6b7280", obj: "#34d399" };
+  const rects = s.elements.filter(e => e.enabled !== false).map((e, i) => {
+    const [x1, y1, x2, y2] = e.bbox, h = highlight ? highlight(e, i) : "";
+    return `<rect x="${x1}" y="${y1 / COORD * vh}" width="${x2 - x1}" height="${(y2 - y1) / COORD * vh}" fill="${col[e.type] || "#34d399"}" fill-opacity="${h === "add" ? .35 : .12}" stroke="${h === "add" ? "#22c55e" : h === "chg" ? "#f59e0b" : col[e.type] || "#34d399"}" stroke-width="${h ? 10 : 5}"${e.locked ? ' stroke-dasharray="24 14"' : ""}/>`;
+  }).join("");
+  return `<svg viewBox="0 0 ${vw} ${vh}" preserveAspectRatio="xMidYMid meet" style="width:100%;max-height:260px;background:#0d1119;border-radius:6px;border:1px solid var(--border)">${rects}</svg>`;
+}
+let _reviewResolve = null, _reviewCand = null, _reviewIssues = [], _reviewLabel = "", _reviewHi = null;
+// The "After" preview shows the candidate with the currently ticked fixes applied.
+function renderReviewAfter() {
+  const shown = cloneState(_reviewCand);
+  _reviewIssues.filter(it => it.fix && it.on !== false).forEach(it => it.fix(shown));
+  $("reviewAfter").innerHTML = previewSvg(shown, _reviewHi);
+}
+function openReview(label, before, after) {
+  _reviewLabel = label; _reviewCand = after;
+  _reviewIssues = checkLayout(after);
+  const d = diffStates(before, after);
+  const changedIds = new Set(d.match.pairs.filter(([i, j]) => JSON.stringify(before.elements[i].bbox) !== JSON.stringify(after.elements[j].bbox) || before.elements[i].desc !== after.elements[j].desc || before.elements[i].type !== after.elements[j].type).map(([, j]) => after.elements[j]._id));
+  const addedIds = new Set(d.match.added.map(j => after.elements[j]._id));
+  $("reviewTitle").textContent = label;
+  $("reviewBefore").innerHTML = previewSvg(before);
+  _reviewHi = e => addedIds.has(e._id) ? "add" : changedIds.has(e._id) ? "chg" : "";
+  const sym = { add: "＋", del: "－", chg: "✎" };
+  $("reviewChanges").innerHTML = d.lines.length
+    ? d.lines.map(l => `<li class="rv-${l.k}"><span>${sym[l.k]}</span> ${escapeHtml(l.t)}${l.pal ? " " + l.pal.map(c => `<i style="background:${c}"></i>`).join("") : ""}</li>`).join("")
+    : `<li class="rv-none">No changes to the setup.</li>`;
+  renderReviewIssues();
+  renderReviewAfter();
+  $("reviewOverlay").classList.add("show");
+  return new Promise(res => { _reviewResolve = res; });
+}
+function renderReviewIssues() {
+  const box = $("reviewIssues");
+  $("reviewIssuesHead").style.display = _reviewIssues.length ? "" : "none";
+  box.innerHTML = "";
+  _reviewIssues.forEach((it, n) => {
+    const li = document.createElement("li");
+    if (it.fix) {
+      const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = it.on !== false;
+      cb.addEventListener("change", () => { it.on = cb.checked; renderReviewAfter(); });
+      li.append(cb);
+    } else { const s = document.createElement("span"); s.textContent = "ⓘ"; s.className = "rv-note"; li.append(s); }
+    const t = document.createElement("span");
+    t.innerHTML = escapeHtml(it.msg) + (it.fix ? ` <em>— fix: ${escapeHtml(it.fixLabel)}</em>` : "");
+    li.append(t); box.appendChild(li);
+  });
+}
+function closeReview(apply) {
+  $("reviewOverlay").classList.remove("show");
+  const res = _reviewResolve; _reviewResolve = null;
+  if (apply && _reviewCand) {
+    const cand = _reviewCand;
+    const fixes = _reviewIssues.filter(it => it.fix && it.on !== false);
+    fixes.forEach(it => it.fix(cand));
+    commitState(cand, _reviewLabel + (fixes.length ? ` (+${fixes.length} fix${fixes.length > 1 ? "es" : ""})` : ""));
+  }
+  _reviewCand = null;
+  if (res) res(!!apply);
+}
+
+// ---- 4. Layout check: problems that make Moss (and Ideogram) misplace things ----
+const POS_PHRASE_RE = /,?\s*\b(?:on|at|to|in|along|near|toward|towards) the (?:far |extreme )?((?:top|bottom|upper|lower|left|right)(?:[- ](?:left|right))?)(?:[- ](?:hand|side|edge|corner|third|half|area|portion))*(?: (?:of|in) the (?:frame|image|scene|composition|canvas|poster|picture))?\b/gi;
+function checkLayout(s) {
+  const issues = [], els = s.elements;
+  const live = els.map((e, i) => ({ e, i })).filter(({ e }) => e.enabled !== false);
+  const label = i => `#${i + 1} ${els[i].type} (“${short(els[i].desc, 32)}”)`;
+  const at = i => st => st.elements[i];
+  live.forEach(({ e, i }) => {
+    if (e.locked) return;   // locked = leave exactly as the user set it
+    const [x1, y1, x2, y2] = e.bbox, cx = (x1 + x2) / 2 / COORD, cy = (y1 + y2) / 2 / COORD;
+    // People stored as plain objects: Moss can't count or keep them apart.
+    if (e.type === "obj" && looksLikeSubject(e.desc))
+      issues.push({ msg: `${label(i)} looks like a person or animal but is typed “obj”.`, fixLabel: "make it a subject", fix: st => { at(i)(st).type = "subject"; } });
+    // Position words that contradict the box.
+    const bad = [];
+    String(e.desc || "").replace(POS_PHRASE_RE, (m, dir) => {
+      const d = dir.toLowerCase();
+      if ((/left/.test(d) && cx > 0.55) || (/right/.test(d) && cx < 0.45) || (/top|upper/.test(d) && cy > 0.55) || (/bottom|lower/.test(d) && cy < 0.45)) bad.push(m.trim().replace(/^,\s*/, ""));
+      return m;
+    });
+    if (bad.length) issues.push({ msg: `${label(i)} says “${bad.join("”, “")}” but its box is elsewhere.`, fixLabel: "remove the contradicting words", fix: st => {
+      const el = at(i)(st);
+      el.desc = el.desc.replace(POS_PHRASE_RE, (m, dir) => bad.includes(m.trim().replace(/^,\s*/, "")) ? "" : m).replace(/\s{2,}/g, " ").replace(/\s+([,.;])/g, "$1").replace(/,\s*,/g, ",").trim();
+    } });
+    // Text with no literal words.
+    const textual = e.type === "text" || e.type === "logo";
+    if (textual && !(e.text || "").trim()) {
+      const w = mossTextFromDesc(e.desc);
+      if (w) issues.push({ msg: `${label(i)} has no literal text set.`, fixLabel: `use “${short(w, 30)}” from its description`, fix: st => { at(i)(st).text = w; } });
+      else if (e.type === "text") issues.push({ msg: `${label(i)} has no literal text — the model will invent the words.` });
+    }
+    // Boxes too small to render clearly.
+    const min = e.type === "subject" ? [80, 80] : e.type === "text" ? [40, 25] : [20, 20];
+    if (x2 - x1 < min[0] || y2 - y1 < min[1]) issues.push({ msg: `${label(i)} is very small (${x2 - x1}×${y2 - y1} of 1000) and may render badly or not at all.`, fixLabel: `enlarge to at least ${min[0]}×${min[1]}`, fix: st => {
+      const b = at(i)(st).bbox, grow = (lo, hi, mn) => { const c = (lo + hi) / 2, h = Math.max(mn, hi - lo) / 2; let a = Math.round(c - h), z = Math.round(c + h); if (a < 0) { z -= a; a = 0; } if (z > COORD) { a -= z - COORD; z = COORD; } return [Math.max(0, a), Math.min(COORD, z)]; };
+      [b[0], b[2]] = grow(b[0], b[2], min[0]); [b[1], b[3]] = grow(b[1], b[3], min[1]);
+    } });
+  });
+  // People overlapping heavily: the main cause of merged limbs and swapped identities.
+  // (people typed "obj" count too — the type fix above may not be ticked)
+  const subs = live.filter(({ e }) => e.type === "subject" || (e.type === "obj" && looksLikeSubject(e.desc)));
+  for (let p = 0; p < subs.length; p++) for (let q = p + 1; q < subs.length; q++) {
+    const A = subs[p], B = subs[q], a = A.e.bbox, b = B.e.bbox;
+    const ix = Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0])), iy = Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
+    const share = ix * iy / Math.min((a[2] - a[0]) * (a[3] - a[1]), (b[2] - b[0]) * (b[3] - b[1]));
+    if (share <= 0.35) continue;
+    const pct = Math.round(share * 100);
+    const canFix = !A.e.locked || !B.e.locked;
+    issues.push({ msg: `${label(A.i)} and ${label(B.i)} overlap by ${pct}% — overlapping people tend to merge or swap.`, ...(canFix ? { fixLabel: "spread them apart horizontally", fix: st => {
+      const L0 = st.elements[A.i], R0 = st.elements[B.i];
+      const [L, R] = (L0.bbox[0] + L0.bbox[2] <= R0.bbox[0] + R0.bbox[2]) ? [L0, R0] : [R0, L0];
+      const wL = L.bbox[2] - L.bbox[0], wR = R.bbox[2] - R.bbox[0];
+      const need = (L.bbox[2] - R.bbox[0]) - 0.15 * Math.min(wL, wR);   // leave ~15% overlap
+      if (need <= 0) return;
+      const movable = [L, R].filter(x => !x.locked), share = need / movable.length;
+      const shift = (el, dx) => { const w = el.bbox[2] - el.bbox[0]; let nx = clamp(Math.round(el.bbox[0] + dx), 0, COORD - w); el.bbox[0] = nx; el.bbox[2] = nx + w; };
+      if (!L.locked) shift(L, -share); if (!R.locked) shift(R, share);
+    } } : {}) });
+  }
+  return issues;
+}
+// Run the check on the current setup (no AI call) and review the fixes.
+async function checkCurrentLayout() {
+  if (!checkLayout(state).length) { toast("No layout issues found ✓", "ok"); return false; }
+  return proposeChange({ label: "Layout fixes", build: () => {} });
+}
+
 let generating = false;
 let genImageDataUrl = null;   // base64 data URL of an uploaded reference image, or null
 let genExtractMode = "full";  // "full" | "composition" | "style": what to pull from the uploaded image
@@ -2434,6 +2762,8 @@ async function generateSetup(opts = {}) {
   if (cfg.provider === "openrouter") { headers["HTTP-Referer"] = location.origin; headers["X-Title"] = "Ideogrammar"; }
 
   let systemContent, userContent;
+  const { layout: editableLayout, locked: lockedEls } = llmLayoutWithLocks();
+  const lockText = lockDirective(lockedEls);
   if (extract === "composition" || extract === "style") {
     // Transfer one aspect of the reference image onto the CURRENT setup: the model
     // sees the setup JSON + the image and returns the full setup with only the
@@ -2443,7 +2773,7 @@ async function generateSetup(opts = {}) {
       ? "Restyle the setup below to match the reference image's look and colors, keeping its composition and content. Reference image attached."
       : "Rearrange the setup below to match the reference image's composition, keeping its style, colors and content. Reference image attached.";
     userContent = [
-      { type: "text", text: ask + (guide ? " Extra guidance: " + guide : "") + "\n\nCurrent setup:\n" + JSON.stringify(buildLayoutJSON(), null, 2) },
+      { type: "text", text: ask + (guide ? " Extra guidance: " + guide : "") + "\n\nCurrent setup:\n" + JSON.stringify(editableLayout, null, 2) + lockText },
       { type: "image_url", image_url: { url: image } }
     ];
     // No detailDirective here — transfer must preserve the existing element set, not
@@ -2451,9 +2781,9 @@ async function generateSetup(opts = {}) {
   } else if (image) {
     systemContent = IMAGE_SYSTEM_PROMPT;
     const extra = [userPrompt, guide].filter(Boolean).join(" — ");
-    const text = extra
+    const text = (extra
       ? "Build the structured layout JSON from the attached image. Extra guidance: " + extra
-      : "Build the structured layout JSON from the attached image.";
+      : "Build the structured layout JSON from the attached image.") + lockText;
     userContent = [
       { type: "text", text },
       { type: "image_url", image_url: { url: image } }
@@ -2461,10 +2791,11 @@ async function generateSetup(opts = {}) {
     systemContent += detailDirective(cfg);   // honor the element-count / description-detail settings
   } else {
     systemContent = SYSTEM_PROMPT;
-    userContent = "Description:\n" + userPrompt + (guide ? "\n\nGuidance (apply to the whole composition): " + guide : "");
+    userContent = "Description:\n" + userPrompt + (guide ? "\n\nGuidance (apply to the whole composition): " + guide : "") + lockText;
     systemContent += detailDirective(cfg);
   }
 
+  systemContent += targetDirective();
   const body = {
     model: cfg.model,
     messages: [{ role: "system", content: systemContent }, { role: "user", content: userContent }],
@@ -2483,20 +2814,19 @@ async function generateSetup(opts = {}) {
   // Transfer modes return a full setup that changed only one aspect; merge it like
   // a refine (carry per-element vectorize modes by position, keep disabled elements
   // the model never saw) and leave the queue genContext / compare reference alone.
+  // Interactive runs are reviewed before they replace the setup; the render
+  // queue (opts.context) applies directly. Locks are enforced either way.
+  const review = !ctx;
   if (extract === "composition" || extract === "style") {
-    const prevVec = state.elements.filter(e => e.enabled !== false).map(e => e.vectorize || "auto");
-    const disabledEls = state.elements.filter(e => e.enabled === false);
-    loadFromJSON(parsed);
-    state.elements.forEach((e, i) => { if (prevVec[i]) e.vectorize = prevVec[i]; });
-    if (disabledEls.length) state.elements.push(...disabledEls);
-    render();
-    return;
+    return proposeChange({ label: extract === "style" ? "Style from image" : "Composition from image", review, build: prev => applyLLMLayout(parsed, prev, true) });
   }
-  loadFromJSON(parsed);
+  const applied = await proposeChange({ label: "Generate: " + short(userPrompt || "from image", 50), review, build: prev => applyLLMLayout(parsed, prev, false) });
+  if (!applied) return false;
   sourceImageDataUrl = image || null;   // remember it so renders can compare against the reference
   sourceImageRef = null;
   if (sourceImageDataUrl) uploadRefImage(sourceImageDataUrl).then(k => { sourceImageRef = k; });   // cache on the proxy for persistence
   genContext = { prompt: userPrompt, image: image || null };   // record what produced this setup, for queue regeneration
+  return true;
 }
 
 // The inputs to regenerate the CURRENT setup in the render queue: whatever last
@@ -2517,7 +2847,7 @@ async function runGeneration(alsoRender) {
   setGenStatus('<span class="spinner"></span>' + busy, "");
 
   try {
-    await generateSetup({ extract });
+    if (!(await generateSetup({ extract }))) { setGenStatus("Discarded — nothing changed.", ""); return; }
     const okMsg = extract === "composition" ? "Composition applied ✓ (style kept)" : extract === "style" ? "Style applied ✓ (composition kept)" : "Generated ✓";
     setGenStatus(okMsg, "ok");
     toast(okMsg, "ok");
@@ -2702,11 +3032,11 @@ async function runRefine(opts) {
   if (cfg.apiKey) headers["Authorization"] = "Bearer " + cfg.apiKey;
   if (cfg.provider === "openrouter") { headers["HTTP-Referer"] = location.origin; headers["X-Title"] = "Ideogrammar"; }
 
-  const current = buildLayoutJSON(); // normalized 0..1000 space, matches SYSTEM_PROMPT
-  const userMsg = "Current setup:\n" + JSON.stringify(current, null, 2) + "\n\nChange request:\n" + instruction;
+  const { layout: current, locked: lockedEls } = llmLayoutWithLocks();   // normalized 0..1000 space, matches SYSTEM_PROMPT
+  const userMsg = "Current setup:\n" + JSON.stringify(current, null, 2) + lockDirective(lockedEls) + "\n\nChange request:\n" + instruction;
   const body = {
     model: cfg.model,
-    messages: [{ role: "system", content: REFINE_SYSTEM_PROMPT }, { role: "user", content: userMsg }],
+    messages: [{ role: "system", content: REFINE_SYSTEM_PROMPT + targetDirective() }, { role: "user", content: userMsg }],
     temperature: cfg.temperature,
     response_format: { type: "json_object" }
   };
@@ -2715,15 +3045,9 @@ async function runRefine(opts) {
     const content = await chatCompletion(cfg, headers, body);
     const parsed = extractJSON(content);
     if (!parsed) throw new Error("Could not parse JSON from the model's reply.");
-    // Only enabled elements were sent, so align vectorize modes to those and
-    // keep the disabled ones aside to re-append (the model never saw them).
-    const prevVec = state.elements.filter(e => e.enabled !== false).map(e => e.vectorize || "auto");
-    const disabledEls = state.elements.filter(e => e.enabled === false);
-    loadFromJSON(parsed);
-    // best-effort: carry over per-element vectorize modes by position
-    state.elements.forEach((e, i) => { if (prevVec[i]) e.vectorize = prevVec[i]; });
-    if (disabledEls.length) state.elements.push(...disabledEls);   // restore disabled, still off
-    render();
+    setRefineStatus("Review the change…", "");
+    const applied = await proposeChange({ label: "Refine: " + short(instruction, 50), build: prev => applyLLMLayout(parsed, prev, true) });
+    if (!applied) { setRefineStatus("Discarded — nothing changed.", ""); return; }
     setRefineStatus("Refined ✓", "ok");
     toast("Setup refined ✓", "ok");
     if (opts.thenRender && comfyCfg.mode === "comfy") { closeRefineModal(); comfyRender(); }
@@ -2820,6 +3144,22 @@ $("indentedCopy").checked = indentedCopy;
 $("indentedCopy").addEventListener("change", () => {
   indentedCopy = $("indentedCopy").checked;
   try { localStorage.setItem("ideogrammar.indentedCopy", indentedCopy ? "1" : "0"); } catch (_) {}
+});
+$("undoAiBtn").addEventListener("click", undoAiChange);
+$("reviewApply").addEventListener("click", () => closeReview(true));
+$("reviewDiscard").addEventListener("click", () => closeReview(false));
+$("reviewClose").addEventListener("click", () => closeReview(false));
+document.addEventListener("keydown", e => { if (e.key === "Escape" && $("reviewOverlay").classList.contains("show")) closeReview(false); });
+$("checkLayoutBtn").addEventListener("click", checkCurrentLayout);
+$("refineCheck").addEventListener("click", async () => { if (await checkCurrentLayout()) closeRefineModal(); });
+[["lockStyle", "style"], ["lockBackground", "background"]].forEach(([id, k]) => $(id).addEventListener("click", e => {
+  e.stopPropagation();
+  state.locks = { ...locksOf(state), [k]: !locksOf(state)[k] };
+  renderForm(); scheduleSaveState();
+}));
+["genTarget", "refineTarget"].forEach(id => {
+  $(id).value = jsonFormat;
+  $(id).addEventListener("change", () => setJSONFormat($(id).value));
 });
 $("mossHints").checked = mossLayoutHints;
 $("mossHints").addEventListener("change", () => {
@@ -4121,7 +4461,8 @@ function captureSetup() {
     high_level_description: state.high_level_description,
     style_description: JSON.parse(JSON.stringify(state.style_description)),
     background: state.background,
-    elements: state.elements.map(e => ({ type: e.type, bbox: e.bbox.slice(), desc: e.desc, font: e.font || "", text: e.text || "", tags: (e.tags || []).slice(), color_palette: e.color_palette.slice(), vectorize: e.vectorize || "auto", enabled: e.enabled !== false })),
+    elements: state.elements.map(e => ({ type: e.type, bbox: e.bbox.slice(), desc: e.desc, font: e.font || "", text: e.text || "", tags: (e.tags || []).slice(), color_palette: e.color_palette.slice(), vectorize: e.vectorize || "auto", enabled: e.enabled !== false, locked: !!e.locked })),
+    locks: { ...locksOf(state) },
     comfy,
     gen_prompt: ($("genPrompt").value || "").trim(),   // the free-text Generate description, so a loaded setup can regenerate its prompt in the render queue
     render: lastRenderImage ? { ...lastRenderImage } : null
@@ -4180,8 +4521,9 @@ function applySetup(s, beforeImage, beforeRef) {
     elements: Array.isArray(s.elements) ? s.elements.map(e => emptyElement({
       type: e.type || "obj",
       bbox: Array.isArray(e.bbox) && e.bbox.length === 4 ? e.bbox.map(n => clamp(Math.round(+n || 0), 0, COORD)) : [100, 100, 500, 500],
-      desc: e.desc || "", font: e.font || "", text: typeof e.text === "string" ? e.text : "", tags: normalizeTags(e.tags), color_palette: Array.isArray(e.color_palette) ? e.color_palette.map(normalizeUpper) : [], vectorize: e.vectorize || "auto", enabled: e.enabled
-    })) : []
+      desc: e.desc || "", font: e.font || "", text: typeof e.text === "string" ? e.text : "", tags: normalizeTags(e.tags), color_palette: Array.isArray(e.color_palette) ? e.color_palette.map(normalizeUpper) : [], vectorize: e.vectorize || "auto", enabled: e.enabled, locked: e.locked
+    })) : [],
+    locks: { style: !!(s.locks && s.locks.style), background: !!(s.locks && s.locks.background) }
   };
   if (s.comfy) SETUP_COMFY_KEYS.forEach(k => { if (k in s.comfy) comfyCfg[k] = s.comfy[k]; });
   selectedId = null; selectedIds.clear();

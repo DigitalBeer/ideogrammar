@@ -139,6 +139,16 @@ Then click **✨ Generate prompt**, describe the image, and the model returns th
 
 Each mode sends the model your current setup *plus* the image and asks it to change only that one aspect (the same round-trip Refine uses, with an image attached), so the other half of your setup is preserved. Run the two in turn to mix a composition from one image with a style from another. Both need a vision-capable model.
 
+## AI changes: target model, locks, review & undo, layout check
+
+These apply to ✨ Generate, 🪄 Refine and the image composition/style transfers.
+
+- **Optimise for** (in both dialogs, mirrors the JSON panel's *Showing*): adds model-specific guidance to the AI's instructions. **Moss Image** asks for one subject per person, visually distinct people, the exact head-count in the description, subjects that don't overlap much (or explicitly described contact), detailed 1–3 sentence descriptions, and no position words that contradict the boxes. **Ideogram 4** keeps descriptions concise and literal text in `text`.
+- **Locks (🔒):** lock any element (card header), the Style section or the Background (panel headers). Locked elements are sent to the AI as fixed context only — not as editable elements — and are put back afterwards, so they survive even if the model ignores the instruction. Locks are saved with setups.
+- **Review before applying:** results open a review with before/after layout previews (green = added, amber = changed, dashed = locked), a list of every change (description, style fields, palette, background; elements added, removed, moved, resized, reworded), and the layout check. **Apply** or **Discard**; nothing changes until you apply. The render queue's *Regenerate prompt* skips the review but still respects locks.
+- **Undo (↶ in the header):** reverts the last applied AI change or layout fix (up to 15 steps).
+- **🩺 Check layout** (Elements panel, and in the Refine dialog) — also run automatically in every review — flags, and offers ticked-by-default fixes for: people typed `obj` (→ subject), subjects overlapping by more than ~35% (spread apart horizontally to ~15%), position words in a description that contradict its box (removed), text/logo elements without literal text (filled from quoted words in the description), and boxes too small to render well (enlarged). The *After* preview updates as you tick fixes. Locked elements are never changed.
+
 ## Refine (LLM)
 
 Click **🪄 Refine** to adjust the *current* setup with a natural-language change instead of starting over. Describe a change (e.g. "make it a lighter composition", "move the title to the bottom", "swap the palette to autumn tones") and the model rewrites the **entire** setup — style, background and every positioned element — to reflect it while preserving everything the request doesn't touch. Per-element vectorize modes are carried over by position. Quick-suggestion chips are provided, plus the same **style presets** as LLMCam — *Time travel* (eras), *Art style*, *Genre / mood* — which fill in a composition-preserving change request. In ComfyUI mode a **🎨 Refine & Render** button applies the change and renders it in one step. You can also refine straight from a render: open it in the viewer and press **🪄 Refine** to load that render's setup and adjust it.
