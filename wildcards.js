@@ -53,6 +53,8 @@
     };
   }
   function slotRng(seed, id, salt) { return mulberry32(hashStr(String(seed) + "|" + id + "|" + (salt || 0))); }
+  // salts[id] re-rolls one pick; salts["@" + fieldPath] re-rolls every pick in one field.
+  function rngFor(ctx, id) { return slotRng(ctx.seed, id, (ctx.salts[id] || 0) + "/" + (ctx.fieldSalt || 0)); }
   function newSeed() { return Math.floor(Math.random() * 4294967296); }
 
   // ---------------------------------------------------------------- parser
@@ -483,7 +485,7 @@
     const unique = lk.lists.some(l => ctx.lists[l].unique);
     const cands = filterItems(lk.items, ctx, unique);
     if (!cands.length) { ctx.errors.push("Nothing left to pick from \"" + name + "\" after rules"); return ""; }
-    const rng = slotRng(ctx.seed, id, ctx.salts[id]);
+    const rng = rngFor(ctx, id);
     const [it] = pickWeighted(cands, 1, rng);
     const traceAt = ctx.trace.length;
     const v = evalItem(it, id, ctx);
@@ -508,7 +510,7 @@
       cands = n.opts.map((o, k) => ({ k, w: o.w, guard: o.guard, body: o.body })).filter(o => guardHolds(o.guard, ctx));
     }
     if (!cands.length) return "";
-    const rng = slotRng(ctx.seed, id, ctx.salts[id]);
+    const rng = rngFor(ctx, id);
     const max = Math.min(n.max, cands.length), min = Math.min(n.min, max);
     const count = min + Math.floor(rng() * (max - min + 1));
     const picks = pickWeighted(cands, count, rng);
@@ -549,11 +551,13 @@
   function resolveFields(fields, opts) {
     const ctx = makeCtx(opts);
     for (const [name, src] of Object.entries((opts && opts.varDefs) || {})) {
+      ctx.fieldSalt = ctx.salts["@var:" + name] || 0;
       ctx.vars[name] = clean(evalSeq(parseCached(String(src)), "var:" + name, ctx));
     }
     const values = {};
     for (const f of fields || []) {
       const txt = String(f.text == null ? "" : f.text);
+      ctx.fieldSalt = ctx.salts["@" + f.path] || 0;
       values[f.path] = hasSyntax(txt) ? clean(evalSeq(parseCached(txt), f.path, ctx)) : txt;
     }
     return { values, trace: ctx.trace, vars: ctx.vars, errors: Array.from(new Set(ctx.errors)), picked: ctx.picked };

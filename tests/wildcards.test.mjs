@@ -185,3 +185,15 @@ test("trace records tokens, lists and ids", () => {
 test("listRefs finds referenced lists", () => {
   assert.deepEqual(WC.listRefs("__a__ {__b__|x} ${v=__c__}").sort(), ["a", "b", "c"]);
 });
+
+test("field salt rerolls one field and leaves the others", () => {
+  const fields = [{ path: "a", text: "__colours__ {1|2|3|4|5|6}" }, { path: "b", text: "__colours__ {1|2|3|4|5|6}" }];
+  const base = WC.resolveFields(fields, { lists, seed: 9 });
+  let changed = false;
+  for (let k = 1; k < 15; k++) {
+    const r = WC.resolveFields(fields, { lists, seed: 9, salts: { "@b": k } });
+    assert.equal(r.values.a, base.values.a);
+    if (r.values.b !== base.values.b) changed = true;
+  }
+  assert.ok(changed);
+});

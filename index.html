@@ -1152,6 +1152,7 @@
 <div class="toast" id="toast"></div>
 
 <script src="llmcore.js"></script>
+<script src="wildcards.js"></script>
 <script>
 "use strict";
 
@@ -1174,8 +1175,49 @@ function emptyElement(seed = {}) {
     color_palette: seed.color_palette ?? ["#FFFFFF"],
     vectorize: seed.vectorize ?? "auto",
     enabled: seed.enabled !== false,   // off elements stay in the setup but drop out of the prompt
+    style: normStyle(seed.style),       // per-element lighting/camera/lens/… (style templates, wildcards)
+    wild: normElWild(seed.wild),        // { key, src: {field: wildcard source}, templateId }
     _collapsed: seed._collapsed ?? true
   };
+}
+
+// ---- Style templates & wildcards: data helpers ----------------------------
+// el.style holds per-element style fields (ELEMENT_STYLE_FIELDS in llmcore.js).
+// el.wild / state.wild keep the *unresolved* wildcard source of every field that
+// had wildcard syntax (src), so a template stays live and can be re-rolled.
+// state.wild also holds the roll seed and the locked / re-salted picks, keyed by
+// slot id ("<field path>.<position>"); element field paths use el.wild.key so
+// they survive reloads (element _ids don't).
+const ELEMENT_STYLE_KEYS = ELEMENT_STYLE_FIELDS.map(f => f[0]);
+function normStyle(st) {
+  const o = {};
+  if (st && typeof st === "object") ELEMENT_STYLE_KEYS.forEach(k => { if (typeof st[k] === "string" && st[k].trim()) o[k] = st[k]; });
+  return o;
+}
+function normStrMap(m) {
+  const o = {};
+  if (m && typeof m === "object") for (const [k, v] of Object.entries(m)) if (typeof v === "string" && v !== "") o[k] = v;
+  return o;
+}
+function newElKey() { return Math.random().toString(36).slice(2, 10); }
+function normElWild(w) {
+  w = w && typeof w === "object" ? w : {};
+  return { key: typeof w.key === "string" && w.key ? w.key : newElKey(), src: normStrMap(w.src), templateId: typeof w.templateId === "string" ? w.templateId : "" };
+}
+function normWild(w) {
+  w = w && typeof w === "object" ? w : {};
+  const salts = {};
+  if (w.salts && typeof w.salts === "object") for (const [k, v] of Object.entries(w.salts)) if (+v) salts[k] = +v;
+  return {
+    seed: w.seed !== null && w.seed !== undefined && w.seed !== "" && Number.isFinite(+w.seed) ? +w.seed : WC.newSeed(),
+    locks: normStrMap(w.locks), salts, src: normStrMap(w.src),
+    templateId: typeof w.templateId === "string" ? w.templateId : ""
+  };
+}
+// Editor-only wildcard data worth saving with an element.
+function elWildOut(e) {
+  const w = e.wild || {};
+  return (Object.keys(w.src || {}).length || w.templateId) ? JSON.parse(JSON.stringify(w)) : (w.key ? { key: w.key } : undefined);
 }
 
 function defaultState() {
@@ -1193,7 +1235,8 @@ function defaultState() {
     elements: [
       emptyElement({ type: "subject", bbox: [320, 300, 680, 760], desc: "The main product, centered in the frame and sharply in focus.", color_palette: ["#6366F1", "#FFFFFF"] }),
       emptyElement({ type: "text", bbox: [200, 90, 800, 210], desc: "Bold sans-serif title text near the top reading 'YOUR TITLE HERE'.", color_palette: ["#1A1A1A"] })
-    ]
+    ],
+    wild: normWild()
   };
 }
 
@@ -1237,9 +1280,11 @@ function loadEditorState() {
       type: e.type,
       bbox: Array.isArray(e.bbox) && e.bbox.length === 4 ? e.bbox.slice() : undefined,
       desc: e.desc, font: e.font, text: e.text, tags: e.tags, color_palette: e.color_palette,
-      vectorize: e.vectorize, enabled: e.enabled, locked: e.locked, _collapsed: e._collapsed
+      vectorize: e.vectorize, enabled: e.enabled, locked: e.locked, _collapsed: e._collapsed,
+      style: e.style, wild: e.wild
     })),
-    locks: { style: !!(s.locks && s.locks.style), background: !!(s.locks && s.locks.background) }
+    locks: { style: !!(s.locks && s.locks.style), background: !!(s.locks && s.locks.background) },
+    wild: normWild(s.wild)
   };
 }
 
@@ -1921,6 +1966,7 @@ function buildLayoutJSON() {
         if (el.font) o.font = el.font;
         if (el.text) o.text = el.text;
         if (el.tags && el.tags.length) o.tags = el.tags.slice();
+        if (el.style && Object.keys(el.style).length) o.style = { ...el.style };
         return o;
       })
     }
@@ -2033,9 +2079,8 @@ function buildMossJSON() {
     if (el.type === "logo" && !text) label = "object";
     // Caption is the description as written (the official node adds nothing);
     // font and the optional position hint are appended as extra sentences.
-    let cap = String(el.desc || "").trim();
+    let cap = joinDescExtras(el.desc, el.font, el.style);   // font + style fields as labelled sentences
     const add = t => { cap = cap ? (/[.!?]$/.test(cap) ? cap + " " : cap + ". ") + t : t; };
-    if (el.font) add("Typography: " + el.font);
     if (mossLayoutHints) add(mossPosition(el.bbox).replace(/^./, c => c.toUpperCase()) + ".");
     const o = { label, caption: cap };
     if (label === "text") o.text = text;
@@ -2222,8 +2267,11 @@ function buildIdeogramDownload() {
       if (el.tags && el.tags.length) x.tags = el.tags.slice();
       if (el.font) x.font = el.font;
       if (el.vectorize && el.vectorize !== "auto") x.vectorize = el.vectorize;
+      if (el.style && Object.keys(el.style).length) x.style = { ...el.style };
+      const w = elWildOut(el); if (w) x.wild = w;
       return x;
-    })
+    }),
+    wild: JSON.parse(JSON.stringify(state.wild || {}))
   }, collectEditorRefs() || {});
   return obj;
 }
@@ -2278,16 +2326,32 @@ function isMossJSON(data) {
 //   Moss summary.caption: "<high-level>[ The image contains exactly …] Background: … Medium: …
 //                          Style: … Art style: … Lighting: … Camera: …"
 const POSITION_HINT_RE = /\s*Positioned [^.]*?\(centre at about [^)]*\)[^.]*\.\s*$/;
+//   …then the element style fields: " Lighting: … Camera: … Lens: … Details: …"
+const DESC_EXTRA_KEYS = Object.assign({ "Typography": "font" }, Object.fromEntries(ELEMENT_STYLE_FIELDS.map(([k, l]) => [l, k])));
+const DESC_EXTRA_RE = new RegExp("(^|\\s)(" + Object.keys(DESC_EXTRA_KEYS).join("|") + "): ", "g");
 function splitDescExtras(desc) {
   let d = String(desc || "");
   const hinted = POSITION_HINT_RE.test(d);
   d = d.replace(POSITION_HINT_RE, "");
-  let font = "";
-  const m = d.match(/^(.*?)(?:^|(?<=[.!?])\s+|\s+)Typography: (.+?)\.?\s*$/s);
-  if (m) { d = m[1]; font = m[2]; }
-  // The exporter adds ". " before Typography when desc had no end punctuation.
-  if (m || hinted) d = d.replace(/\.$/, "");   // the exporter adds ". " before each extra
-  return { desc: d.trim(), font: font.trim() };
+  // Labels count only at the start or after a sentence end (Typography after any
+  // space, as older exports wrote it). Each value runs to the next label.
+  const marks = []; let m;
+  DESC_EXTRA_RE.lastIndex = 0;
+  while ((m = DESC_EXTRA_RE.exec(d))) {
+    const at = m.index + m[1].length, before = d.slice(0, at).trimEnd();
+    if (before && !/[.!?]$/.test(before) && m[2] !== "Typography") continue;
+    marks.push({ key: DESC_EXTRA_KEYS[m[2]], start: at, vs: m.index + m[0].length });
+  }
+  let font = ""; const style = {};
+  if (marks.length) {
+    marks.forEach((mk, i) => {
+      const v = d.slice(mk.vs, i + 1 < marks.length ? marks[i + 1].start : d.length).trim().replace(/\.$/, "").trim();
+      if (mk.key === "font") font = v; else if (v) style[mk.key] = v;
+    });
+    d = d.slice(0, marks[0].start);
+  }
+  if (marks.length || hinted) d = d.trim().replace(/\.$/, "");   // the exporter adds ". " before each extra
+  return { desc: d.trim(), font: font.trim(), style };
 }
 const MOSS_CAPTION_LABELS = { "Background": "background", "Medium": "medium", "Style": "aesthetics", "Art style": "art_style", "Lighting": "lighting", "Camera": "photo" };
 function parseMossSummaryCaption(caption) {
@@ -2343,7 +2407,7 @@ function mossToLayout(data) {
   const elements = src.filter((_, i) => i !== bgIdx && Array.isArray(src[i].bbox) && src[i].bbox.length === 4).map(it => {
     const b = it.bbox.map(n => +n || 0);
     const text = typeof it.text === "string" ? it.text : "";
-    const { desc: d0, font } = splitDescExtras(it.caption || it.identity || "");
+    const { desc: d0, font, style } = splitDescExtras(it.caption || it.identity || "");
     const desc = d0 || (it.tags || []).join(", ");
     let tags = normalizeTags(it.tags);
     if (it.salience) tags.push("salience:" + it.salience);
@@ -2353,7 +2417,7 @@ function mossToLayout(data) {
     return {
       type,
       bbox: [ny(b[0]), nx(b[1]), ny(b[2], true), nx(b[3], true)],
-      desc, font, text, tags,
+      desc, font, text, tags, style,
       color_palette: Array.isArray(it.palette) ? it.palette : []
     };
   });
@@ -2439,7 +2503,7 @@ function loadFromJSON(data, opts = {}) {
       // Editor-only detail that the official format can't hold (element type,
       // tags, font, vectorize) rides in a download's _editor.elements.
       const x = edEls ? edEls[i] || {} : {};
-      const split = e.font ? { desc: e.desc || "", font: e.font } : splitDescExtras(e.desc);
+      const split = (e.font || e.style) ? { desc: e.desc || "", font: e.font || "", style: e.style || {} } : splitDescExtras(e.desc);
       let type = x.type || e.type || "obj";
       if (!x.type && !isMoss && opts.guessOrder && type === "obj" && looksLikeSubject(split.desc)) { type = "subject"; inferredSubjects++; }
       return emptyElement({
@@ -2451,9 +2515,12 @@ function loadFromJSON(data, opts = {}) {
         tags: normalizeTags(x.tags || e.tags),
         color_palette: Array.isArray(e.color_palette) ? e.color_palette.map(normalizeUpper) : [],
         vectorize: x.vectorize,
-        enabled: e.enabled
+        enabled: e.enabled,
+        style: x.style || split.style,
+        wild: x.wild || e.wild
       });
-    })
+    }),
+    wild: normWild((data._editor && data._editor.wild) || data.wild)
   };
   selectedId = null;
   selectedIds.clear();
@@ -2606,7 +2673,8 @@ function applyLLMLayout(parsed, prev, keepRest) {
   const prevEditable = prev.elements.filter(e => e.enabled !== false && !aiLocked(e));
   const disabled = prev.elements.filter(e => e.enabled === false && !aiLocked(e));
   loadFromJSON(parsed);
-  if (keepRest) state.elements.forEach((e, i) => { if (prevEditable[i]) e.vectorize = prevEditable[i].vectorize || "auto"; });
+  state.wild = cloneState(prev.wild || normWild());   // seed, locks and live template sources aren't the model's to change
+  if (keepRest) state.elements.forEach((e, i) => { if (prevEditable[i]) { e.vectorize = prevEditable[i].vectorize || "auto"; e.wild = cloneState(prevEditable[i].wild || normElWild()); } });
   enforceLocks(prev);
   if (keepRest && disabled.length) state.elements.push(...JSON.parse(JSON.stringify(disabled)));
 }
@@ -4893,8 +4961,9 @@ function captureSetup() {
     high_level_description: state.high_level_description,
     style_description: JSON.parse(JSON.stringify(state.style_description)),
     background: state.background,
-    elements: state.elements.map(e => ({ type: e.type, bbox: e.bbox.slice(), desc: e.desc, font: e.font || "", text: e.text || "", tags: (e.tags || []).slice(), color_palette: e.color_palette.slice(), vectorize: e.vectorize || "auto", enabled: e.enabled !== false, locked: !!e.locked })),
+    elements: state.elements.map(e => ({ type: e.type, bbox: e.bbox.slice(), desc: e.desc, font: e.font || "", text: e.text || "", tags: (e.tags || []).slice(), color_palette: e.color_palette.slice(), vectorize: e.vectorize || "auto", enabled: e.enabled !== false, locked: !!e.locked, style: { ...(e.style || {}) }, wild: elWildOut(e) })),
     locks: { ...locksOf(state) },
+    wild: JSON.parse(JSON.stringify(state.wild || {})),
     comfy,
     gen_prompt: ($("genPrompt").value || "").trim(),   // the free-text Generate description, so a loaded setup can regenerate its prompt in the render queue
     render: lastRenderImage ? { ...lastRenderImage } : null
@@ -4953,9 +5022,10 @@ function applySetup(s, beforeImage, beforeRef) {
     elements: Array.isArray(s.elements) ? s.elements.map(e => emptyElement({
       type: e.type || "obj",
       bbox: Array.isArray(e.bbox) && e.bbox.length === 4 ? e.bbox.map(n => clamp(Math.round(+n || 0), 0, COORD)) : [100, 100, 500, 500],
-      desc: e.desc || "", font: e.font || "", text: typeof e.text === "string" ? e.text : "", tags: normalizeTags(e.tags), color_palette: Array.isArray(e.color_palette) ? e.color_palette.map(normalizeUpper) : [], vectorize: e.vectorize || "auto", enabled: e.enabled, locked: e.locked
+      desc: e.desc || "", font: e.font || "", text: typeof e.text === "string" ? e.text : "", tags: normalizeTags(e.tags), color_palette: Array.isArray(e.color_palette) ? e.color_palette.map(normalizeUpper) : [], vectorize: e.vectorize || "auto", enabled: e.enabled, locked: e.locked, style: e.style, wild: e.wild
     })) : [],
-    locks: { style: !!(s.locks && s.locks.style), background: !!(s.locks && s.locks.background) }
+    locks: { style: !!(s.locks && s.locks.style), background: !!(s.locks && s.locks.background) },
+    wild: normWild(s.wild)
   };
   if (s.comfy) SETUP_COMFY_KEYS.forEach(k => { if (k in s.comfy) comfyCfg[k] = s.comfy[k]; });
   selectedId = null; selectedIds.clear();

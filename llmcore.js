@@ -99,7 +99,8 @@ Output ONLY a single JSON object (no markdown, no commentary) with EXACTLY this 
         "color_palette": ["#RRGGBB", "..."],
         "font": "OPTIONAL — typography style for text/logo elements only (e.g. 'bold geometric sans-serif lettering'); omit for non-text elements",
         "text": "OPTIONAL — text/logo elements only: the exact literal words to render, \\n between lines; omit for non-text elements",
-        "tags": ["OPTIONAL", "2-5 short keywords for this element"]
+        "tags": ["OPTIONAL", "2-5 short keywords for this element"],
+        "style": "OPTIONAL object with any of lighting, camera, lens, wardrobe, pose, environment, mood, extra: per-element style notes; keep any you are given unless asked to change them"
       }
     ]
   }
@@ -349,6 +350,22 @@ function mossTextFromDesc(desc) {
 // folds into desc, since the official format has no field for either.
 // opts.canvas prepends this app's canvas block — used only for ComfyUI renders
 // (with buildPromptText's orientation lead), never in copied/downloaded prompts.
+// Per-element style fields (set by style templates / wildcards). The official
+// formats have no field for them, so exports append them to the element's
+// desc (Ideogram) or caption (Moss) as labelled sentences after Typography,
+// in this order; imports split them back out (splitDescExtras in index.html).
+const ELEMENT_STYLE_FIELDS = [["lighting", "Lighting"], ["camera", "Camera"], ["lens", "Lens"], ["wardrobe", "Wardrobe"],
+  ["pose", "Pose"], ["environment", "Environment"], ["mood", "Mood"], ["extra", "Details"]];
+function joinDescExtras(desc, font, style) {
+  let d = String(desc || "").trim();
+  const add = t => { d = d ? (/[.!?]$/.test(d) ? d + " " : d + ". ") + t : t; };
+  if (font) add("Typography: " + font);
+  for (const [k, label] of ELEMENT_STYLE_FIELDS) {
+    const v = style ? String(style[k] || "").trim().replace(/\.$/, "") : "";
+    if (v) add(label + ": " + v);
+  }
+  return d;
+}
 function buildPromptObj(layout, opts = {}) {
   const sd = layout.style_description || {};
   const cd = layout.compositional_deconstruction || {};
@@ -360,9 +377,7 @@ function buildPromptObj(layout, opts = {}) {
     const isText = e.type === "text" || (e.type === "logo" && !!text);
     const out = { type: isText ? "text" : "obj", bbox: [Math.min(y1, y2), Math.min(x1, x2), Math.max(y1, y2), Math.max(x1, x2)] };
     if (isText) out.text = text;
-    let desc = String(e.desc || "").trim();
-    if (e.font) desc += (desc && !/[.!?]$/.test(desc) ? ". " : desc ? " " : "") + "Typography: " + e.font;
-    out.desc = desc;
+    out.desc = joinDescExtras(e.desc, e.font, e.style);
     const pal = (Array.isArray(e.color_palette) ? e.color_palette : []).filter(Boolean).map(c => String(c).toUpperCase());
     if (pal.length) out.color_palette = pal.slice(0, 5);
     return out;
