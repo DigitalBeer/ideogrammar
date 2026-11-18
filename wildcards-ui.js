@@ -68,7 +68,7 @@ function wcAllLists() {
   for (const [name, o] of Object.entries(wcListOverlay)) {
     if (!o) continue;
     if (o.deleted) { delete out[name]; continue; }
-    out[name] = { text: o.text || "", opts: o.opts || {}, builtin: name in WC_BUILTIN_LISTS, modified: true, updatedAt: o.updatedAt || 0, pack: o.pack };
+    out[name] = { text: o.text || "", opts: o.opts || {}, builtin: name in WC_BUILTIN_LISTS, modified: true, updatedAt: o.updatedAt || 0, pack: o.pack || (o.opts && o.opts.pack) };
   }
   return out;
 }
@@ -1045,7 +1045,7 @@ function wcRenderManager() {
       ta,
       wcEl("div", { class: "wc-row" },
         wcEl("label", { class: "toggle" }, uniq, " Unique — never repeat an item within one roll"),
-        L.pack ? wcEl("span", { class: "hint", style: { margin: 0 } }, "from " + L.pack) : null),
+        (L.pack || (L.opts && L.opts.from)) ? wcEl("span", { class: "hint", style: { margin: 0 } }, L.pack ? "read from " + L.pack + " in the folder (sync never writes it back)" : "imported from " + L.opts.from) : null),
       wcEl("div", { class: "wc-row" },
         wcEl("button", { class: "primary", onclick: () => {
           const newName = WC.normName(nameIn.value);
@@ -1110,7 +1110,7 @@ function wcSyntaxHelp() {
 /* ------------------------------------------------------------------ */
 async function wcImportFiles(files) {
   let lists = 0, tpls = 0, rules = 0;
-  const addPack = (obj, label) => { for (const [n, items] of Object.entries(WC.parsePack(obj))) { const nm = wcSetListQuiet(n, items.join("\n"), { pack: label }); if (nm) lists++; } };
+  const addPack = (obj, label) => { for (const [n, items] of Object.entries(WC.parsePack(obj))) { const nm = wcSetListQuiet(n, items.join("\n"), { from: label }); if (nm) lists++; } };
   const handle = async (name, text) => {
     const lower = name.toLowerCase(), base = name.replace(/\\/g, "/").replace(/^\/+/, "");
     if (lower.endsWith(".txt")) { if (wcSetListQuiet(base.replace(/\.txt$/i, ""), text)) lists++; return; }
@@ -1265,8 +1265,15 @@ async function wcSyncFolder({ interactive } = {}) {
   const local = wcAllLists();
   const tomb = Object.entries(wcListOverlay).filter(([, o]) => o && o.deleted).map(([n]) => n);
   const names = new Set([...Object.keys(local), ...Object.keys(remote).filter(k => !k.startsWith("pack:")), ...tomb]);
+  const packFiles = new Set(Object.keys(remote).filter(k => k.startsWith("pack:")).map(k => k.slice(5)));
   for (const n of names) {
     const r = remote[n], l = local[n], path = n + ".txt";
+    // Lists read from a .yaml/.json pack in the folder are never written back as .txt;
+    // they go away when their pack file does.
+    if (l && l.pack && !r) {
+      if (/\.(ya?ml|json)$/i.test(l.pack) && !packFiles.has(l.pack) && known[l.pack]) { delete wcListOverlay[n]; removed++; }
+      continue;
+    }
     const kPath = r ? r.path : path;
     const remoteChanged = r && r.mtime > (known[kPath] || 0);
     const localChanged = (wcListOverlay[n] && (wcListOverlay[n].updatedAt || 0) > last);
