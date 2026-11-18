@@ -16,6 +16,7 @@ Everything lives in [`index.html`](index.html) (HTML + CSS + vanilla JS, no depe
 - **Preset color palettes** — a **🎨 Preset palettes** picker in the Style block opens ~30 curated, colorhunt-style 4-colour sets. Pick one and choose where it lands — just the image's style palette, or the whole image (which also clears per-element colours). Individual swatches stay editable afterwards.
 - **Font-style picker** — `text` and `logo` elements get a typography picker: choose a preset style (each previewed in a matching, self-hosted web font — works fully offline) or type your own descriptor. The chosen style is injected into that element's prompt as a `font` field and round-trips through save/load and LLM refine.
 - **Live JSON output** — syntax-highlighted, copy or download with one click.
+- **Style templates & wildcards** — 🎭 menu-driven templates (magazine cover, sports video game, cinematic, film noir, product hero…) fill lighting, camera, lens, medium, background and per-element wardrobe/pose/mood, for the whole image or chosen elements. Any field takes Dynamic-Prompts wildcards (`__colours__`, `{a|b}`, `{2$$…}`, weights, variables) with rules, guards, locks and seeds; 🎲 Roll gives a new variation, optionally polished by your AI model. See [Style templates & wildcards](#style-templates--wildcards).
 - **Generate prompt** — describe the image in plain language, **or upload/drop a reference image** (with a vision-capable model), and an OpenAI-compatible LLM (OpenRouter or a local `llama.cpp` server) fills in the whole schema. Settings are stored in `localStorage`.
 - **Composition / style transfer** — use an uploaded image to **rearrange the current setup to the image's layout** (keeping its style) or **restyle it to the image's look** (keeping its composition), instead of a full rebuild — so you can mix a layout from one image with a look from another.
 - **Refine** — ask the LLM to adjust the current setup with a plain-language change (e.g. "make it a lighter composition"); it rewrites the whole setup while keeping everything the request doesn't touch.
@@ -161,6 +162,54 @@ These apply to ✨ Generate, 🪄 Refine and the image composition/style transfe
 - **Generate — Ask me clarifying questions first:** the first press asks up to three questions with suggested answers (or your own); the next press generates with your answers.
 - **Generate — templates:** **★ Save template** stores the description and options; pick one from *Templates…* to reload it.
 - **Generate from an image — Subjects only:** keeps just the people/animals (look, pose, position) from the image and builds a new scene around them from your description. The output aspect follows the image, including the Moss-only ratios when targeting Moss.
+
+## Style templates & wildcards
+
+Give a setup a *look* from a menu, and let wildcards vary it every time you roll.
+
+**🎭 Templates** (header) opens the template picker. Each template fills the image style (aesthetics, lighting, camera / lens, medium, art style), the background, an addition to the high-level description, and a per-element style (lighting, camera, lens, wardrobe, pose, environment, mood, details). Values can contain wildcards, so the same template gives a different sports cover, magazine shoot or film still on every roll.
+- **Apply to image** styles the whole image plus the element types the template targets (people by default). **Apply to selected** styles just the selected elements. Both open the Before/After review, and undo works.
+- **Edit / Duplicate / ＋ New template:** a form with every field, template **variables** (e.g. `sport = __sports__`, used as `${sport}` anywhere in the template), template-only **rules**, notes for the AI, and optional per-format overrides (`{"moss": {"global": {…}}}`) for wording that suits Moss or Ideogram better. **🎲 Sample** shows three rolls before you save.
+- Each element card has a **🎭 Style & wildcards** section: a template picker for that element alone, the eight style fields, **🎲 Roll** for just that element, and **+ wildcard** to insert a list token at the cursor.
+- The ✨ Generate options have a **Style template** picker: the template is rolled and sent as requirements, so the model builds the layout in that style.
+
+**Wildcards** work in any text field: high-level description, style fields, background, element description / text / font / style fields, and the Generate description.
+
+| Syntax | Meaning |
+|---|---|
+| `{a\|b\|c}` | one of the options |
+| `{2$$a\|b\|c}`, `{1-3$$…}`, `{2$$ and $$…}` | several different ones, a range, a custom separator |
+| `{3::a\|1::b}` | weights |
+| `{40%? wearing a cap}` | a 40% chance, otherwise nothing |
+| `__colours__`, `__clothes/hats__`, `__hats__`, `__clothes/*__` | a random line from a list, a list in a folder, any list in a folder |
+| `{2$$__colours__}` | two different items from a list |
+| `${c=!__colours__}` … `${c}` | pick once, reuse (`${v=…}` without `!` re-rolls on every use; `${v:default}`) |
+| `{[time=night] neon\|[time!=night] sun}` | guards: an option (or a list line) is only possible when a variable or an earlier list pick matches (`=` `!=` `~` contains, `a=x,y`, `&`) |
+| `\{ \} \| \_` | literal characters |
+
+This is the [Dynamic Prompts](https://github.com/adieyal/sd-dynamic-prompts) syntax; guards, chance and rules are additions. **Rules** (📚 Wildcard lists → Rules, or inside a template) say things like "when a pick from `time-of-day` is *night*, never pick *golden hour sunlight* from `lighting/natural`" (*never pick* / *only pick* / *always pick*; values match whole words, case-insensitive, `*` for contains). A list can be marked **unique** so it never repeats within a roll.
+
+**Rolling** (🎲 **Roll** in the header, and its ▾ menu):
+- **Roll all** uses a new seed for every wildcard field. **Roll selected elements** re-rolls only those. **Roll ×N and pick** shows N rolls side by side.
+- A rolled field shows a **🎲** badge. Click it to see the wildcard source (editable), every pick, and the template variables. 🔒 **lock** a pick so it survives rolls, ↻ re-roll just that pick or variable, or **Detach** to keep the text and drop the wildcard. An amber **🎲 roll** badge means the field has wildcards that haven't been rolled yet.
+- **Roll + polish with AI** / **Polish current with AI** sends the rolled setup and the list of picks to your model, which merges them into one coherent prompt for the target format (Ideogram or Moss), keeping boxes, element count and text. The result goes through the usual review and undo.
+- **Download batch (ZIP)** writes N rolled prompts in the format the JSON tile shows. Each Ideogram file carries its seed in `_editor`, so re-importing it reproduces that roll.
+- **Seed:** the same seed with the same locks always gives the same picks. **Auto-roll** (on by default) rolls any unrolled wildcards before Copy, Download or Render, so raw `__…__` never reaches a prompt. In ComfyUI mode the render queue has **Re-roll wildcards each iteration**.
+
+**How it lands in the two formats:** image-level fields go where they always do (Ideogram `style_description`, Moss `summary.caption`). Element style fields are added to the element's Ideogram `desc` and Moss `caption` as labelled sentences (`… Lighting: hard rim light. Camera: low angle. Wardrobe: tennis whites.`), after `Typography:`. Imports split them back into the Style fields. The wildcard sources, seed and locks are saved with the working state, setups and the Ideogram download's `_editor` block (never in the prompt itself).
+
+**📚 Wildcard lists & rules** (▾ menu or the Templates window) edits the lists: one item per line, `2::item` weights, `# comments`, items may contain wildcards. It has search, **🎲 Sample 10**, Restore built-in, a Rules tab and a Syntax tab. About 50 starter lists ship built in (colours, materials, lighting, cameras, lenses, film stocks, shots, angles, times of day, weather, places, people, clothes, art styles, eras, moods, sports, magazine genres…). Your edits are stored on top of them.
+- **Import:** `.txt` lists (the file name is the list name), `.yaml` / `.json` packs, or a `.zip` of a Dynamic Prompts `wildcards/` folder. **Export:** one JSON bundle (lists, rules, templates) or a ZIP in the same folder layout.
+- **⇅ Sync with folder** (needs `comfy_proxy.py`): keeps the lists in `wildcards/` next to the proxy (`--wildcards-dir`) as `.txt` files you can edit in any text editor or share with other Dynamic-Prompts tools, and templates as JSON in `wildcards/_templates/` (`--templates-dir`). After the first sync it also syncs whenever the editor loads. Changes on either side are merged; if the same list changed in both places since the last sync, you choose which side wins. `.yaml` / `.json` packs in the folder are read but never rewritten.
+
+### Testing it
+
+1. Open the editor, click **🎭 Templates → Sports video game cover → Apply to image**, check the review and **Apply**. The style, background and the subject's Style section fill in, each with a 🎲 badge.
+2. Click **🎲 Roll** a few times. The sport, venue and kit change together (the venue and sportswear lists follow `${sport}`). Click the 🎲 badge under Aesthetics, 🔒 lock `${sport}`, and roll again: the sport stays.
+3. **Copy for Ideogram** and **Copy for Moss Image** and check the subject's `desc` / `caption` ends with `Lighting: … Camera: … Wardrobe: …`, and that there is no `__` anywhere. **Download**, change things, **Import** the file: the Style fields, sources, seed and locks come back.
+4. In an element's description, type `a __colours__ {cat|dog}` and press **Copy**: it is rolled first.
+5. **▾ → Roll + polish with AI** (needs your model in ⚙ Settings) and check the review. Then **▾ → Roll ×N and pick**.
+6. With the proxy running: **📚 Wildcard lists → ⇅ Sync with folder**, edit `wildcards/colours.txt` in a text editor, sync again, and check the list in the editor.
 
 ## Refine (LLM)
 
@@ -388,9 +437,12 @@ This means the installed ComfyUI has a node that requires an input the bundled w
 | File | Purpose |
 |------|---------|
 | [`index.html`](index.html) | The main app — editor, canvas, LLM generation, ComfyUI mode. |
+| [`wildcards.js`](wildcards.js) | The wildcard engine (no DOM): Dynamic-Prompts parser and resolver with seeds, weights, pick-N, variables, guards, rules and a small YAML reader. Tests: `node --test tests/*.test.mjs`. |
+| [`wildcards-data.js`](wildcards-data.js) | Built-in starter wildcard lists, rules and style templates. |
+| [`wildcards-ui.js`](wildcards-ui.js) | Style templates, wildcard manager, rolling, AI polish, batch ZIP and folder sync in the editor. |
 | [`llmcore.js`](llmcore.js) | Shared engine for both pages: ComfyUI workflow template, resolution/prompt building, the LLM call, config, and the render plumbing. Loaded by `index.html` and `llmcam.html`. |
 | [`llmcam.html`](llmcam.html) | Phone-first camera app — take a photo, transform it (time travel / art style / genre / faithful), render through Ideogram, with a gallery and save/share. Served by the proxy at `/llmcam.html`. |
-| [`comfy_proxy.py`](comfy_proxy.py) | Stdlib proxy: serves the page + local asset files (e.g. `vendor/`), forwards HTTP and the WebSocket to ComfyUI (same-origin, no CORS flags), and hosts the `/vectorize` endpoint (optional `vtracer`/`pillow` deps), `/ideogrammar/outputs` (gallery recovery; needs `--output-dir`), and `/ideogrammar/refimg` (content-addressed cache of reference images for the compare slider; under `--ref-dir`). |
+| [`comfy_proxy.py`](comfy_proxy.py) | Stdlib proxy: serves the page + local asset files (e.g. `vendor/`), forwards HTTP and the WebSocket to ComfyUI (same-origin, no CORS flags), and hosts the `/vectorize` endpoint (optional `vtracer`/`pillow` deps), `/ideogrammar/outputs` (gallery recovery; needs `--output-dir`), and `/ideogrammar/refimg` (content-addressed cache of reference images for the compare slider; under `--ref-dir`), and `/ideogrammar/wildcards` + `/ideogrammar/templates` (wildcard lists and style templates as files; `--wildcards-dir`, `--templates-dir`). |
 | [`comfy_proxy.sh`](comfy_proxy.sh) | start/stop/status/restart/logs helper, plus `install-service`/`uninstall-service` to run it as a background systemd service. |
 | [`comfy_proxy.env.example`](comfy_proxy.env.example) | Template for `comfy_proxy.env` (untracked) — set your ComfyUI address/host/port there instead of in the tracked code. |
 | [`workflow.json`](workflow.json) | The Ideogram 4 ComfyUI workflow (API format) the render mode is built around; also embedded in `index.html`. |
