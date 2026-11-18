@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ideogrammar Help</title>
+<style>
+  :root {
+    --bg: #0a0d13; --panel: #121822; --panel-2: #161d29; --border: #19212c; --border-strong: #283341;
+    --text: #e9eef6; --muted: #8b97a8; --faint: #5d6b7e; --accent: #f32446; --accent-2: #ff5c78; --ok: #34d399; --code: #ffb4c0;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { display: grid; grid-template-columns: 230px minmax(0, 1fr); max-width: 1180px; margin: 0 auto; }
+  nav { position: sticky; top: 0; align-self: start; height: 100vh; overflow: auto; padding: 22px 14px; border-right: 1px solid var(--border); }
+  nav b { display: block; margin: 0 0 10px 8px; font-size: 15px; }
+  nav a { display: block; padding: 5px 8px; border-radius: 4px; color: var(--muted); text-decoration: none; font-size: 13px; }
+  nav a.sub { padding-left: 20px; font-size: 12.5px; }
+  nav a:hover, nav a.on { color: var(--text); background: var(--panel-2); }
+  main { padding: 22px 34px 80px; min-width: 0; }
+  h1 { font-size: 24px; margin: 0 0 6px; }
+  h2 { font-size: 19px; margin: 46px 0 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  h3 { font-size: 15px; margin: 26px 0 8px; }
+  p, li { color: #d3dbe6; }
+  .lead { color: var(--muted); font-size: 15px; }
+  a { color: var(--accent-2); }
+  code, kbd { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12.5px; }
+  code { color: var(--code); background: rgba(255,92,120,.08); padding: 1px 5px; border-radius: 3px; }
+  kbd { background: var(--panel-2); border: 1px solid var(--border-strong); border-radius: 4px; padding: 1px 6px; color: var(--text); }
+  pre { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+  pre code { background: none; padding: 0; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px; }
+  th, td { text-align: left; vertical-align: top; padding: 7px 9px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; }
+  .steps { counter-reset: s; list-style: none; padding: 0; }
+  .steps > li { counter-increment: s; position: relative; padding: 2px 0 14px 44px; }
+  .steps > li::before { content: counter(s); position: absolute; left: 0; top: 0; width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 700; }
+  .steps > li > b:first-child { display: block; color: var(--text); }
+  .note { border-left: 3px solid var(--accent); background: var(--panel); padding: 10px 14px; border-radius: 0 6px 6px 0; margin: 14px 0; }
+  .note.tip { border-color: var(--ok); }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; color: var(--muted); }
+  .flow span { border: 1px solid var(--border-strong); border-radius: 999px; padding: 5px 12px; background: var(--panel); color: var(--text); }
+  .ex { border: 1px solid var(--border); border-radius: 6px; margin: 10px 0; background: var(--panel); }
+  .ex-top { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  .ex-top code { flex: 1; background: none; padding: 0; white-space: pre-wrap; word-break: break-word; }
+  .ex-out { padding: 8px 12px; color: var(--text); min-height: 1.6em; font-size: 13px; }
+  .ex-out div::before { content: "→ "; color: var(--faint); }
+  .ex-out .err { color: var(--accent-2); }
+  .ex-what { padding: 0 12px 8px; color: var(--muted); font-size: 12.5px; }
+  button { background: var(--panel-2); color: var(--text); border: 1px solid var(--border-strong); border-radius: 4px; padding: 5px 11px; font: inherit; font-size: 12.5px; cursor: pointer; white-space: nowrap; }
+  button:hover { border-color: var(--accent); }
+  .ui { display: inline-block; border: 1px solid var(--border-strong); background: var(--panel-2); border-radius: 4px; padding: 0 6px; font-size: 12.5px; white-space: nowrap; }
+  .lists { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; }
+  .lists > div { border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; background: var(--panel); font-size: 12.5px; }
+  .lists b code { font-size: 12px; }
+  .lists small { color: var(--muted); display: block; }
+  .fmt { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 820px) { .wrap { grid-template-columns: 1fr; } nav { display: none; } main { padding: 18px 16px 60px; } .fmt { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav id="toc">
+  <b>📖 Help</b>
+  <a href="#start">Generate an image, step by step</a>
+  <a href="#templates">Style templates</a>
+  <a class="sub" href="#templates-apply">Applying</a>
+  <a class="sub" href="#templates-make">Making your own</a>
+  <a class="sub" href="#wizard">The template wizard</a>
+  <a class="sub" href="#previews">Preview images</a>
+  <a href="#lists">Wildcard lists</a>
+  <a class="sub" href="#lists-with-templates">Lists + templates</a>
+  <a class="sub" href="#builtin-lists">Built-in lists</a>
+  <a href="#syntax">Syntax, with examples</a>
+  <a href="#logic">Logic: choices, conditions, rules</a>
+  <a class="sub" href="#vars">Shared choices (variables)</a>
+  <a class="sub" href="#guards">Conditions (guards)</a>
+  <a class="sub" href="#rules">Rules</a>
+  <a href="#rolling">Rolling, locks and seeds</a>
+  <a href="#formats">Ideogram vs Moss output</a>
+  <a href="#recipes">Recipes</a>
+  <a href="#faq">Questions</a>
+</nav>
+<main>
+<h1>Ideogrammar help</h1>
+<p class="lead">How to build an image prompt, give it a look with a style template, and use wildcard lists so every roll is a new variation. Examples marked <button disabled>🎲 Try it</button> run live with your own lists.</p>
+
+<!-- ============================================================ -->
+<h2 id="start">Generate an image, step by step</h2>
+<ol class="steps">
+  <li><b>Choose the frame.</b> Set the aspect ratio (<span class="ui">AR</span>) and size (<span class="ui">MP</span>) in the Layout preview header. Choose which model the prompt is for with <span class="ui">Showing: Ideogram / Moss</span> in the JSON output; the AI tools follow it too.</li>
+  <li><b>Get a starting layout.</b> Either press <span class="ui">✨ Generate prompt</span> and describe the picture (or drop in a reference photo) to have your AI model build it, or build it by hand: write the high-level description, then add elements with <span class="ui">＋</span> and drag their boxes on the canvas. One element per person; text the image must show goes in a <code>text</code> element.</li>
+  <li><b>Give it a look.</b> Click <span class="ui">🎭 Templates</span>, pick one (say <i>Sports video game cover</i>) and press <span class="ui">Apply to image</span>. Check the Before/After review and press <span class="ui">Apply</span>. The style, background and the people's clothes, pose and lighting are filled in. Fields that came from wildcards get a <span class="ui">🎲</span> badge.</li>
+  <li><b>Roll until you like it.</b> Press <span class="ui">🎲 Roll</span> for new picks. Like one part? Click its 🎲 badge and 🔒 lock that pick; the next rolls keep it. <span class="ui">▾ → Roll ×N and pick</span> shows several versions side by side.</li>
+  <li><b>Optional: polish.</b> <span class="ui">▾ → Polish current with AI</span> has your model rewrite the random picks into smooth, consistent wording for Ideogram or Moss. You see a review first, and <span class="ui">↶</span> undoes it.</li>
+  <li><b>Get the image.</b> <b>Manual mode:</b> <span class="ui">Copy for Ideogram</span> / <span class="ui">Copy for Moss Image</span> (or Download) and paste the JSON into your tool. <b>ComfyUI mode:</b> press <span class="ui">Render</span>. To render many variations, set <span class="ui">Iterations</span> in the queue and tick <span class="ui">Re-roll wildcards each iteration</span>.</li>
+  <li><b>Keep it.</b> <span class="ui">💾</span> saves the setup, wildcard picks included. Once you have a render you like, give the template a picture: <span class="ui">🎭 Templates → 🖼 → Use the current render</span>.</li>
+</ol>
+<div class="note tip">You never have to roll by hand before copying: anything with wildcards that hasn't been rolled yet is rolled automatically when you copy, download or render (<span class="ui">▾ → Auto-roll</span>).</div>
+
+<!-- ============================================================ -->
+<h2 id="templates">Style templates</h2>
+<p>A template is a saved <i>look</i>. It can set these fields:</p>
+<table>
+  <tr><th>For the whole image</th><th>For each person / object</th></tr>
+  <tr><td>Aesthetics (overall look), Lighting, Camera &amp; lens, Medium, Art style, Background, an addition to the high-level description, a colour palette</td>
+      <td>Lighting, Camera, Lens, Wardrobe, Pose, Environment, Mood, Details, plus words before or after the element's description</td></tr>
+</table>
+<p>Any of these can be plain words (<i>"soft window light"</i>) or wildcards (<code>__lighting/natural__</code>) that pick something new on every roll. That is what makes one template produce endless variations.</p>
+
+<h3 id="templates-apply">Applying a template</h3>
+<ul>
+  <li><span class="ui">Apply to image</span> sets the image fields, and the per-person fields on the element types the template targets (people by default).</li>
+  <li><span class="ui">Apply to selected</span> styles only the elements you selected (click, or Ctrl/⌘-click several on the canvas). Use it to give one person a different look.</li>
+  <li>Each element card has a <span class="ui">🎭 Style &amp; wildcards</span> section with its own template menu, the eight style fields, <span class="ui">🎲 Roll</span> for that element only, and <span class="ui">+ wildcard</span> to insert a list name where the cursor is.</li>
+  <li>In <span class="ui">✨ Generate prompt → Options</span>, <span class="ui">Style template</span> rolls a template and asks the model to build the layout in that style.</li>
+  <li>Applying another template replaces the fields the previous one set. Your own description text is kept.</li>
+</ul>
+
+<h3 id="templates-make">Making your own</h3>
+<p>Three ways, from easiest:</p>
+<ol>
+  <li><span class="ui">🧭 Template wizard</span>: a guided form, explained <a href="#wizard">below</a>.</li>
+  <li><span class="ui">Duplicate</span> a template that is close, then <span class="ui">Edit</span> it.</li>
+  <li><span class="ui">＋ New template</span>: the full editor, including <a href="#rules">rules</a> and per-format wording.</li>
+</ol>
+<p><span class="ui">Sample</span> on any template card shows three random rolls, so you can check a template before using it. Edited built-in templates can be <span class="ui">Reset</span>.</p>
+
+<h3 id="wizard">The template wizard</h3>
+<p>The wizard connects the wildcard lists to template fields for you. It walks through five steps:</p>
+<ol class="steps">
+  <li><b>Start.</b> Begin blank, or from an existing template to make your own version of it.</li>
+  <li><b>Shared choices (optional).</b> Something rolled once and reused in several fields, so they agree, e.g. <code>sport = __sports__</code>. See <a href="#vars">shared choices</a>.</li>
+  <li><b>Image style.</b> One box per field. Under each box are <b>suggested lists that fit that field</b>: for Lighting you see <code>__lighting/setups__</code>, <code>__lighting/natural__</code> and so on. Click one to insert it (shift-click picks two different items). <span class="ui">50% chance</span> makes the text appear only sometimes. The line under the box shows a sample roll as you type.</li>
+  <li><b>People &amp; objects.</b> The same for clothes, pose, mood and so on, and which element types the template styles.</li>
+  <li><b>Name &amp; preview.</b> Name, category, a preview image, three sample rolls, then <span class="ui">Save</span> or <span class="ui">Save &amp; apply to image</span>.</li>
+</ol>
+<p>Leave a field empty and the template won't touch it.</p>
+
+<h3 id="previews">Preview images</h3>
+<p>Each template card shows a picture, so you can see what a template looks like. Templates without one show a coloured placeholder. To set one, press <span class="ui">🖼</span> on the card:</p>
+<ul>
+  <li><span class="ui">Upload an image…</span>: any picture of the look.</li>
+  <li><span class="ui">Use the current render</span>: the image in the Rendered output window (ComfyUI mode). The usual routine: apply the template, render, then set it as the preview.</li>
+</ul>
+<p>Previews are scaled down and kept in the browser. They are included in exports and in folder sync.</p>
+
+<!-- ============================================================ -->
+<h2 id="lists">Wildcard lists</h2>
+<p>A wildcard list is a set of options, one per line. Writing its name between double underscores, <code>__colours__</code>, means <i>"pick one line from the colours list"</i>. Lists can be in folders: <code>__clothes/hats__</code>. If the name is unique, <code>__hats__</code> works too.</p>
+<p>Open <span class="ui">▾ → 📚 Wildcard lists &amp; rules</span> to see, edit, add, import or export lists. In a list:</p>
+<pre><code># lines starting with # are notes
+red
+3::navy blue          ← three times as likely as the others
+{light|dark} green    ← a line can contain wildcards itself
+__colours__ and gold  ← …including other lists</code></pre>
+<p>Use <span class="ui">🎲 Sample 10</span> to see what a list gives. Under the editor it says which templates use the list.</p>
+<p>Lists from Stable Diffusion's <i>Dynamic Prompts</i> work as they are. <span class="ui">⬆ Import</span> accepts <code>.txt</code> files (the file name becomes the list name), <code>.yaml</code> / <code>.json</code> packs, or a <code>.zip</code> of a whole <code>wildcards</code> folder.</p>
+
+<h3 id="lists-with-templates">How lists and templates fit together</h3>
+<div class="flow"><span>📚 list: lighting/natural</span>→<span>🎭 template field: Lighting = <code>__lighting/natural__</code></span>→<span>🎲 Roll</span>→<span>Lighting: golden hour sunlight</span></div>
+<p>Templates don't contain the options themselves. They <b>refer to lists by name</b>. So:</p>
+<ul>
+  <li>Each template card shows <b>Rolls from:</b> with the lists it uses. Click one to open that list.</li>
+  <li><b>Edit a list and every template using it changes.</b> Add <i>"neon-lit greenhouse"</i> to <code>places/indoor</code>, and every template that rolls a place can now pick it.</li>
+  <li>To use an imported pack in a template, put its list name in a field: in the <a href="#wizard">wizard</a> pick it from <span class="ui">+ any list</span>, or type <code>__yourpack/name__</code> in the editor.</li>
+  <li>You don't need a template to use lists. Type <code>__colours__</code> straight into any field, such as an element's description, and roll.</li>
+</ul>
+<div class="ex" data-src="A __people/ages__ __people/roles__ in a __colours__ __clothes/outerwear__, __people/poses__, __lighting/natural__"><div class="ex-what">A description built only from lists.</div></div>
+
+<h3 id="builtin-lists">The built-in lists</h3>
+<p>These come with the app (your edits and imports are included here). Click a name to roll it.</p>
+<div class="lists" id="listIndex"></div>
+
+<!-- ============================================================ -->
+<h2 id="syntax">Syntax, with examples</h2>
+<p>This works in every text field, in lists, in templates and in the Generate description. Press <button disabled>🎲 Try it</button> to roll an example.</p>
+<div id="syntaxExamples"></div>
+
+<!-- ============================================================ -->
+<h2 id="logic">Logic: choices, conditions, rules</h2>
+<p>Random picks can clash (a tennis player in a wetsuit, sunshine at midnight). Three tools keep a roll consistent.</p>
+
+<h3 id="vars">1 · Shared choices (variables)</h3>
+<p><code>${name=!…}</code> rolls once and remembers the result. <code>${name}</code> repeats it anywhere later. In a template these are the <b>shared choices</b> (wizard step 2): they are rolled first and every field can use them.</p>
+<div class="ex" data-src="${sport=!__sports__}A ${sport} star on a ${sport} video game cover"><div class="ex-what">The sport is picked once and used twice.</div></div>
+<p>Without the <code>!</code> (<code>${look={moody|bright}}</code>) the choice is rolled again each time it's used. <code>${name:fallback}</code> uses <i>fallback</i> when nothing is set.</p>
+
+<h3 id="guards">2 · Conditions (guards)</h3>
+<p>Put <code>[condition]</code> at the start of an option or a list line. That option can only be picked when the condition is true.</p>
+<div class="ex" data-src="${time=!{day|night}}${time}: {[time=night] neon signs and wet streets|[time=day] bright sun and long shadows}"><div class="ex-what">The lighting always matches the time.</div></div>
+<table>
+  <tr><th>Condition</th><th>True when</th></tr>
+  <tr><td><code>[time=night]</code></td><td>the variable <code>time</code> (or something picked earlier from a list called <code>time</code>) is <i>night</i></td></tr>
+  <tr><td><code>[time=night,dusk]</code></td><td>…is night <i>or</i> dusk</td></tr>
+  <tr><td><code>[time!=night]</code></td><td>…is anything else</td></tr>
+  <tr><td><code>[colour~red]</code></td><td>…contains "red" (e.g. "dark red")</td></tr>
+  <tr><td><code>[sport!=*]</code></td><td>no sport has been chosen at all</td></tr>
+  <tr><td><code>[a=x &amp; b=y]</code></td><td>both are true</td></tr>
+</table>
+<p>The built-in <code>__places/sports__</code> list uses guards: its lines start with <code>[sport=tennis]</code>, <code>[sport=boxing]</code> and so on, so a template that sets <code>sport</code> automatically gets a matching venue. Its last line, <code>[sport!=*] …</code>, covers the case where no sport was chosen.</p>
+<div class="ex" data-src="${sport=!{tennis|boxing|surfing}}${sport}: __places/sports__ / __clothes/sportswear__"><div class="ex-what">The venue and kit follow the sport.</div></div>
+
+<h3 id="rules">3 · Rules</h3>
+<p>Rules are "if this, then not that" settings that apply to every roll, without changing any list. Edit them in <span class="ui">📚 Wildcard lists → Rules</span>, or inside a template (they then apply only while that template is in use).</p>
+<pre><code>When  a pick from list  time-of-day  is  night, midnight, dusk
+then from  lighting/natural  never pick  golden hour sunlight, harsh midday sun</code></pre>
+<ul>
+  <li><b>never pick</b> removes options, <b>only pick</b> keeps just the given ones, <b>always pick</b> forces one.</li>
+  <li>The condition can be a list pick or a shared choice (variable), with <b>is</b> or <b>is not</b>.</li>
+  <li>Values match whole lines, ignoring case; <code>*</code> means "anything", so <code>*sun*</code> matches every line containing "sun".</li>
+  <li>Rules see what was picked <i>earlier</i> in the roll. The image fields roll first, then each element in order.</li>
+</ul>
+<div class="ex" data-src="__time-of-day__ — __lighting/natural__" data-rules='[{"when":{"list":"time-of-day","is":["night","midnight","dusk","blue hour"]},"then":{"list":"lighting/natural","exclude":["*sun*"]}}]'><div class="ex-what">With the rule “at night, never a line containing sun”.</div></div>
+<p><b>Unique lists:</b> tick <span class="ui">Unique</span> on a list so it never gives the same line twice in one roll (e.g. three people, three different shirts).</p>
+
+<!-- ============================================================ -->
+<h2 id="rolling">Rolling, locks and seeds</h2>
+<table>
+  <tr><th>Control</th><th>What it does</th></tr>
+  <tr><td><span class="ui">🎲 Roll</span></td><td>New picks for every wildcard field. Locked picks stay.</td></tr>
+  <tr><td><span class="ui">▾ → Roll selected elements</span> / element <span class="ui">🎲 Roll</span></td><td>New picks for those elements only. Everything else stays exactly as it is.</td></tr>
+  <tr><td><span class="ui">▾ → Roll ×N and pick</span></td><td>Shows N rolls side by side; you pick one.</td></tr>
+  <tr><td>🎲 badge under a field</td><td>Shows the field's <b>wildcard source</b> (editable), every pick, and the shared choices. 🔒 <b>locks</b> a pick, ↻ re-rolls just that pick, <span class="ui">Detach</span> keeps the text but stops rolling it. An amber <span class="ui">🎲 roll</span> badge means not rolled yet.</td></tr>
+  <tr><td><span class="ui">▾ → Seed</span></td><td>The same seed with the same locks always gives the same result. Downloads store the seed, so a file re-imports exactly.</td></tr>
+  <tr><td><span class="ui">▾ → Roll + polish with AI</span></td><td>Rolls, then your AI model rewrites the picks into one coherent prompt for the target format. Boxes, element count and text stay the same.</td></tr>
+  <tr><td><span class="ui">▾ → Download batch (ZIP)</span></td><td>N rolled prompts as files, in the format the JSON tile shows.</td></tr>
+  <tr><td>Render queue → <span class="ui">Re-roll wildcards each iteration</span></td><td>A new variation for every render in the queue.</td></tr>
+</table>
+<div class="note">When you roll, the text you see is replaced from the field's wildcard source. If you hand-edit a rolled field and want to keep the edit, press <span class="ui">Detach</span> on its 🎲 badge, or lock the picks you care about.</div>
+
+<!-- ============================================================ -->
+<h2 id="formats">Ideogram vs Moss output</h2>
+<p>Templates and wildcards fill the same editor fields for both models. The exporter places them where each format expects:</p>
+<div class="fmt">
+<div><h3>Ideogram</h3>
+<pre><code>"style_description": {
+  "aesthetics": "AAA tennis video game box art…",
+  "lighting": "stadium floodlights…",
+  "photo": "low angle hero shot, 24mm…",
+  "medium": "digital composite cover art" },
+"elements": [{ "type": "obj",
+  "desc": "A tennis player mid-serve. Lighting: hard
+   rim light. Camera: low angle. Wardrobe: tennis
+   whites. Pose: mid-action swing." }]</code></pre></div>
+<div><h3>Moss Image</h3>
+<pre><code>"summary": { "caption": "… Style: AAA tennis video
+   game box art… Lighting: stadium floodlights…
+   Camera: low angle hero shot, 24mm…" },
+"items": [{ "label": "character",
+  "caption": "A tennis player mid-serve. Lighting:
+   hard rim light. Camera: low angle. Wardrobe:
+   tennis whites. Pose: mid-action swing." }]</code></pre></div>
+</div>
+<p>The per-person fields become labelled sentences after the description. Importing either format splits them back into the Style fields. A template can also word things differently for each model (<span class="ui">Edit → Per-format overrides</span>), and AI polish uses the guidance for the model you're targeting.</p>
+
+<!-- ============================================================ -->
+<h2 id="recipes">Recipes</h2>
+<h3>Same person, many outfits</h3>
+<ol><li>Write the person's description plainly (no wildcards).</li><li>In their <span class="ui">🎭 Style</span> section set Wardrobe to <code>__clothes/outfit__</code>.</li><li>Roll that element only (its <span class="ui">🎲 Roll</span>), or queue renders with re-roll on.</li></ol>
+<h3>Magazine cover for a random sport</h3>
+<ol><li>🎭 Templates → <i>Magazine cover</i> → Apply to image.</li><li>Open the 🎲 badge on Aesthetics and 🔒 lock <code>${genre}</code> once it says <i>sports</i>.</li><li>Roll: the genre stays, and everything else varies.</li></ol>
+<h3>A crowd where nobody matches</h3>
+<p>Open <code>clothes/tops</code> in the Wildcard lists, tick <span class="ui">Unique</span>, and give each person <code>__colours__ __clothes/tops__</code>. No two people get the same top in one roll.</p>
+<h3>Night-only city scenes</h3>
+<div class="ex" data-src="${time=!{night|midnight|dusk}}__places/urban__ at ${time}, lit by {2$$ and $$__lighting/practical__}"><div class="ex-what">Fixed to night, with two different practical lights.</div></div>
+<h3>Mixing your own pack into a built-in template</h3>
+<ol><li>Import your pack (e.g. <code>props.txt</code>) in 📚 Wildcard lists.</li><li>🎭 Templates → <i>Duplicate</i> the template → <i>Edit</i>, or open the 🧭 wizard starting from it.</li><li>Add <code>{50%? holding __props__}</code> to <i>Details</i>.</li></ol>
+
+<!-- ============================================================ -->
+<h2 id="faq">Questions</h2>
+<p><b>I see <code>__something__</code> in my prompt.</b> That list doesn't exist (check the spelling in 📚 Wildcard lists; names are folder/name), or Auto-roll is off. A missing list shows a red chip on the template card.</p>
+<p><b>A roll gave nothing for a field.</b> A rule or guard removed every option. The 🎲 badge shows the reason ("Nothing left to pick…").</p>
+<p><b>My edits to a field disappeared after rolling.</b> The field still has a wildcard source. Use <span class="ui">Detach</span>, or put your change into the source in the 🎲 badge.</p>
+<p><b>Where are my lists kept?</b> In this browser. Use <span class="ui">⬇ Export</span> for a backup. With <code>comfy_proxy.py</code> running, <span class="ui">⇅ Sync with folder</span> keeps them as files in <code>wildcards/</code> next to the proxy, editable in any text editor and shareable with other Dynamic Prompts tools.</p>
+<p><b>Do I need an AI model for any of this?</b> No. Templates, lists and rolling work offline. The AI is only used by Generate, Refine and Polish.</p>
+</main>
+</div>
+
+<script src="wildcards.js"></script>
+<script src="wildcards-data.js"></script>
+<script>
+"use strict";
+// Same lists and rules the editor uses: built-ins plus this browser's edits.
+const load = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (_) { return d; } };
+const overlay = load("ideogrammar.wildcards", {});
+const LISTS = {};
+for (const [n, t] of Object.entries(WC_BUILTIN_LISTS)) LISTS[n] = { text: t, opts: {} };
+for (const [n, o] of Object.entries(overlay)) { if (!o) continue; if (o.deleted) delete LISTS[n]; else LISTS[n] = { text: o.text || "", opts: o.opts || {} }; }
+const rulesStore = load("ideogrammar.wcRules", null);
+const RULES = rulesStore && Array.isArray(rulesStore.rules) ? rulesStore.rules : WC_BUILTIN_RULES;
+const tplOverlay = load("ideogrammar.styleTemplates", {});
+const TEMPLATES = WC_BUILTIN_TEMPLATES.filter(t => !(tplOverlay[t.id] && tplOverlay[t.id].deleted)).map(t => tplOverlay[t.id] || t)
+  .concat(Object.entries(tplOverlay).filter(([id, o]) => o && !o.deleted && !WC_BUILTIN_TEMPLATES.some(t => t.id === id)).map(([id, o]) => ({ ...o, id })));
+const NL = WC.normLists(LISTS);
+
+const el = (tag, attrs, ...kids) => { const e = document.createElement(tag); Object.assign(e, attrs || {}); for (const k of kids.flat()) if (k != null) e.append(k); return e; };
+function roll(src, rules) {
+  const r = WC.resolve(src, { lists: NL, rules: RULES.concat(rules || []), seed: WC.newSeed() });
+  return el("div", { className: r.errors.length ? "err" : "" }, r.text + (r.errors.length ? "   ⚠ " + r.errors.join("; ") : ""));
+}
+function example(box) {
+  const src = box.dataset.src, rules = box.dataset.rules ? JSON.parse(box.dataset.rules) : [];
+  const out = el("div", { className: "ex-out" });
+  const go = () => { out.replaceChildren(roll(src, rules), roll(src, rules), roll(src, rules)); };
+  box.prepend(el("div", { className: "ex-top" }, el("code", { textContent: src }), el("button", { textContent: "🎲 Try it", onclick: go })));
+  box.append(out);
+  go();
+}
+
+const SYNTAX = [
+  ["{red|green|blue}", "One of the options."],
+  ["{2$$red|green|blue|gold}", "Two different options, joined with a comma."],
+  ["{1-3$$red|green|blue|gold}", "One to three of them."],
+  ["{2$$ and $$cats|dogs|birds}", "Two, joined with “ and ” instead of a comma."],
+  ["{5::common|1::rare}", "Weights: “common” is five times as likely."],
+  ["a hat {40%? with a feather}", "A 40% chance of the extra words; otherwise nothing."],
+  ["__colours__", "A random line from the colours list."],
+  ["__clothes/hats__", "A list in a folder (__hats__ works too, when the name is unique)."],
+  ["__clothes/*__", "A line from any list in the clothes folder."],
+  ["{2$$__colours__}", "Two different lines from one list."],
+  ["${c=!__colours__}a ${c} car next to a ${c} door", "Pick once, use twice (a shared choice)."],
+  ["${mood:calm} sea", "Use a variable, with a fallback when it isn't set."],
+  ["{[x=1] only when x is 1|always possible}", "A guard: the first option needs x=1 (here x isn't set, so it never appears)."],
+  ["100\\% \\{literal braces\\}", "A backslash makes the next character plain text."],
+];
+
+document.getElementById("syntaxExamples").append(...SYNTAX.map(([src, what]) => {
+  const b = el("div", { className: "ex" }); b.dataset.src = src;
+  b.append(el("div", { className: "ex-what", textContent: what }));
+  return b;
+}));
+document.querySelectorAll(".ex").forEach(example);
+
+// List index: name, size, a few items, the templates that roll from it.
+const usedBy = {};
+for (const t of TEMPLATES) {
+  const strs = []; const walk = v => { if (typeof v === "string") strs.push(v); else if (v && typeof v === "object") Object.values(v).forEach(walk); };
+  walk([t.global, t.element, t.vars]);
+  for (const s of strs) for (const ref of WC.listRefs(s)) for (const n of WC.lookup(NL, ref).lists) (usedBy[n] = usedBy[n] || new Set()).add(t.name);
+}
+document.getElementById("listIndex").append(...Object.keys(LISTS).sort().map(n => {
+  const items = WC.parseList(LISTS[n].text);
+  const out = el("small", { textContent: items.slice(0, 4).map(i => i.text).join(" · ") + (items.length > 4 ? " …" : "") });
+  const b = el("button", { textContent: "__" + n + "__", title: "Roll it", onclick: () => { out.textContent = "→ " + WC.resolve("__" + n + "__", { lists: NL, rules: RULES, seed: WC.newSeed() }).text; } });
+  b.style.cssText = "padding:0 6px;font-family:ui-monospace,Consolas,monospace";
+  const u = usedBy[n] ? el("small", { textContent: "used by: " + Array.from(usedBy[n]).join(", ") }) : null;
+  return el("div", {}, b, el("span", { textContent: "  " + items.length + " items" }), out, u);
+}));
+
+// Highlight the section in view in the side menu.
+const links = Array.from(document.querySelectorAll("#toc a"));
+const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) links.forEach(a => a.classList.toggle("on", a.getAttribute("href") === "#" + e.target.id)); }), { rootMargin: "0px 0px -70% 0px" });
+document.querySelectorAll("h2[id], h3[id]").forEach(h => io.observe(h));
+</script>
+</body>
+</html>

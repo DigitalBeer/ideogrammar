@@ -32,6 +32,10 @@ Dynamic-Prompts-style wildcard system that work in both formats.
 - `comfy_proxy.py`: `/ideogrammar/wildcards[/<path>]` and `/ideogrammar/templates[/<name>.json]`
   (`--wildcards-dir`, `--templates-dir`).
 - README: "Style templates & wildcards" section with test steps.
+- Follow-up: built-in Help (`help.html`, header **?**, Help buttons in the modals), 🧭 Template wizard with
+  per-field list suggestions, template preview images (upload / current render; stored in
+  `ideogrammar.tplPreviews`, included in export and folder sync), "Rolls from" list chips on template cards
+  and "Used by templates" in the list editor (`wildcards-wizard.js`).
 - Checked in the browser: template apply + review, roll / lock / re-roll, both exports clean of raw syntax,
   Ideogram download and Moss round trips, ZIP (stored + deflate) import/export, YAML import, batch ZIP,
   AI polish with a fake model (review + undo), Roll ×N, template editor, rules editor, and folder sync against a
@@ -39,7 +43,7 @@ Dynamic-Prompts-style wildcard system that work in both formats.
 
 ## Not done
 - No run against the user's real LLM: neither the Moss-era Generate/Refine features nor the wildcard AI polish (fake model only).
-- `wildcards-templates` is not pushed and has no PR. `moss-image-export` has no PR into the fork's `main`.
+- `wildcards-templates` has no PR (pushed to the fork; later commits may not be). `moss-image-export` has no PR into the fork's `main`.
 - The UI was checked in the desktop layout only, not on a phone-width screen.
 
 ## Next steps

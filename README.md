@@ -167,8 +167,12 @@ These apply to ✨ Generate, 🪄 Refine and the image composition/style transfe
 
 Give a setup a *look* from a menu, and let wildcards vary it every time you roll.
 
+**? Help** (header) opens a built-in guide ([`help.html`](help.html)): generating an image step by step, templates, how wildcard lists feed templates, the syntax and logic with live "🎲 Try it" examples, rolling, and how it all lands in Ideogram vs Moss output.
+
 **🎭 Templates** (header) opens the template picker. Each template fills the image style (aesthetics, lighting, camera / lens, medium, art style), the background, an addition to the high-level description, and a per-element style (lighting, camera, lens, wardrobe, pose, environment, mood, details). Values can contain wildcards, so the same template gives a different sports cover, magazine shoot or film still on every roll.
 - **Apply to image** styles the whole image plus the element types the template targets (people by default). **Apply to selected** styles just the selected elements. Both open the Before/After review, and undo works.
+- **🧭 Template wizard:** builds a template step by step (start → shared choices → image style → people & objects → name & preview). Under every field it suggests the wildcard lists that fit it (lighting lists for Lighting, clothes lists for Wardrobe…), so you click lists in instead of typing their names, with a live sample roll under each box.
+- **Preview images:** 🖼 on a template card sets its picture (upload one, or use the current render); templates without one show a coloured placeholder. Each card also lists the wildcard lists it **rolls from** (click to open one), and the list editor shows which templates use a list.
 - **Edit / Duplicate / ＋ New template:** a form with every field, template **variables** (e.g. `sport = __sports__`, used as `${sport}` anywhere in the template), template-only **rules**, notes for the AI, and optional per-format overrides (`{"moss": {"global": {…}}}`) for wording that suits Moss or Ideogram better. **🎲 Sample** shows three rolls before you save.
 - Each element card has a **🎭 Style & wildcards** section: a template picker for that element alone, the eight style fields, **🎲 Roll** for just that element, and **+ wildcard** to insert a list token at the cursor.
 - The ✨ Generate options have a **Style template** picker: the template is rolled and sent as requirements, so the model builds the layout in that style.
@@ -439,6 +443,8 @@ This means the installed ComfyUI has a node that requires an input the bundled w
 | [`index.html`](index.html) | The main app — editor, canvas, LLM generation, ComfyUI mode. |
 | [`wildcards.js`](wildcards.js) | The wildcard engine (no DOM): Dynamic-Prompts parser and resolver with seeds, weights, pick-N, variables, guards, rules and a small YAML reader. Tests: `node --test tests/*.test.mjs`. |
 | [`wildcards-data.js`](wildcards-data.js) | Built-in starter wildcard lists, rules and style templates. |
+| [`wildcards-wizard.js`](wildcards-wizard.js) | Template preview images, list ↔ template links, the Template wizard and the Help window. |
+| [`help.html`](help.html) | The built-in help page (also opens on its own), with live examples that use your lists. |
 | [`wildcards-ui.js`](wildcards-ui.js) | Style templates, wildcard manager, rolling, AI polish, batch ZIP and folder sync in the editor. |
 | [`llmcore.js`](llmcore.js) | Shared engine for both pages: ComfyUI workflow template, resolution/prompt building, the LLM call, config, and the render plumbing. Loaded by `index.html` and `llmcam.html`. |
 | [`llmcam.html`](llmcam.html) | Phone-first camera app — take a photo, transform it (time travel / art style / genre / faithful), render through Ideogram, with a gallery and save/share. Served by the proxy at `/llmcam.html`. |

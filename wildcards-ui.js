@@ -782,6 +782,8 @@ function wcInstallHeader() {
   const roll = wcEl("button", { class: "has-label", id: "wcRollBtn", title: "Roll wildcards: new picks for every 🎲 field (locked picks stay)", "aria-label": "Roll wildcards", onclick: wcRollAll }, wcEl("span", { class: "bico" }, "🎲"), wcEl("span", {}, "Roll"));
   const menu = wcEl("button", { id: "wcMenuBtn", title: "Wildcard options: roll selected, roll ×N, AI polish, batch, seed, lists", "aria-label": "Wildcard menu", onclick: e => wcToggleMenu(e.currentTarget) }, "▾");
   const tpl = wcEl("button", { class: "has-label", id: "wcTplBtn", title: "Style templates (magazine, sports game, cinematic…)", "aria-label": "Style templates", onclick: () => wcOpenTemplates() }, wcEl("span", { class: "bico" }, "🎭"), wcEl("span", {}, "Templates"));
+  const help = wcEl("button", { id: "wcHelpBtn", title: "Help: step-by-step guide, templates, wildcards and rolling", "aria-label": "Help", onclick: () => wcOpenHelp() }, "?");
+  after.insertAdjacentElement("afterend", help);
   after.insertAdjacentElement("afterend", tpl);
   after.insertAdjacentElement("afterend", menu);
   after.insertAdjacentElement("afterend", roll);
@@ -803,7 +805,9 @@ function wcOpenTemplates() {
       "“Apply to image” also styles subject elements; “Apply to selected” styles just the selected elements."),
       m.search, m.cats, wcEl("div", { style: { height: "10px" } }), m.grid);
     m.foot.append(
+      wcEl("button", { title: "How templates, lists and rolling work", onclick: () => wcOpenHelp("templates") }, "📖 Help"),
       wcEl("button", { onclick: () => wcOpenManager("lists") }, "📚 Wildcard lists"),
+      wcEl("button", { title: "Build a template step by step from the wildcard lists", onclick: () => wcOpenWizard() }, "🧭 Template wizard"),
       wcEl("button", { onclick: () => wcOpenTemplateEditor(null) }, "＋ New template"),
       wcEl("button", { class: "primary", onclick: () => wcCloseModal("wcTplOverlay") }, "Close"));
   }
@@ -822,15 +826,18 @@ function wcRenderTemplates() {
   const hasSel = wcSelectedKeys().size > 0;
   const active = state.wild && state.wild.templateId;
   m.grid.replaceChildren(...list.map(t => wcEl("div", { class: "var-card" + (t.id === active ? " wc-active" : "") },
+    wcTemplateThumb(t),
     wcEl("div", { class: "var-head" }, t.name, t.id === active ? wcEl("span", { class: "wc-tag" }, "in use") : null, t.modified ? wcEl("span", { class: "wc-tag" }, t.builtin ? "edited" : "yours") : null),
     wcEl("div", { class: "var-meta" }, (t.category || "Other") + " · " + ({ global: "image only", element: "elements only", both: "image + elements" }[t.scope || "both"])),
     wcEl("div", { class: "var-desc" }, wcShort((t.global && (t.global.aesthetics || t.global.lighting)) || Object.values(t.element || {})[0] || "", 150)),
+    wcListChips(t),
     wcEl("div", { class: "wc-row" },
       t.scope !== "element" ? wcEl("button", { class: "primary", onclick: () => wcApplyTemplateReview(t, "image") }, "Apply to image") : null,
       t.scope !== "global" ? wcEl("button", { disabled: !hasSel, title: hasSel ? "" : "Select elements on the canvas first", onclick: () => wcApplyTemplateReview(t, "selected") }, "Apply to selected") : null),
     wcEl("div", { class: "wc-row" },
       wcEl("button", { class: "ghost", onclick: () => wcSampleTemplate(t) }, "Sample"),
       wcEl("button", { class: "ghost", onclick: () => wcOpenTemplateEditor(t) }, "Edit"),
+      wcEl("button", { class: "ghost", title: "Set a preview image for this template", onclick: e => wcPreviewMenu(t, e.currentTarget) }, "🖼"),
       wcEl("button", { class: "ghost", onclick: () => { const c = JSON.parse(JSON.stringify(t)); c.id = wcNewId(t.name + "-copy"); c.name = t.name + " (copy)"; wcSaveTemplate(c); wcRenderTemplates(); } }, "Duplicate"),
       t.builtin ? (t.modified ? wcEl("button", { class: "ghost", onclick: () => { if (confirm(`Reset “${t.name}” to the built-in version?`)) { wcRestoreTemplate(t.id); wcRenderTemplates(); } } }, "Reset") : null)
         : wcEl("button", { class: "ghost", onclick: () => { if (confirm(`Delete the template “${t.name}”?`)) { wcDeleteTemplate(t.id); wcRenderTemplates(); } } }, "Delete"))
@@ -993,6 +1000,7 @@ function wcOpenManager(tab) {
       wcEl("button", { title: "Everything (lists, rules, templates) as one JSON file", onclick: wcExportJSON }, "⬇ Export JSON"),
       wcEl("button", { title: "A wildcards folder as a ZIP: one .txt per list, plus _templates/", onclick: wcExportZip }, "⬇ Export ZIP"),
       wcEl("button", { title: "Sync with the wildcards/ folder next to comfy_proxy.py", onclick: () => wcSyncFolder({ interactive: true }) }, "⇅ Sync with folder"),
+      wcEl("button", { title: "How lists, syntax and rules work", onclick: () => wcOpenHelp("lists") }, "📖 Help"),
       wcEl("button", { class: "primary", onclick: () => wcCloseModal("wcMgrOverlay") }, "Close"));
   }
   if (tab) wcMgrTab = tab;
@@ -1043,6 +1051,7 @@ function wcRenderManager() {
     editor.append(
       wcEl("div", { class: "wc-row" }, wcEl("span", { class: "wc-ml" }, "Name"), nameIn, wcEl("code", { class: "wc-token", title: "Click to copy", onclick: () => copyText("__" + wcMgrSel + "__").then(() => toast("Copied __" + wcMgrSel + "__", "ok")) }, "__" + wcMgrSel + "__")),
       ta,
+      wcUsedBy(wcMgrSel),
       wcEl("div", { class: "wc-row" },
         wcEl("label", { class: "toggle" }, uniq, " Unique — never repeat an item within one roll"),
         (L.pack || (L.opts && L.opts.from)) ? wcEl("span", { class: "hint", style: { margin: 0 } }, L.pack ? "read from " + L.pack + " in the folder (sync never writes it back)" : "imported from " + L.opts.from) : null),
@@ -1121,6 +1130,7 @@ async function wcImportFiles(files) {
         for (const [n, o] of Object.entries(obj.lists || {})) { if (wcSetListQuiet(n, o.text != null ? o.text : o, o.opts)) lists++; }
         if (Array.isArray(obj.rules)) { wcSetGlobalRules(obj.rules); rules = obj.rules.length; }
         for (const t of obj.templates || []) { if (t && t.id) { wcSaveTemplate(t); tpls++; } }
+        for (const [id, d] of Object.entries(obj.previews || {})) if (typeof d === "string" && d.startsWith("data:image/")) wcSetPreview(id, d, true);
       } else if (/(^|\/)_templates\//.test(base) || (obj && obj.global && obj.name)) {
         if (obj && obj.id) { wcSaveTemplate(obj); tpls++; }
       } else if (/(^|\/)_rules\.json$/.test(base) && Array.isArray(obj)) { wcSetGlobalRules(obj); rules = obj.length; }
@@ -1155,7 +1165,7 @@ function wcCommonRoot(names) {
 function wcExportBundle() {
   const lists = {};
   for (const [n, o] of Object.entries(wcAllLists())) lists[n] = { text: o.text, opts: o.opts };
-  return { format: "ideogrammar-wildcards", version: 1, lists, rules: wcGlobalRules(), templates: wcAllTemplates().map(t => { const c = { ...t }; delete c.builtin; delete c.modified; return c; }) };
+  return { format: "ideogrammar-wildcards", version: 1, lists, rules: wcGlobalRules(), previews: wcPreviewMap(), templates: wcAllTemplates().map(t => { const c = { ...t }; delete c.builtin; delete c.modified; return c; }) };
 }
 function wcExportJSON() {
   wcDownloadBlob(new Blob([JSON.stringify(wcExportBundle(), null, 2)], { type: "application/json" }), "ideogrammar-wildcards.json");
@@ -1311,21 +1321,22 @@ async function wcSyncFolder({ interactive } = {}) {
   for (const t of wcAllTemplates()) tLocal[t.id] = t;
   const tIds = new Set([...Object.keys(tLocal), ...Object.keys(tRemote).filter(k => k !== "_rules"), ...Object.entries(wcTplOverlay).filter(([, o]) => o && o.deleted).map(([id]) => id)]);
   const tKey = id => "tpl:" + id + ".json";
-  const tplJSON = t => { const c = { ...t }; delete c.builtin; delete c.modified; delete c.updatedAt; return JSON.stringify(c, null, 2); };
+  const tplJSON = t => { const c = { ...t }; delete c.builtin; delete c.modified; delete c.updatedAt; const pv = wcGetPreview(t.id); if (pv) c.preview = pv; else delete c.preview; return JSON.stringify(c, null, 2); };
+  const takeTpl = (id, t) => { if (t.preview) { wcSetPreview(id, t.preview, true, last); delete t.preview; } wcTplOverlay[id] = { ...t, id, updatedAt: last }; };
   for (const id of tIds) {
     const r = tRemote[id], l = tLocal[id], o = wcTplOverlay[id];
     const remoteChanged = r && r.mtime > (known[tKey(id)] || 0);
-    const localChanged = o && (o.updatedAt || 0) > last;
+    const localChanged = (o && (o.updatedAt || 0) > last) || wcPreviewTime(id) > last;
     const url = "/ideogrammar/templates/" + encodeURIComponent(id) + ".json";
     if (r && l) {
       const text = remoteChanged || !known[tKey(id)] ? await (await wcFetch(url)).text() : null;
       if (text != null && JSON.stringify(JSON.parse(text)) === JSON.stringify(JSON.parse(tplJSON(l)))) { newKnown[tKey(id)] = r.mtime; continue; }
       if (remoteChanged && localChanged) { conflicts.push({ kind: "tpl", n: id, r, text, l }); continue; }
-      if (remoteChanged) { const t = JSON.parse(text); wcTplOverlay[id] = { ...t, id, updatedAt: last }; pulled++; newKnown[tKey(id)] = r.mtime; }
+      if (remoteChanged) { takeTpl(id, JSON.parse(text)); pulled++; newKnown[tKey(id)] = r.mtime; }
       else { const res = await (await wcFetch(url, { method: "PUT", body: tplJSON(l) })).json(); pushed++; newKnown[tKey(id)] = res.mtime || now; }
     } else if (r && !l) {
       if (o && o.deleted && (o.updatedAt || 0) > last && known[tKey(id)]) { await wcFetch(url, { method: "DELETE" }); removed++; }
-      else { const t = JSON.parse(await (await wcFetch(url)).text()); wcTplOverlay[id] = { ...t, id, updatedAt: last }; pulled++; newKnown[tKey(id)] = r.mtime; }
+      else { takeTpl(id, JSON.parse(await (await wcFetch(url)).text())); pulled++; newKnown[tKey(id)] = r.mtime; }
     } else if (!r && l) {
       if (known[tKey(id)] && !localChanged) { wcTplOverlay[id] = { deleted: true, updatedAt: last }; removed++; }
       else { const res = await (await wcFetch(url, { method: "PUT", body: tplJSON(l) })).json(); pushed++; newKnown[tKey(id)] = res.mtime || now; }
@@ -1349,7 +1360,7 @@ async function wcSyncFolder({ interactive } = {}) {
         else { const res = await (await wcFetch("/ideogrammar/wildcards/" + wcEncPath(c.r.path), { method: "PUT", body: c.l.text })).json(); newKnown[c.r.path] = res.mtime || now; pushed++; }
       } else {
         const url = "/ideogrammar/templates/" + encodeURIComponent(c.n) + ".json";
-        if (keepFolder) { wcTplOverlay[c.n] = { ...JSON.parse(c.text), id: c.n, updatedAt: last }; newKnown[tKey(c.n)] = c.r.mtime; pulled++; }
+        if (keepFolder) { takeTpl(c.n, JSON.parse(c.text)); newKnown[tKey(c.n)] = c.r.mtime; pulled++; }
         else { const res = await (await wcFetch(url, { method: "PUT", body: tplJSON(c.l) })).json(); newKnown[tKey(c.n)] = res.mtime || now; pushed++; }
       }
     }
