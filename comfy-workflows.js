@@ -67,15 +67,26 @@ function cwDetectPrompt(wf) {
   const lit = cands.filter(c => typeof wf[c.node].inputs[c.input] === "string").sort((a, b) => wf[b.node].inputs[b.input].length - wf[a.node].inputs[a.input].length);
   return lit[0] || cands[0] || null;
 }
-function cwDetect(wf) {
-  const size = [], seed = [];
+// Size: every node with a width and height gets the exact pixel size — typed-in
+// numbers or links from a resolution node alike (a link is replaced by the
+// number). Resolution pickers (aspect_ratio + megapixels, e.g. ResolutionSelector)
+// also get the editor's ratio, so anything else they feed agrees.
+const cwIsNumOrLink = v => typeof v === "number" || cwIsLink(v);
+function cwDetectSize(wf) {
+  const size = [], res = [];
   for (const [id, n] of Object.entries(wf)) {
     const i = n.inputs;
-    if (typeof i.width === "number" && typeof i.height === "number") size.push(id);
-    for (const k of ["seed", "noise_seed"]) if (typeof i[k] === "number") seed.push({ node: id, input: k });
+    if (cwIsNumOrLink(i.width) && cwIsNumOrLink(i.height)) size.push(id);
+    if (typeof i.aspect_ratio === "string" && "megapixels" in i) res.push(id);
   }
+  return { size, res };
+}
+function cwDetect(wf) {
+  const seed = [];
+  for (const [id, n] of Object.entries(wf))
+    for (const k of ["seed", "noise_seed"]) if (typeof n.inputs[k] === "number") seed.push({ node: id, input: k });
   const text = JSON.stringify(wf).toLowerCase();
-  return { prompt: cwDetectPrompt(wf), size, seed, format: /moss/.test(text) ? "moss" : "ideogram" };
+  return { prompt: cwDetectPrompt(wf), ...cwDetectSize(wf), seed, format: /moss/.test(text) ? "moss" : "ideogram" };
 }
 
 // ---- building the workflow for a render ----------------------------------
@@ -94,7 +105,12 @@ function cwBuildRenderWorkflow() {
   if (!w.map.prompt || !wf[w.map.prompt.node]) throw new Error(`Ideogrammar doesn't know where the prompt goes in “${w.name}”. Pick the prompt node in the ComfyUI render panel.`);
   wf[w.map.prompt.node].inputs[w.map.prompt.input] = cwPromptFor(w.format);
   const { width, height } = computeDims();
-  for (const id of w.map.size || []) if (wf[id]) { wf[id].inputs.width = width; wf[id].inputs.height = height; }
+  const { size, res } = cwDetectSize(w.wf);   // detected fresh, so workflows added earlier benefit too
+  for (const id of size) { wf[id].inputs.width = width; wf[id].inputs.height = height; }
+  for (const id of res) {
+    if (!isMossOnlyAspect(comfyCfg.aspect_ratio)) wf[id].inputs.aspect_ratio = comfyCfg.aspect_ratio;   // Moss-only ratios aren't in its list; the exact size above still applies
+    if (typeof wf[id].inputs.megapixels === "number") wf[id].inputs.megapixels = comfyCfg.megapixels;
+  }
   for (const s of w.map.seed || []) if (wf[s.node]) wf[s.node].inputs[s.input] = comfyCfg.seed;
   return wf;
 }
@@ -134,7 +150,9 @@ function cwRenderPanel() {
   info.replaceChildren(
     row("Prompt goes into", psel),
     row("Prompt format", fsel),
-    row("Size", txt(w.map.size.length ? `${d.width}×${d.height} (aspect ratio + megapixels below) → ${w.map.size.map(id => cwTitle(wf, id)).join(", ")}` : "⚠ no width/height found — the workflow's own size is used")),
+    (() => { const z = cwDetectSize(wf), all = [...new Set([...z.res, ...z.size])];
+      return row("Size", txt(all.length ? `${d.width}×${d.height} · ${aspectInfo().ratio} (aspect ratio + megapixels below) → ${all.map(id => cwTitle(wf, id)).join(", ")}`
+        : "⚠ no width/height found — the workflow renders at its own size, so set the editor's aspect ratio to match it")); })(),
     row("Seed", txt(w.map.seed.length ? `the seed below → ${w.map.seed.map(s => cwTitle(wf, s.node)).join(", ")}` : "the workflow's own")),
     row("Everything else", txt("models, sampler, steps, LoRAs… exactly as in the workflow. Change them in ComfyUI and export again.")),
     (() => { const r = row("", btn("↻ Replace file", "Load an updated export of this workflow (keeps its name)", () => cwPick(w)), btn("✎ Rename", "", () => { const n = prompt("Name for this workflow:", w.name); if (n && n.trim()) { w.name = n.trim(); cwSave(); cwRenderPanel(); } }),
@@ -182,7 +200,7 @@ function cwInstall() {
   panel.addEventListener("dragover", e => { if (e.dataTransfer && Array.from(e.dataTransfer.types || []).includes("Files")) { e.preventDefault(); panel.classList.add("cw-drop"); } });
   panel.addEventListener("dragleave", () => panel.classList.remove("cw-drop"));
   panel.addEventListener("drop", e => { panel.classList.remove("cw-drop"); const f = e.dataTransfer && e.dataTransfer.files[0]; if (f && /\.json$/i.test(f.name)) { e.preventDefault(); cwAddFile(f); } });
-  ["cf-aspect", "cf-megapixels", "canvasMegapixels"].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener("change", () => setTimeout(cwRenderPanel, 0)); });
+  ["cf-aspect", "cf-megapixels", "canvasAspect", "canvasMegapixels"].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener("change", () => setTimeout(cwRenderPanel, 0)); });
   const style = document.createElement("style");
   style.textContent = `
     body.cw-user .cf-builtin { display: none !important; }
