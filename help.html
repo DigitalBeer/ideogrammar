@@ -279,7 +279,7 @@ then from  lighting/natural  never pick  golden hour sunlight, harsh midday sun<
 <table>
   <tr><th>What</th><th>From</th></tr>
   <tr><td>The prompt</td><td>Your layout, as Moss Image JSON or Ideogram JSON (detected from the workflow; you can change it). It goes into the text encoder that feeds the sampler. If the workflow has a prompt-builder node, Ideogrammar's finished prompt replaces its output.</td></tr>
-  <tr><td>The size</td><td><span class="ui">Aspect ratio</span> + <span class="ui">Megapixels</span>, written into every node with a width and height. Moss-only ratios like 2:1 work here.</td></tr>
+  <tr><td>The size</td><td><span class="ui">Aspect ratio</span> + <span class="ui">Megapixels</span>: the exact pixel size goes into every node with a width and height (even when they come from a resolution node), and resolution pickers such as <i>Resolution Selector</i> get the same ratio. So you never re-export to change the ratio, and the layout preview always matches the render. Moss-only ratios like 2:1 work here.</td></tr>
   <tr><td>The seed</td><td><span class="ui">Seed</span> / <span class="ui">random</span></td></tr>
   <tr><td>How many images</td><td><span class="ui">Queue multiple renders → Iterations</span></td></tr>
 </table>
