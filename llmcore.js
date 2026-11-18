@@ -463,12 +463,22 @@ function buildWorkflow(layout) {
 }
 
 /* ---- /object_info reconciliation (handle ComfyUI node updates) ---- */
-let objectInfoCache = { base: null, info: null };
-async function getObjectInfo(base) {
-  if (objectInfoCache.base === base && objectInfoCache.info) return objectInfoCache.info;
-  try { const r = await fetch(base + "/object_info", { cache: "no-store" }); if (r.ok) objectInfoCache = { base, info: await r.json() }; } catch (_) {}
-  return objectInfoCache.base === base ? objectInfoCache.info : null;
+// Fetches only the node types asked for (/object_info/<class>): the full
+// /object_info can be tens of MB on a server with many custom nodes and took
+// ~15 s, which stalled the first render. Cached per server for the page's life.
+let objectInfoCache = { base: null, info: {} };
+async function getObjectInfo(base, classes) {
+  if (objectInfoCache.base !== base) objectInfoCache = { base, info: {} };
+  const need = Array.from(new Set(classes || [])).filter(c => c && !(c in objectInfoCache.info));
+  await Promise.all(need.map(async c => {
+    try {
+      const r = await fetch(base + "/object_info/" + encodeURIComponent(c), { cache: "no-store" });
+      if (r.ok) { const j = await r.json(); objectInfoCache.info[c] = j[c] || null; }
+    } catch (_) {}
+  }));
+  return objectInfoCache.info;
 }
+const workflowClasses = wf => Object.values(wf).map(n => n && n.class_type);
 // If a ComfyUI update adds a new REQUIRED input to a node we use (e.g.
 // ResolutionSelector's "multiple"), fill it from the node's declared default.
 function fillMissingRequiredInputs(wf, info) {
@@ -483,12 +493,38 @@ function fillMissingRequiredInputs(wf, info) {
       else if (Array.isArray(spec) && Array.isArray(spec[0]) && spec[0].length) node.inputs[key] = spec[0][0]; // COMBO: first option
     }
   }
+  const missing = resolveComboValues(wf, info);
+  if (missing.length) throw new Error(`ComfyUI has no ${missing.length === 1 ? "model" : "models"} called ${missing.join("; ")} (searched every subfolder). ` +
+    "Put the file in ComfyUI's models folder, or pick the right file under ComfyUI parameters → Advanced parameters.");
+}
+// Model files are often kept in subfolders on the server ("Ideogram\ideogram4_….safetensors").
+// A name that isn't in the node's list is matched by file name in any subfolder; model
+// files that can't be found at all are returned so the render can stop with a clear message.
+function resolveComboValues(wf, info) {
+  const missing = [];
+  if (!info) return missing;
+  const fileOf = s => String(s).split(/[\\/]/).pop().toLowerCase();
+  for (const node of Object.values(wf)) {
+    const def = info[node.class_type] && info[node.class_type].input;
+    if (!def) continue;
+    const specs = { ...(def.optional || {}), ...(def.required || {}) };
+    for (const [key, val] of Object.entries(node.inputs || {})) {
+      if (typeof val !== "string") continue;
+      const spec = specs[key];
+      const list = Array.isArray(spec) ? (Array.isArray(spec[0]) ? spec[0] : spec[0] === "COMBO" && spec[1] && Array.isArray(spec[1].options) ? spec[1].options : null) : null;
+      if (!list || !list.length || list.includes(val)) continue;
+      const hit = list.find(o => typeof o === "string" && fileOf(o) === fileOf(val));
+      if (hit) node.inputs[key] = hit;
+      else if (/\.(safetensors|ckpt|pt|pth|bin|gguf|sft)$/i.test(val)) missing.push(`“${val}” (${node.class_type} ${key})`);
+    }
+  }
+  return missing;
 }
 
 // Submit a layout to ComfyUI and return the prompt_id (after reconciling node defs).
 async function submitWorkflow(base, layout) {
   const wf = buildWorkflow(layout);
-  fillMissingRequiredInputs(wf, await getObjectInfo(base));
+  fillMissingRequiredInputs(wf, await getObjectInfo(base, workflowClasses(wf)));
   const res = await fetch(base + "/prompt", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: wf, client_id: getClientId() }) });
   if (!res.ok) {
     let detail = "";
@@ -496,7 +532,7 @@ async function submitWorkflow(base, layout) {
       const j = await res.json();
       detail = j.error?.message || j.error?.type || "";
       if (j.node_errors && Object.keys(j.node_errors).length) {
-        const ne = Object.values(j.node_errors).map(n => (n.errors || []).map(e => e.message).join(", ")).filter(Boolean).join("; ");
+        const ne = Object.values(j.node_errors).map(n => (n.errors || []).map(e => e.message + (e.details ? " (" + String(e.details).slice(0, 160) + ")" : "")).join(", ")).filter(Boolean).join("; ");
         if (ne) detail += (detail ? " — " : "") + ne;
       }
     } catch (_) { detail = await res.text().catch(() => ""); }

@@ -4112,7 +4112,7 @@ function syncRtxsrFields() {
 async function populateLoraList() {
   const base = comfyBase();
   if (!base) return;
-  const info = await getObjectInfo(base);
+  const info = await getObjectInfo(base, ["LoraLoaderModelOnly"]);
   const spec = info && info.LoraLoaderModelOnly?.input?.required?.lora_name;
   const names = Array.isArray(spec) && Array.isArray(spec[0]) ? spec[0] : null;
   if (!names) return;
@@ -4259,7 +4259,7 @@ async function comfyRender() {
   let promptId;
   try {
     const wf = buildWorkflow(buildLayoutJSON());
-    fillMissingRequiredInputs(wf, await getObjectInfo(base));   // reconcile with the installed ComfyUI's node defs
+    fillMissingRequiredInputs(wf, await getObjectInfo(base, workflowClasses(wf)));   // reconcile with the installed ComfyUI's node defs
     const res = await fetch(base + "/prompt", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: wf, client_id: getClientId() }) });
     if (!res.ok) {
       let detail = "";
@@ -4267,7 +4267,7 @@ async function comfyRender() {
         const j = await res.json();
         detail = j.error?.message || j.error?.type || "";
         if (j.node_errors && Object.keys(j.node_errors).length) {
-          const ne = Object.values(j.node_errors).map(n => (n.errors || []).map(e => e.message).join(", ")).filter(Boolean).join("; ");
+          const ne = Object.values(j.node_errors).map(n => (n.errors || []).map(e => e.message + (e.details ? " (" + String(e.details).slice(0, 160) + ")" : "")).join(", ")).filter(Boolean).join("; ");
           if (ne) detail += (detail ? " — " : "") + ne;
         }
       } catch (_) { detail = await res.text().catch(() => ""); }

@@ -801,6 +801,13 @@ class Handler(BaseHTTPRequestHandler):
                 continue
             fwd[k] = v
         fwd["Host"] = "%s:%s" % (host, port)
+        # ComfyUI rejects (403) a request whose Origin doesn't match its Host —
+        # CSRF protection for servers on localhost. The browser's Origin is this
+        # proxy's address, so present the request as coming from ComfyUI itself.
+        for k in [k for k in fwd if k.lower() in ("origin", "referer")]:
+            del fwd[k]
+        if "Origin" in self.headers:
+            fwd["Origin"] = "http://%s:%s" % (host, port)
 
         try:
             conn = http.client.HTTPConnection(host, port, timeout=ARGS.timeout)
