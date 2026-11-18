@@ -243,6 +243,88 @@
     return items;
   }
 
+  // Minimal YAML reader for wildcard packs: nested maps, "- item" lists,
+  // [flow, lists], quoted or plain scalars, # comments, and | / > blocks.
+  // Enough for Dynamic Prompts .yaml packs; not a general YAML parser.
+  function parseYaml(text) {
+    const lines = [];
+    for (const raw of String(text || "").replace(/^\uFEFF/, "").split(/\r?\n/)) {
+      if (/^\s*(#.*)?$/.test(raw) || /^(---|\.\.\.)\s*$/.test(raw)) { lines.push(null); continue; }
+      lines.push({ ind: raw.match(/^ */)[0].length, s: stripComment(raw.trim()), raw });
+    }
+    let i = 0;
+    const next = () => { while (i < lines.length && !lines[i]) i++; return lines[i]; };
+    function block(ind) {
+      const first = next();
+      if (!first || first.ind < ind) return null;
+      return first.s.startsWith("- ") || first.s === "-" ? seq(first.ind) : map(first.ind);
+    }
+    function seq(ind) {
+      const out = [];
+      for (let l = next(); l && l.ind === ind && (l.s.startsWith("- ") || l.s === "-"); l = next()) {
+        i++;
+        const rest = l.s === "-" ? "" : l.s.slice(2).trim();
+        if (!rest) out.push(block(ind + 1));
+        else if (/^[^"'\[{][^:]*:(\s|$)/.test(rest)) { // "- key: v" — a map item
+          lines[--i] = { ind: ind + 2, s: rest, raw: rest };
+          out.push(map(ind + 2));
+        } else out.push(scalar(rest, ind));
+      }
+      return out;
+    }
+    function map(ind) {
+      const out = {};
+      for (let l = next(); l && l.ind === ind && !l.s.startsWith("- "); l = next()) {
+        const m = /^("(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^:]+?)\s*:(?:\s+(.*))?$/.exec(l.s);
+        if (!m) { i++; continue; }
+        i++;
+        const key = unquote(m[1]);
+        const rest = (m[2] || "").trim();
+        if (!rest) { const nx = next(); out[key] = nx && (nx.ind > ind || (nx.ind === ind && nx.s.startsWith("- "))) ? block(nx.ind) : null; }
+        else out[key] = scalar(rest, ind);
+      }
+      return out;
+    }
+    function scalar(s, ind) {
+      if (s === "|" || s === ">" || /^[|>][-+]?$/.test(s)) {
+        const parts = [];
+        for (let l = lines[i]; i < lines.length && (!l || l.ind > ind); l = lines[++i]) parts.push(l ? l.raw.trim() : "");
+        while (parts.length && parts[parts.length - 1] === "") parts.pop();
+        return s[0] === "|" ? parts.join("\n") : parts.join(" ");
+      }
+      if (s.startsWith("[") && s.endsWith("]")) return splitFlow(s.slice(1, -1)).map(x => unquote(x.trim())).filter(x => x !== "");
+      return unquote(s);
+    }
+    return block(0);
+  }
+  function stripComment(s) {
+    let q = null;
+    for (let k = 0; k < s.length; k++) {
+      const c = s[k];
+      if (q) { if (c === q) q = null; else if (c === "\\" && q === '"') k++; }
+      else if (c === '"' || c === "'") { if (k === 0 || /[\s:\[,-]/.test(s[k - 1])) q = c; }
+      else if (c === "#" && (k === 0 || /\s/.test(s[k - 1]))) return s.slice(0, k).trimEnd();
+    }
+    return s;
+  }
+  function splitFlow(s) {
+    const out = []; let cur = "", q = null;
+    for (const c of s) {
+      if (q) { cur += c; if (c === q) q = null; }
+      else if (c === '"' || c === "'") { q = c; cur += c; }
+      else if (c === ",") { out.push(cur); cur = ""; }
+      else cur += c;
+    }
+    out.push(cur);
+    return out;
+  }
+  function unquote(s) {
+    s = String(s).trim();
+    if (s.length >= 2 && s[0] === '"' && s[s.length - 1] === '"') { try { return JSON.parse(s); } catch (_) { return s.slice(1, -1); } }
+    if (s.length >= 2 && s[0] === "'" && s[s.length - 1] === "'") return s.slice(1, -1).replace(/''/g, "'");
+    return s;
+  }
+
   // YAML/JSON pack object -> { "path/name": ["item", …] }
   function parsePack(obj, prefix) {
     const out = {};
@@ -516,9 +598,10 @@
     const picks = pickWeighted(cands, count, rng);
     if (!enter(ctx)) return "";
     const traceAt = ctx.trace.length;
-    const parts = picks.map(o => fromList ? evalItem(o, id + "|" + o.k, ctx) : clean(evalSeq(o.body, id + "|" + o.k, ctx))).filter(s => s !== "");
+    // A single pick keeps its own edge spaces ("{cap, |}red" -> "cap, red"); several are trimmed and joined.
+    const raw = picks.map(o => fromList ? evalItem(o, id + "|" + o.k, ctx) : evalSeq(o.body, id + "|" + o.k, ctx));
     ctx.depth--;
-    const v = parts.join(n.sep);
+    const v = raw.length === 1 ? raw[0] : raw.map(clean).filter(s => s !== "").join(n.sep);
     ctx.trace.splice(traceAt, 0, { id, kind: "variant", token: n.src, value: v, depth: ctx.depth, list: fromList ? normName(only.name) : undefined });
     return v;
   }
@@ -585,7 +668,7 @@
   }
 
   const WC = {
-    parse, parseList, parsePack, normLists, normName, lookup, hasSyntax, listRefs,
+    parse, parseList, parsePack, parseYaml, normLists, normName, lookup, hasSyntax, listRefs,
     resolve, resolveFields, newSeed, hashStr, slotRng, MAX_DEPTH,
   };
   root.WC = WC;

@@ -197,3 +197,56 @@ test("field salt rerolls one field and leaves the others", () => {
   }
   assert.ok(changed);
 });
+
+test("single picks keep edge spaces; built-in pack resolves cleanly", () => {
+  assert.equal(R("{cap, |cap, }red").text, "cap, red");
+  const { WC_BUILTIN_LISTS, WC_BUILTIN_TEMPLATES } = require("../wildcards-data.js");
+  const all = [];
+  for (const t of WC_BUILTIN_TEMPLATES) {
+    for (const part of [t.global || {}, t.element || {}, t.vars || {}]) for (const v of Object.values(part)) if (typeof v === "string") all.push(v);
+  }
+  for (let s = 0; s < 25; s++) for (const txt of all.concat(Object.keys(WC_BUILTIN_LISTS).map(k => "__" + k + "__"))) {
+    const r = WC.resolve(txt, { lists: WC_BUILTIN_LISTS, seed: s, vars: { genre: "sports", sport: "tennis" } });
+    assert.deepEqual(r.errors, [], txt + " -> " + r.errors.join("; "));
+    assert.ok(!/__|\{|\}/.test(r.text), "unresolved: " + txt + " -> " + r.text);
+  }
+});
+
+test("parseYaml reads Dynamic Prompts style packs", () => {
+  const y = `# pack
+clothes:
+  hats:
+    - cap   # comment
+    - "red: beret"
+    - 'it''s a fedora'
+  shoes: [boots, "high tops"]
+mood:
+  - calm
+  - {tense|scared}
+people:
+  - name: a
+    role: b
+note: |
+  line one
+  line two
+`;
+  const o = WC.parseYaml(y);
+  assert.deepEqual(o.clothes.hats, ["cap", "red: beret", "it's a fedora"]);
+  assert.deepEqual(o.clothes.shoes, ["boots", "high tops"]);
+  assert.deepEqual(o.mood, ["calm", "{tense|scared}"]);
+  assert.deepEqual(o.people, [{ name: "a", role: "b" }]);
+  assert.equal(o.note, "line one\nline two");
+  const pack = WC.parsePack(o);
+  assert.deepEqual(pack["clothes/hats"].length, 3);
+  assert.deepEqual(pack.mood, ["calm", "{tense|scared}"]);
+});
+
+test("sport variable drives the guarded venue and sportswear lists", () => {
+  const { WC_BUILTIN_LISTS } = require("../wildcards-data.js");
+  for (let s = 0; s < 30; s++) {
+    const r = WC.resolveFields([{ path: "a", text: "__places/sports__ / __clothes/sportswear__" }], { lists: WC_BUILTIN_LISTS, seed: s, varDefs: { sport: "tennis" } });
+    assert.match(r.values.a, /tennis.* \/ .*(tennis|polo|sweatband)/, r.values.a);
+    const free = WC.resolve("__places/sports__", { lists: WC_BUILTIN_LISTS, seed: s });
+    assert.deepEqual(free.errors, []); assert.ok(free.text.length > 3);
+  }
+});

@@ -757,6 +757,7 @@
             </div>
             <label class="toggle" style="margin-top:10px;"><input type="checkbox" id="cf-queue-reseed"> Randomize seed each iteration</label>
             <label class="toggle" style="margin-top:8px;"><input type="checkbox" id="cf-queue-regen"> Regenerate prompt each iteration <span style="color:var(--faint)">(re-runs the model first)</span></label>
+            <label class="toggle" style="margin-top:8px;"><input type="checkbox" id="cf-queue-rewild"> Re-roll wildcards each iteration <span style="color:var(--faint)">(new picks for every 🎲 field; locked picks stay)</span></label>
             <label style="margin-top:10px;">Guidance <span style="color:var(--faint)">(steers each regenerated prompt)</span></label>
             <input type="text" id="cf-queue-guidance" placeholder="e.g. make it photorealistic" title="Applied on top of your ✨ Generate description for every regenerated prompt in the queue. Only used when 'Regenerate prompt' is on.">
             <div class="hint">Runs the render the chosen number of times in sequence; each result lands in the History gallery and the Cancel button stops the run. <b>Randomize seed</b> rerolls the noise seed before every render so each one differs. <b>Regenerate prompt</b> also rebuilds the layout from your <b>✨ Generate</b> description (or reference image) before each render — so both the wording and the seed change every time. <b>Guidance</b> is an extra steering instruction (e.g. <i>make it photorealistic</i>) folded into every regenerated prompt, so the whole queue keeps a consistent direction. Needs your model configured in ⚙ Settings.</div>
@@ -1153,6 +1154,7 @@
 
 <script src="llmcore.js"></script>
 <script src="wildcards.js"></script>
+<script src="wildcards-data.js"></script>
 <script>
 "use strict";
 
@@ -1202,7 +1204,9 @@ function normStrMap(m) {
 function newElKey() { return Math.random().toString(36).slice(2, 10); }
 function normElWild(w) {
   w = w && typeof w === "object" ? w : {};
-  return { key: typeof w.key === "string" && w.key ? w.key : newElKey(), src: normStrMap(w.src), templateId: typeof w.templateId === "string" ? w.templateId : "" };
+  const o = { key: typeof w.key === "string" && w.key ? w.key : newElKey(), src: normStrMap(w.src), templateId: typeof w.templateId === "string" ? w.templateId : "" };
+  if (typeof w.descBase === "string") o.descBase = w.descBase;   // desc before a template's prefix/suffix
+  return o;
 }
 function normWild(w) {
   w = w && typeof w === "object" ? w : {};
@@ -1211,13 +1215,14 @@ function normWild(w) {
   return {
     seed: w.seed !== null && w.seed !== undefined && w.seed !== "" && Number.isFinite(+w.seed) ? +w.seed : WC.newSeed(),
     locks: normStrMap(w.locks), salts, src: normStrMap(w.src),
-    templateId: typeof w.templateId === "string" ? w.templateId : ""
+    templateId: typeof w.templateId === "string" ? w.templateId : "",
+    ...(typeof w.hldBase === "string" ? { hldBase: w.hldBase } : {})   // high-level text before a template's suffix
   };
 }
 // Editor-only wildcard data worth saving with an element.
 function elWildOut(e) {
   const w = e.wild || {};
-  return (Object.keys(w.src || {}).length || w.templateId) ? JSON.parse(JSON.stringify(w)) : (w.key ? { key: w.key } : undefined);
+  return (Object.keys(w.src || {}).length || w.templateId || typeof w.descBase === "string") ? JSON.parse(JSON.stringify(w)) : (w.key ? { key: w.key } : undefined);
 }
 
 function defaultState() {
@@ -1396,6 +1401,7 @@ function renderForm() {
   });
   renderPalette($("st-palette"), state.style_description.color_palette);
   $("elCount").textContent = state.elements.length;
+  if (typeof wcDecorateForm === "function") wcDecorateForm();
 }
 
 function renderPalette(container, arr) {
@@ -1601,6 +1607,9 @@ function renderElements() {
     tagsInput.addEventListener("keydown", e => e.stopPropagation());
     tagsInput.addEventListener("input", () => { el.tags = normalizeTags(tagsInput.value); renderJSON(); });
     body.appendChild(tagsInput);
+
+    // Style fields, element template and wildcard badges (wildcards-ui.js)
+    if (typeof wcElementStyleSection === "function") body.appendChild(wcElementStyleSection(el, { desc, title }));
 
     const refLabel = document.createElement("label"); refLabel.textContent = "Refine with AI";
     body.appendChild(refLabel);
@@ -2186,6 +2195,7 @@ function removeElement(id) {
 // fmt: "ideogram" | "moss"; omitted (header button) = whatever the tile is showing.
 // Copying also switches the tile to that format so what you see is what you copied.
 async function doCopy(fmt) {
+  if (typeof wcEnsureRolled === "function") wcEnsureRolled();
   fmt = fmt || jsonFormat;
   if (fmt !== jsonFormat) setJSONFormat(fmt);
   const ok = await copyText(promptString(fmt));
@@ -2245,6 +2255,7 @@ function restoreEditorRefs(ed) {
 }
 
 function doDownload() {
+  if (typeof wcEnsureRolled === "function") wcEnsureRolled();
   const blob = new Blob([stringifyPrompt(buildIdeogramDownload())], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -2279,6 +2290,7 @@ function buildIdeogramDownload() {
 // Moss Image export — prompt only (no _editor/canvas round-trip data, since
 // Moss's own tools read this file). Import still uses the Ideogram download.
 function doDownloadMoss() {
+  if (typeof wcEnsureRolled === "function") wcEnsureRolled();
   const blob = new Blob([promptString("moss")], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -2740,6 +2752,8 @@ function elLines(e, other) {
   const L = [["Type", e.type, other && other.type !== e.type], ["Position", fmtBox(e.bbox), other && JSON.stringify(other.bbox) !== JSON.stringify(e.bbox)],
              ["Description", e.desc || "", other && other.desc !== e.desc]];
   if (e.text || (other && other.text)) L.push(["Text", e.text || "", other && (other.text || "") !== (e.text || "")]);
+  const styleStr = x => ELEMENT_STYLE_FIELDS.filter(([k]) => x && x.style && x.style[k]).map(([k, l]) => l + ": " + x.style[k]).join("; ");
+  if (styleStr(e) || (other && styleStr(other))) L.push(["Style", styleStr(e), other && styleStr(other) !== styleStr(e)]);
   if (e.locked) L.push(["Locked", "yes", false]);
   return L;
 }
@@ -2756,7 +2770,7 @@ function diffStates(a, b) {
   const A = a.elements, B = b.elements, m = matchElements(A, B);
   m.pairs.forEach(([i, j]) => {
     const x = A[i], y = B[j];
-    const changed = x.type !== y.type || x.desc !== y.desc || (x.text || "") !== (y.text || "") || JSON.stringify(x.bbox) !== JSON.stringify(y.bbox);
+    const changed = x.type !== y.type || x.desc !== y.desc || (x.text || "") !== (y.text || "") || JSON.stringify(x.bbox) !== JSON.stringify(y.bbox) || JSON.stringify(x.style || {}) !== JSON.stringify(y.style || {});
     if (!changed) return;
     const d = Math.max(...x.bbox.map((v, k) => Math.abs(v - y.bbox[k])));
     const moved = Math.hypot((x.bbox[0] + x.bbox[2] - y.bbox[0] - y.bbox[2]) / 2, (x.bbox[1] + x.bbox[3] - y.bbox[1] - y.bbox[3]) / 2) > 15;
@@ -3103,6 +3117,7 @@ function genOptionsDirective() {
   if (o.text) req.push(GEN_TEXT[o.text]);
   if (o.palette !== "") { const p = PALETTE_PRESETS[+o.palette]; if (p) req.push(`Use this colour palette (style_description.color_palette and the elements): ${p.colors.join(", ")} (“${p.name}”).`); }
   if (o.layout) req.push(LAYOUT_TEMPLATES[o.layout].guide);
+  if (typeof wcGenerateIngredients === "function") { const ing = wcGenerateIngredients(); if (ing) req.push(ing); }
   return req.length ? "\n\nREQUIREMENTS (must be followed exactly):\n- " + req.join("\n- ") : "";
 }
 function loadGenTemplates() { try { const a = JSON.parse(localStorage.getItem(GEN_TEMPLATES_KEY)); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
@@ -3215,7 +3230,8 @@ async function generateSetup(opts = {}) {
   const cfg = loadCfg();
   const ctx = opts.context || null;
   const extract = opts.extract || null;   // "composition" | "style" | null
-  const userPrompt = (ctx ? (ctx.prompt || "") : $("genPrompt").value).trim();
+  let userPrompt = (ctx ? (ctx.prompt || "") : $("genPrompt").value).trim();
+  if (typeof wcResolveText === "function") userPrompt = wcResolveText(userPrompt);   // wildcards in the description: fresh picks on every Generate
   const image = ctx ? (ctx.image || null) : genImageDataUrl;
   const guide = (opts.guidance || "").trim();   // steers every regenerated prompt in a queue (e.g. "make it photorealistic")
   if (extract && !image) throw new Error("Upload an image to extract its " + (extract === "style" ? "style" : "composition") + ".");
@@ -4138,6 +4154,7 @@ function applyComfyForm() {
   $("cf-queue-count").value = comfyCfg.queue_count;
   $("cf-queue-reseed").checked = comfyCfg.queue_reseed;
   $("cf-queue-regen").checked = comfyCfg.queue_regen;
+  $("cf-queue-rewild").checked = !!comfyCfg.queue_rewild;
   $("cf-queue-guidance").value = comfyCfg.queue_guidance || "";
 }
 function readComfyForm() {
@@ -4170,6 +4187,7 @@ function readComfyForm() {
   comfyCfg.queue_count = parseInt($("cf-queue-count").value, 10);
   comfyCfg.queue_reseed = $("cf-queue-reseed").checked;
   comfyCfg.queue_regen = $("cf-queue-regen").checked;
+  comfyCfg.queue_rewild = $("cf-queue-rewild").checked;
   comfyCfg.queue_guidance = $("cf-queue-guidance").value.trim();
   sanitizeComfyCfg();
   // reflect any corrected numeric values back into the fields
@@ -4225,6 +4243,7 @@ async function cancelRender() {
 async function comfyRender() {
   if (rendering) { settleRender(false); return; }
   readComfyForm();
+  if (typeof wcEnsureRolled === "function") wcEnsureRolled();
   lastRenderSetup = captureSetup();
   const base = comfyBase();
   if (!base) { setRenderStatus("Set your ComfyUI server URL first.", "err"); settleRender(false); return; }
@@ -4280,6 +4299,7 @@ function onRenderClick() {
   if (rendering || queueActive) return;
   readComfyForm();
   if (comfyCfg.queue_count > 1 || comfyCfg.queue_regen) runRenderQueue();
+  else if (comfyCfg.queue_rewild && typeof wcRollForQueue === "function") { wcRollForQueue(); comfyRender(); }
   else comfyRender();
 }
 
@@ -4311,6 +4331,7 @@ async function runRenderQueue() {
       catch (err) { setRenderStatus("Prompt regen failed: " + (err.message || err), "err"); break; }
       if (queueStop) break;
     }
+    if (comfyCfg.queue_rewild && typeof wcRollForQueue === "function") wcRollForQueue();
     if (reseed) { comfyCfg.seed = randomSeed(); $("cf-seed").value = comfyCfg.seed; saveComfyCfg(); }
     setRenderStatus('<span class="spinner"></span>Rendering…', "");
     const ok = await comfyRenderAwait();   // resolves when this render finishes
@@ -5688,5 +5709,6 @@ render();
 applyCanvasAspect();
 if (comfyCfg.mode === "comfy" && comfyBase()) populateLoraList();
 </script>
+<script src="wildcards-ui.js"></script>
 </body>
 </html>
