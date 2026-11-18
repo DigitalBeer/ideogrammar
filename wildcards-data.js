@@ -31,7 +31,8 @@ const WC_BUILTIN_LISTS = {
 
   // ---- time & place
   "time-of-day": `dawn\nsunrise\nearly morning\nmidday\nlate afternoon\ngolden hour\nsunset\nblue hour\ndusk\nnight\nmidnight`,
-  "weather": `clear skies\nlight rain\nheavy rain\ndrizzle\nfog\nmist\nsnowfall\nblizzard\nthunderstorm\nwindy\nheatwave haze\nafter the rain, wet reflective ground`,
+  // Weighted so calm weather is the norm and storms are occasional (snow ~1 in 12, blizzard ~1 in 40).
+  "weather": `# weights: 3:: = three times as likely as a plain line\n3::clear skies\n2::overcast sky\n2::partly cloudy with soft clouds\n2::bright sunny day\n1.5::light haze\nlight rain\n0.6::heavy rain\ndrizzle\nfog\nmist\nwindy\n0.7::snowfall\n0.3::blizzard\n0.5::thunderstorm\n0.5::heatwave haze\nafter the rain, wet reflective ground`,
   "seasons": `spring\nsummer\nautumn\nwinter`,
   "places/urban": `neon-lit city street\nrooftop overlooking the skyline\nsubway platform\nback alley\nbusy market\nparking garage\nlaundromat\ndiner\nskate park\nconstruction site\nbridge at night\ntrain station concourse`,
   "places/indoor": `minimalist studio\ncosy living room\nindustrial loft\nlibrary\nmuseum gallery\ngreenhouse\nkitchen\nbedroom\nrecording studio\nboxing gym\nlocker room\nhotel lobby`,
@@ -49,11 +50,11 @@ const WC_BUILTIN_LISTS = {
   "people/builds": `slim\nathletic\nmuscular\nstocky\ntall and lean\npetite`,
 
   // ---- clothes
-  "clothes/tops": `white t-shirt\nhoodie\nturtleneck\nbutton-down shirt\nflannel shirt\ntank top\nknit sweater\ngraphic tee\nsilk blouse\npolo shirt`,
+  "clothes/tops": `t-shirt\nhoodie\nturtleneck\nbutton-down shirt\nflannel shirt\ntank top\nknit sweater\ngraphic tee\nsilk blouse\npolo shirt`,
   "clothes/bottoms": `jeans\ncargo trousers\ntailored trousers\nshorts\npleated skirt\njoggers\nleather trousers\nmaxi skirt`,
   "clothes/outerwear": `leather jacket\ndenim jacket\ntrench coat\nbomber jacket\npuffer jacket\nblazer\nraincoat\nvarsity jacket\nparka`,
   "clothes/hats": `baseball cap\nbeanie\nfedora\nbucket hat\nberet\nwide-brim sun hat\nsnapback`,
-  "clothes/shoes": `white sneakers\ncombat boots\nloafers\nhigh-top trainers\nsandals\nheels\nhiking boots\nslip-ons`,
+  "clothes/shoes": `sneakers\ncombat boots\nloafers\nhigh-top trainers\nsandals\nheels\nhiking boots\nslip-ons`,
   "clothes/accessories": `aviator sunglasses\nsilver chain necklace\nwristwatch\nheadphones around the neck\nbackpack\nscarf\nhoop earrings\nleather gloves`,
   "clothes/sportswear": `[sport=football,basketball,ice hockey,baseball] __colours__ team jersey with a number\n[sport=football] football kit in __colours__ and __colours__\n[sport=tennis] {tennis whites|__colours__ tennis dress|polo shirt and shorts with a sweatband}\n[sport=boxing] {boxing robe|__colours__ boxing shorts and gloves}\n[sport=Formula racing] __colours__ racing suit and helmet\n[sport=surfing] wetsuit\n[sport=sprinting] {__colours__ running vest and shorts|compression top}\n[sport=skateboarding] {hoodie and cargo trousers|graphic tee and ripped jeans}\n[sport=golf] polo shirt and chinos\n[sport=rock climbing] chalk bag and climbing harness\n[sport!=*] {__colours__ team jersey with a number|compression top|tracksuit|boxing robe|racing suit|wetsuit|tennis whites}`,
   "clothes/outfit": `__colours__ __clothes/tops__, __clothes/bottoms__ and __clothes/shoes__\n__colours__ __clothes/outerwear__ over a __clothes/tops__, __clothes/bottoms__\n{__clothes/hats__, |}__colours__ __clothes/tops__ with __clothes/accessories__`,
@@ -71,8 +72,20 @@ const WC_BUILTIN_LISTS = {
   "game/hud": `score bug in the top corner\nplayer name tag and number\nstamina bar\nmini-map\nreplay banner\nbroadcast lower-third graphic`,
 };
 
+// Hex for the built-in colour names: when a roll picks a colour for an element,
+// that element's palette follows it (otherwise a stale palette overrides the words).
+const WC_COLOUR_HEX = {
+  "red": "#D7263D", "crimson": "#B0122C", "scarlet": "#E3241B", "burgundy": "#6D1A2E", "coral": "#FF7F61", "orange": "#F57C1F",
+  "amber": "#F5A623", "mustard yellow": "#D4A72C", "lemon yellow": "#F7E64B", "olive green": "#6B7A2E", "emerald green": "#1F8A5B",
+  "mint green": "#98E2C6", "teal": "#14807F", "turquoise": "#2EC4B6", "cyan": "#1FC8E3", "sky blue": "#7EC8F2", "cobalt blue": "#1F4FBF",
+  "navy blue": "#1B2A4A", "indigo": "#3F3D99", "violet": "#7F3FBF", "lavender": "#B9A6E3", "magenta": "#D6248F", "hot pink": "#FF4FA3",
+  "pastel pink": "#F6C6D8", "beige": "#D9C7A7", "cream": "#F3E9D2", "ivory": "#F8F4E6", "white": "#FFFFFF", "silver": "#C0C4C8",
+  "charcoal grey": "#36393E", "black": "#111111", "chocolate brown": "#5A3825", "copper": "#B8733A", "gold": "#D4AF37",
+};
+
 // Global rules (editable in the Wildcard manager → Rules).
 const WC_BUILTIN_RULES = [
+  { name: "Sunny light means no storm", when: { list: "lighting/natural", is: ["golden hour sunlight", "harsh midday sun", "backlit by a low sun", "dappled light through leaves"] }, then: { list: "weather", exclude: ["snowfall", "blizzard", "heavy rain", "thunderstorm", "fog", "drizzle", "*rain*"] } },
   { name: "No sunlight at night", when: { list: "time-of-day", is: ["night", "midnight", "blue hour", "dusk"] }, then: { list: "lighting/natural", exclude: ["golden hour sunlight", "harsh midday sun", "backlit by a low sun", "dappled light through leaves"] } },
   { name: "Winter means snow or clear", when: { list: "seasons", is: ["winter"] }, then: { list: "weather", exclude: ["heatwave haze"] } },
   { name: "No snow in summer", when: { list: "seasons", is: ["summer"] }, then: { list: "weather", exclude: ["snowfall", "blizzard"] } },
@@ -229,4 +242,4 @@ const WC_BUILTIN_TEMPLATES = [
   },
 ];
 
-if (typeof module !== "undefined" && module.exports) module.exports = { WC_BUILTIN_LISTS, WC_BUILTIN_RULES, WC_BUILTIN_TEMPLATES };
+if (typeof module !== "undefined" && module.exports) module.exports = { WC_BUILTIN_LISTS, WC_BUILTIN_RULES, WC_BUILTIN_TEMPLATES, WC_COLOUR_HEX };
