@@ -68,6 +68,8 @@
   <a class="sub" href="#templates-apply">Applying</a>
   <a class="sub" href="#templates-make">Making your own</a>
   <a class="sub" href="#wizard">The template wizard</a>
+  <a class="sub" href="#match">Make things match</a>
+  <a class="sub" href="#subject">Where the subject goes</a>
   <a class="sub" href="#previews">Preview images</a>
   <a href="#lists">Wildcard lists</a>
   <a class="sub" href="#lists-with-templates">Lists + templates</a>
@@ -78,6 +80,7 @@
   <a class="sub" href="#guards">Conditions (guards)</a>
   <a class="sub" href="#rules">Rules</a>
   <a href="#rolling">Rolling, locks and seeds</a>
+  <a href="#comfyui">Rendering with ComfyUI</a>
   <a href="#formats">Ideogram vs Moss output</a>
   <a href="#recipes">Recipes</a>
   <a href="#faq">Questions</a>
@@ -94,7 +97,7 @@
   <li><b>Give it a look.</b> Click <span class="ui">🎭 Templates</span>, pick one (say <i>Sports video game cover</i>) and press <span class="ui">Apply to image</span>. Check the Before/After review and press <span class="ui">Apply</span>. The style, background and the people's clothes, pose and lighting are filled in. Fields that came from wildcards get a <span class="ui">🎲</span> badge.</li>
   <li><b>Roll until you like it.</b> Press <span class="ui">🎲 Roll</span> for new picks. Like one part? Click its 🎲 badge and 🔒 lock that pick; the next rolls keep it. <span class="ui">▾ → Roll ×N and pick</span> shows several versions side by side.</li>
   <li><b>Optional: polish.</b> <span class="ui">▾ → Polish current with AI</span> has your model rewrite the random picks into smooth, consistent wording for Ideogram or Moss. You see a review first, and <span class="ui">↶</span> undoes it.</li>
-  <li><b>Get the image.</b> <b>Manual mode:</b> <span class="ui">Copy for Ideogram</span> / <span class="ui">Copy for Moss Image</span> (or Download) and paste the JSON into your tool. <b>ComfyUI mode:</b> press <span class="ui">Render</span>. To render many variations, set <span class="ui">Iterations</span> in the queue and tick <span class="ui">Re-roll wildcards each iteration</span>.</li>
+  <li><b>Get the image.</b> <b>ComfyUI mode</b> needs a one-time setup: see <a href="#comfyui">Rendering with ComfyUI</a>. <b>Manual mode:</b> <span class="ui">Copy for Ideogram</span> / <span class="ui">Copy for Moss Image</span> (or Download) and paste the JSON into your tool. <b>ComfyUI mode:</b> press <span class="ui">Render</span>. To render many variations, set <span class="ui">Iterations</span> in the queue and tick <span class="ui">Re-roll wildcards each iteration</span>.</li>
   <li><b>Keep it.</b> <span class="ui">💾</span> saves the setup, wildcard picks included. Once you have a render you like, give the template a picture: <span class="ui">🎭 Templates → 🖼 → Use the current render</span>.</li>
 </ol>
 <div class="note tip">You never have to roll by hand before copying: anything with wildcards that hasn't been rolled yet is rolled automatically when you copy, download or render (<span class="ui">▾ → Auto-roll</span>).</div>
@@ -128,16 +131,24 @@
 <p><span class="ui">Sample</span> on any template card shows three random rolls, so you can check a template before using it. Edited built-in templates can be <span class="ui">Reset</span>.</p>
 
 <h3 id="wizard">The template wizard</h3>
-<p>The wizard connects the wildcard lists to template fields for you. It walks through five steps:</p>
+<p>The wizard links the wildcard lists to template fields for you, in five steps:</p>
 <ol class="steps">
   <li><b>Start.</b> Begin blank, or from an existing template to make your own version of it.</li>
-  <li><b>Shared choices (optional).</b> Something rolled once and reused in several fields, so they agree, e.g. <code>sport = __sports__</code>. See <a href="#vars">shared choices</a>.</li>
-  <li><b>Image style.</b> One box per field. Under each box are <b>suggested lists that fit that field</b>: for Lighting you see <code>__lighting/setups__</code>, <code>__lighting/natural__</code> and so on. Click one to insert it (shift-click picks two different items). <span class="ui">50% chance</span> makes the text appear only sometimes. The line under the box shows a sample roll as you type.</li>
-  <li><b>People &amp; objects.</b> The same for clothes, pose, mood and so on, and which element types the template styles.</li>
+  <li><b>Whole image.</b> The look, lighting, camera and setting of the whole picture. Under each box are <b>suggested lists that fit that field</b>: for Lighting you get <code>__lighting/setups__</code>, <code>__lighting/natural__</code> and so on. Click one to insert it (shift-click picks two different items). The line under the box shows a sample roll <b>and what it adds to the prompt</b>.</li>
+  <li><b>Each person / object.</b> Clothes, pose, mood and so on. These are added to <i>every</i> element the template styles, and <b>rolled separately for each one</b>: two people with Pose = <code>__people/poses__</code> get two different poses. Each box becomes a labelled sentence after the element's description, so the box you choose is the label the image model sees. If you put a hairstyle list in <i>Lighting</i>, the prompt says <i>"Lighting: buzz cut"</i>; the wizard warns you, and <b>Details</b> is the box for anything without its own. <b>Who / what</b> is the one box for the subject itself (see <a href="#subject">where the subject goes</a>).</li>
+  <li><b>Make things match (optional).</b> See below.</li>
   <li><b>Name &amp; preview.</b> Name, category, a preview image, three sample rolls, then <span class="ui">Save</span> or <span class="ui">Save &amp; apply to image</span>.</li>
 </ol>
 <p>Leave a field empty and the template won't touch it.</p>
-
+<h3 id="match">Make things match: shared choices</h3>
+<p>Every list in a field is rolled on its own. A <b>shared choice</b> is rolled <i>once</i> and reused wherever you write its name, so those places agree. It does two jobs:</p>
+<table>
+  <tr><th>You want…</th><th>Do this</th><th>Result</th></tr>
+  <tr><td>Everyone in the same pose</td><td>Shared choice <code>pose = __people/poses__</code>, and Pose = <code>${pose}</code></td><td>Person 1: crouching low · Person 2: crouching low</td></tr>
+  <tr><td>Everyone in their own pose</td><td>Pose = <code>__people/poses__</code> (no shared choice)</td><td>Person 1: crouching low · Person 2: hand on hip</td></tr>
+  <tr><td>Two fields to agree</td><td><code>sport = __sports__</code>; look = <code>${sport} video game cover</code>, Clothes = <code>${sport} kit</code></td><td>the look and the clothes name the same sport</td></tr>
+</table>
+<p>A shared choice on its own never appears in the prompt, only where you use <code>${name}</code>. Defining <code>pose = __people/poses__</code> and also putting <code>__people/poses__</code> in Pose gives you <i>two separate</i> rolls that won't match. The wizard spots this and offers <span class="ui">Use ${pose} there instead</span>. Step 4 also lists every list your fields use, with a one-click <span class="ui">Make it match</span> that creates the shared choice and puts it into those fields for you.</p>
 <h3 id="previews">Preview images</h3>
 <p>Each template card shows a picture, so you can see what a template looks like. Templates without one show a coloured placeholder. To set one, press <span class="ui">🖼</span> on the card:</p>
 <ul>
@@ -145,6 +156,20 @@
   <li><span class="ui">Use the current render</span>: the image in the Rendered output window (ComfyUI mode). The usual routine: apply the template, render, then set it as the preview.</li>
 </ul>
 <p>Previews are scaled down and kept in the browser. They are included in exports and in folder sync.</p>
+
+<h3 id="subject">Where does the subject go?</h3>
+<p>Templates set the <i>look</i>. They don't create people or boxes. The subject belongs to the layout:</p>
+<ul>
+  <li><b>Each person or thing</b> is its own element, and its <b>description</b> says who or what it is: <i>"a tennis player mid-serve"</i>. One element per person.</li>
+  <li><b>The high-level description</b> says what the whole picture is: <i>"a tennis player serving on a stadium court"</i>.</li>
+</ul>
+<p>Three ways to fill them:</p>
+<ol>
+  <li><b>Let the AI do it (easiest).</b> In <span class="ui">✨ Generate prompt</span>, describe the subject, and under Options pick a <span class="ui">Style template</span>. The model builds the layout and the people in that style.</li>
+  <li><b>Wildcards in the description.</b> Write <code>a __people/ages__ __people/roles__</code> in a person's description. Every roll gives a new subject while the template keeps the look.</li>
+  <li><b>In the template.</b> The wizard's <b>Who / what</b> box (step 3) is put in front of each styled element's description, so the template supplies the subject. Leave the description empty, or keep a few words there. <b>Add to the description</b> (step 2) does the same for the high-level description.</li>
+</ol>
+<p>Keeping subjects out of templates means any template works with any subject. Use <i>Who / what</i> when the template only makes sense with its own subject (e.g. "boxer" for a boxing poster).</p>
 
 <!-- ============================================================ -->
 <h2 id="lists">Wildcard lists</h2>
@@ -229,6 +254,19 @@ then from  lighting/natural  never pick  golden hour sunlight, harsh midday sun<
   <tr><td>Render queue → <span class="ui">Re-roll wildcards each iteration</span></td><td>A new variation for every render in the queue.</td></tr>
 </table>
 <div class="note">When you roll, the text you see is replaced from the field's wildcard source. If you hand-edit a rolled field and want to keep the edit, press <span class="ui">Detach</span> on its 🎲 badge, or lock the picks you care about.</div>
+
+<!-- ============================================================ -->
+<h2 id="comfyui">Rendering with ComfyUI</h2>
+<p>To see renders in the editor (and use them as template pictures), the editor has to reach your ComfyUI. Browsers block a page from talking to ComfyUI directly, so the bundled <code>comfy_proxy.py</code> serves the editor and passes requests to ComfyUI.</p>
+<ol class="steps">
+  <li><b>Start ComfyUI</b> with the Ideogram 4 models the bundled workflow uses.</li>
+  <li><b>Start the proxy</b> in the project folder, pointing it at ComfyUI: <pre><code>python comfy_proxy.py --comfy http://127.0.0.1:8188</code></pre> Use your ComfyUI's address if it runs on another machine. Alternatively, copy <code>comfy_proxy.env.example</code> to <code>comfy_proxy.env</code>, set <code>COMFY_URL</code> there, and run <code>python comfy_proxy.py</code>.</li>
+  <li><b>Open the editor through the proxy:</b> <code>http://localhost:8189/</code>. Not the HTML file directly, and not another web server, or ComfyUI can't be reached.</li>
+  <li><b>Switch to ComfyUI mode</b> (top right), leave <span class="ui">Connect directly to ComfyUI</span> unticked, and press <span class="ui">Test connection</span>.</li>
+  <li><b>Render.</b> The image appears in <span class="ui">Rendered output</span> and in the History gallery.</li>
+  <li><b>Make it a template picture:</b> <span class="ui">🎭 Templates → 🖼 → Use the current render</span>.</li>
+</ol>
+<p>The proxy also turns on <span class="ui">⇅ Sync with folder</span> for your lists and templates (the <code>wildcards/</code> folder next to it).</p>
 
 <!-- ============================================================ -->
 <h2 id="formats">Ideogram vs Moss output</h2>

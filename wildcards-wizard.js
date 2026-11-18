@@ -155,11 +155,50 @@ const WC_WIZ_GLOBAL = [
   ["hld_suffix", "Add to the description", "Added to the end of the high-level description.", "e.g. styled as a __eras__ poster"],
 ];
 const WC_WIZ_ELEMENT = [
+  ["desc_prefix", "Who / what", "e.g. a __people/ages__ __people/roles__", "Put in front of each element's own description. Use it if the template should supply the subject; leave it empty to keep the subject you (or ✨ Generate) wrote."],
   ["lighting", "Lighting on them", "e.g. hard rim light"], ["camera", "Camera on them", "e.g. __camera/shots__"], ["lens", "Lens", "e.g. __camera/lenses__"],
   ["wardrobe", "Clothes", "e.g. __clothes/outfit__"], ["pose", "Pose", "e.g. __people/poses__"], ["environment", "Their surroundings", "e.g. __places/urban__"],
-  ["mood", "Mood / expression", "e.g. __people/expressions__"], ["extra", "Details", "e.g. {50%? wearing __clothes/accessories__}"],
-  ["desc_prefix", "Before the description", "e.g. a __people/ages__"], ["desc_suffix", "After the description", "e.g. with a __people/expressions__"],
+  ["mood", "Mood / expression", "e.g. __people/expressions__"],
+  ["extra", "Details", "e.g. {50%? __people/hairstyles__}", "Anything that has no field of its own: hairstyle, props, accessories, tattoos…"],
+  ["desc_suffix", "After their description", "e.g. with a __people/expressions__", "Added to the end of each element's description, without a label."],
 ];
+// How a field's text shows up in the prompt (for the sample line).
+function wcWizLands(scope, key, value) {
+  if (scope === "g") {
+    if (key === "hld_suffix") return `high-level description: “… ${value}.”`;
+    if (key === "background") return `background: “${value}”`;
+    const lab = { aesthetics: "Style", lighting: "Lighting", photo: "Camera", medium: "Medium", art_style: "Art style" }[key];
+    return `image style → Ideogram style_description.${key}, Moss caption “${lab}: ${value}.”`;
+  }
+  if (key === "desc_prefix") return `each element: “${value} <their description> …”`;
+  if (key === "desc_suffix") return `each element: “<their description> ${value} …”`;
+  const lab = (ELEMENT_STYLE_FIELDS.find(f => f[0] === key) || [key, key])[1];
+  return `each element: “<their description>. ${lab}: ${value}.”`;
+}
+// Lists that suit any field (colours, materials…) never trigger the "unusual list" note.
+const WC_WIZ_ANYWHERE = /^(colours|colour-schemes|materials|textures|patterns|moods|eras)$/;
+const WC_WIZ_FREEFORM = new Set(["g.aesthetics", "g.hld_suffix", "e.extra", "e.desc_prefix", "e.desc_suffix"]);
+function wcWizOddLists(scope, key, text) {
+  if (WC_WIZ_FREEFORM.has(scope + "." + key)) return [];
+  const sug = WC_SLOT_SUGGEST[(scope === "e" ? "el." : "") + key] || [];
+  const folders = new Set(sug.map(n => n.split("/")[0]));
+  const lists = wcEngineLists();
+  const odd = [];
+  for (const ref of WC.listRefs(text)) {
+    const full = WC.lookup(lists, ref).lists[0];
+    if (!full || !(full in WC_BUILTIN_LISTS) || WC_WIZ_ANYWHERE.test(full) || sug.includes(full) || folders.has(full.split("/")[0])) continue;
+    odd.push(full);
+  }
+  return odd;
+}
+// Every wizard field, for the "make things match" step.
+function wcWizFields() {
+  const t = wcWiz.t; t.global = t.global || {}; t.element = t.element || {};
+  return [
+    ...WC_WIZ_GLOBAL.map(([k, label]) => ({ id: "g." + k, label: "Image · " + label, get: () => t.global[k] || "", set: v => { if (v) t.global[k] = v; else delete t.global[k]; } })),
+    ...WC_WIZ_ELEMENT.map(([k, label]) => ({ id: "e." + k, label: "Each element · " + label, perElement: true, get: () => t.element[k] || "", set: v => { if (v) t.element[k] = v; else delete t.element[k]; } })),
+  ];
+}
 let wcWiz = null;
 function wcOpenWizard(base) {
   const t = base ? JSON.parse(JSON.stringify(base)) : { name: "", category: "Mine", scope: "both", appliesTo: ["subject"], global: {}, element: {}, vars: {}, rules: [], llmNotes: "" };
@@ -170,7 +209,7 @@ function wcOpenWizard(base) {
   wcOpenModal("wcWizOverlay");
   void m;
 }
-const WC_WIZ_STEPS = ["Start", "Shared choices", "Image style", "People & objects", "Name & preview"];
+const WC_WIZ_STEPS = ["Start", "Whole image", "Each person / object", "Make things match", "Name & preview"];
 function wcWizVars() { return Object.keys(wcWiz.t.vars || {}).filter(Boolean); }
 function wcWizSample(text) {
   if (!text || !WC.hasSyntax(text)) return text || "";
@@ -178,11 +217,19 @@ function wcWizSample(text) {
   return r.text + (r.errors.length ? "   ⚠ " + r.errors.join("; ") : "");
 }
 // One field: text box + suggested lists (click to insert) + a live sample.
-function wcWizSlot({ label, help, ph, value, suggest, onInput }) {
+function wcWizSlot({ label, help, ph, value, suggest, onInput, scope, key }) {
   const ta = wcEl("textarea", { rows: 2, placeholder: ph || "", spellcheck: false, onkeydown: wcStop });
   ta.value = value || "";
   const sample = wcEl("div", { class: "wc-sample" });
-  const reSample = () => { const v = ta.value.trim(); sample.textContent = v ? "→ " + wcWizSample(v) : ""; };
+  const warn = wcEl("div", { class: "wc-warn" });
+  const reSample = () => {
+    const v = ta.value.trim();
+    sample.textContent = v ? "→ In the prompt: " + wcWizLands(scope, key, wcWizSample(v)) : "";
+    const odd = v ? wcWizOddLists(scope, key, v) : [];
+    const lab = scope === "e" ? (ELEMENT_STYLE_FIELDS.find(f => f[0] === key) || [0, label])[1] : label;
+    warn.replaceChildren(...(odd.length ? ["⚠ ", odd.map(n => "__" + n + "__").join(", "), ` isn't a usual ${lab.toLowerCase()} list — the prompt would read “${lab}: ${wcWizSample("__" + odd[0] + "__")}”. `,
+      scope === "e" ? "Things without their own field (hairstyles, props…) belong in Details." : "If that's what you want, ignore this."] : []));
+  };
   ta.addEventListener("input", () => { onInput(ta.value.trim()); reSample(); });
   const lists = wcAllLists();
   const chips = (suggest || []).filter(n => lists[n]).map(n => {
@@ -199,7 +246,7 @@ function wcWizSlot({ label, help, ph, value, suggest, onInput }) {
     wcEl("div", { class: "wc-slot-head" }, wcEl("b", {}, label), help ? wcEl("span", { class: "hint", style: { margin: 0 } }, help) : null),
     ta,
     wcEl("div", { class: "wc-chips" }, chips, varChips, opt, any, wcEl("button", { class: "chip", title: "Roll the sample again", onclick: reSample }, "🎲")),
-    sample);
+    sample, warn);
 }
 function wcRenderWizard() {
   const m = document.getElementById("wcWizOverlay")._wc, w = wcWiz, t = w.t;
@@ -211,51 +258,82 @@ function wcRenderWizard() {
       wcEl("div", { class: "wc-explain" },
         wcEl("p", {}, "A template is a set of fields — the look, lighting, camera, background, and what the people wear and do. Each field can be plain words, or a ", wcEl("b", {}, "roll from a wildcard list"), " like ", wcEl("code", {}, "__lighting/setups__"), ", which picks a random line every time you press 🎲 Roll."),
         wcEl("div", { class: "wc-flow" }, wcEl("span", {}, "📚 lists"), "→", wcEl("span", {}, "🎭 template fields"), "→", wcEl("span", {}, "🎲 roll"), "→", wcEl("span", {}, "📄 Ideogram / Moss prompt")),
-        wcEl("p", {}, "This wizard walks through each field and suggests lists that fit it — click a suggestion to put it in. The line under each box shows a sample roll, so you can see what you'll get. You can fine-tune everything later with Edit.")),
+        wcEl("p", {}, "The steps: ", wcEl("b", {}, "Whole image"), " (look, light, camera, setting) → ", wcEl("b", {}, "Each person / object"), " (clothes, pose, mood…, rolled separately for each one) → ", wcEl("b", {}, "Make things match"), " (optional: make some picks the same everywhere) → ", wcEl("b", {}, "Name & preview"), "."),
+        wcEl("p", {}, "Under each box the wizard suggests lists that fit it — click one to put it in — and shows a sample roll and exactly what it adds to the prompt. You can fine-tune everything later with Edit.")),
       wcEl("div", { class: "wc-row" }, wcEl("b", {}, "Start from"), pick, wcEl("span", { class: "hint", style: { margin: 0 } }, "— or leave it on “no template” to start blank")),
       wcEl("div", { class: "wc-row" }, wcEl("span", { class: "wc-ml" }, "Name"), (() => { const i = wcEl("input", { type: "text", placeholder: "e.g. Retro tennis poster", onkeydown: wcStop, oninput: () => { t.name = i.value; } }); i.value = t.name || ""; return i; })()));
   } else if (w.step === 1) {
-    t.vars = t.vars || {};
-    const rows = wcEl("div");
-    const draw = () => {
-      rows.replaceChildren(...Object.entries(t.vars).map(([k, v], idx) => {
-        const name = wcEl("input", { type: "text", value: k, placeholder: "name", onkeydown: wcStop, style: { maxWidth: "140px" } });
-        const src = wcEl("input", { type: "text", value: v, placeholder: "__sports__", onkeydown: wcStop });
-        const any = wcEl("select", { class: "ai-target-sel wc-insert" }); any.dataset.ph = "pick a list"; wcListOptions(any, "pick a list");
-        any.addEventListener("change", () => { if (any.value) { src.value = "__" + any.value + "__"; save(); } any.value = ""; });
-        const sample = wcEl("span", { class: "wc-sample" });
-        const save = () => {
-          const e = Object.entries(t.vars); e[idx] = [name.value.trim().replace(/[^\w.\-]/g, "_"), src.value.trim()];
-          t.vars = Object.fromEntries(e.filter(([a]) => a)); sample.textContent = "→ " + wcWizSample(src.value.trim());
-        };
-        name.addEventListener("change", () => { save(); draw(); }); src.addEventListener("input", save);
-        setTimeout(() => { sample.textContent = src.value ? "→ " + wcWizSample(src.value.trim()) : ""; }, 0);
-        return wcEl("div", { class: "wc-row" }, name, wcEl("span", {}, "="), src, any,
-          wcEl("button", { class: "iconbtn del", title: "Remove", onclick: () => { delete t.vars[k]; draw(); } }, "✕"), sample);
-      }));
-      if (!Object.keys(t.vars).length) rows.append(wcEl("div", { class: "hint" }, "No shared choices yet."));
-    };
-    draw();
-    body.push(wcEl("div", { class: "wc-explain" },
-      wcEl("p", {}, wcEl("b", {}, "Optional. "), "A shared choice is rolled once and can be used in several fields, so they agree with each other. Example: ", wcEl("code", {}, "sport = __sports__"),
-        ", then write ", wcEl("code", {}, "${sport} video game cover"), " in the look and ", wcEl("code", {}, "${sport} kit"), " in the clothes — both say the same sport."),
-      wcEl("p", {}, "Some built-in lists already follow a shared choice called ", wcEl("code", {}, "sport"), ": ", wcEl("code", {}, "__places/sports__"), " picks a matching venue and ", wcEl("code", {}, "__clothes/sportswear__"), " matching kit.")),
-      rows, wcEl("button", { class: "ghost", onclick: () => { let n = "choice", i = 1; while (t.vars[n]) n = "choice" + ++i; t.vars[n] = ""; draw(); } }, "＋ Add a shared choice"),
-      wcEl("div", { class: "wc-row" }, wcEl("span", { class: "hint", style: { margin: 0 } }, "Quick add:"),
-        [["sport", "__sports__"], ["era", "__eras__"], ["mood", "__moods__"], ["colour", "__colours__"], ["time", "__time-of-day__"]].map(([k, v]) =>
-          wcEl("button", { class: "chip", onclick: () => { t.vars[k] = v; draw(); } }, `${k} = ${v}`))));
-  } else if (w.step === 2) {
     t.global = t.global || {};
-    body.push(wcEl("div", { class: "hint", style: { marginTop: 0 } }, "Fill the fields you want this template to set; leave the rest empty to keep whatever the image already has. Click a ", wcEl("code", {}, "__list__"), " chip to insert it at the cursor (shift-click = two different picks)."));
-    for (const [k, label, help, ph] of WC_WIZ_GLOBAL) body.push(wcWizSlot({ label, help, ph, value: t.global[k], suggest: WC_SLOT_SUGGEST[k], onInput: v => { if (v) t.global[k] = v; else delete t.global[k]; } }));
-  } else if (w.step === 3) {
+    body.push(wcEl("div", { class: "wc-explain" },
+      wcEl("p", {}, wcEl("b", {}, "The whole picture: "), "the look, light, camera and setting. Fill only the fields this template should set; empty ones leave the image as it is."),
+      wcEl("p", { class: "hint", style: { margin: 0 } }, "Click a ", wcEl("code", {}, "__list__"), " chip to put it in at the cursor (shift-click = two different picks). The line under each box shows a sample roll and where it ends up in the prompt.")));
+    for (const [k, label, help, ph] of WC_WIZ_GLOBAL) body.push(wcWizSlot({ label, help, ph, value: t.global[k], suggest: WC_SLOT_SUGGEST[k], scope: "g", key: k, onInput: v => { if (v) t.global[k] = v; else delete t.global[k]; } }));
+  } else if (w.step === 2) {
     t.element = t.element || {};
     const types = ["subject", "obj", "text", "logo", "bg"];
     const names = { subject: "people & animals", obj: "objects", text: "text", logo: "logos", bg: "background elements" };
-    body.push(wcEl("div", { class: "wc-explain" }, wcEl("p", {}, "These go on individual elements, as labelled sentences after their description (", wcEl("code", {}, "… Wardrobe: tennis whites. Pose: mid-action swing."), "). “Apply to image” styles these element types:")),
-      wcEl("div", { class: "wc-row" }, types.map(ty => { const c = wcEl("input", { type: "checkbox", checked: (t.appliesTo || ["subject"]).includes(ty), onchange: () => { t.appliesTo = types.filter((x, i) => boxes[i].checked); } }); return wcEl("label", { class: "toggle" }, c, " " + names[ty]); })));
-    const boxes = Array.from(body[body.length - 1].querySelectorAll("input"));
-    for (const [k, label, ph] of WC_WIZ_ELEMENT) body.push(wcWizSlot({ label, ph, value: t.element[k], suggest: WC_SLOT_SUGGEST["el." + k], onInput: v => { if (v) t.element[k] = v; else delete t.element[k]; } }));
+    const boxes = types.map(ty => wcEl("input", { type: "checkbox", checked: (t.appliesTo || ["subject"]).includes(ty), onchange: () => { t.appliesTo = types.filter((x, i) => boxes[i].checked); } }));
+    body.push(wcEl("div", { class: "wc-explain" },
+        wcEl("p", {}, wcEl("b", {}, "Each person or object, one at a time. "), "These fields are added to every element the template styles, ",
+          wcEl("b", {}, "rolled separately for each one"), " — two people with Pose = ", wcEl("code", {}, "__people/poses__"), " get two different poses. (Want them the same? That's the next step.)"),
+        wcEl("p", {}, "In the prompt they become labelled sentences after the element's description: ", wcEl("code", {}, "A tennis player. Wardrobe: tennis whites. Pose: mid-action swing."), " The label comes from the box, so put things in the box they belong to — anything without its own box goes in ", wcEl("b", {}, "Details"), "."),
+        wcEl("p", {}, wcEl("b", {}, "The subject itself"), " (who the person is) normally comes from each element's own description, written by you or by ✨ Generate. Use ", wcEl("b", {}, "Who / what"), " only if this template should supply the subject too.")),
+      wcEl("div", { class: "wc-row" }, wcEl("b", {}, "Style these when applied to the image:"), types.map((ty, i) => wcEl("label", { class: "toggle" }, boxes[i], " " + names[ty]))));
+    for (const [k, label, ph, help] of WC_WIZ_ELEMENT) body.push(wcWizSlot({ label, help, ph, value: t.element[k], suggest: WC_SLOT_SUGGEST["el." + k], scope: "e", key: k, onInput: v => { if (v) t.element[k] = v; else delete t.element[k]; } }));
+  } else if (w.step === 3) {
+    t.vars = t.vars || {};
+    const fields = wcWizFields();
+    const tok = name => "${" + name + "}";
+    const usedIn = name => fields.filter(f => f.get().includes(tok(name)));
+    // Lists the fields roll from, and where.
+    const listUse = {};
+    for (const f of fields) for (const ref of WC.listRefs(f.get())) (listUse[ref] = listUse[ref] || []).push(f);
+    const varName = ref => { let n = ref.split("/").pop().replace(/[^\w]+/g, "_").replace(/s$/, "") || "choice", i = 1; const base = n; while (t.vars[n] && t.vars[n] !== "__" + ref + "__") n = base + ++i; return n; };
+    const makeMatch = ref => {
+      const n = varName(ref);
+      t.vars[n] = "__" + ref + "__";
+      for (const f of listUse[ref] || []) f.set(f.get().split("__" + ref + "__").join(tok(n)));
+      wcRenderWizard();
+    };
+    const demoA = wcWizSample("__people/poses__"), demoB = wcWizSample("__people/poses__"), demoS = wcWizSample("__people/poses__");
+    // Worth matching: used in 2+ fields, or per element (then every person gets the same pick).
+    const candidates = Object.entries(listUse).filter(([ref, fs]) => !Object.values(t.vars).includes("__" + ref + "__") && (fs.length > 1 || fs.some(f => f.perElement)));
+    const vrows = Object.entries(t.vars).map(([k, v]) => {
+      const src = wcEl("input", { type: "text", onkeydown: wcStop, placeholder: "__sports__" }); src.value = v;
+      const sample = wcEl("span", { class: "wc-sample", style: { display: "inline" } }, v ? "→ " + wcWizSample(v) : "");
+      src.addEventListener("input", () => { t.vars[k] = src.value.trim(); sample.textContent = "→ " + wcWizSample(src.value.trim()); });
+      const users = usedIn(k);
+      const sameList = listUse[v.replace(/^__|__$/g, "")] || [];
+      const useIn = wcEl("select", { class: "ai-target-sel" }, wcEl("option", { value: "" }, "＋ use it in a field…"), fields.map(f => wcEl("option", { value: f.id }, f.label)));
+      useIn.addEventListener("change", () => { const f = fields.find(x => x.id === useIn.value); if (f) { const cur = f.get(); f.set(cur ? cur + (/[\s,]$/.test(cur) ? "" : ", ") + tok(k) : tok(k)); wcRenderWizard(); } });
+      return wcEl("div", { class: "wc-slot" },
+        wcEl("div", { class: "wc-row", style: { marginTop: 0 } }, wcEl("code", {}, tok(k)), wcEl("span", {}, "="), src,
+          wcEl("button", { class: "iconbtn del", title: "Remove this shared choice (fields that use it are left as they are)", onclick: () => { delete t.vars[k]; wcRenderWizard(); } }, "✕")),
+        sample,
+        users.length ? wcEl("div", { class: "hint" }, "✓ Used in: " + users.map(f => f.label).join(" · "))
+          : wcEl("div", { class: "wc-warn" }, "⚠ Not used in any field yet, so it does nothing. Use it in a field ↓"),
+        sameList.length ? wcEl("div", { class: "wc-warn" }, `⚠ ${sameList.map(f => f.label).join(" · ")} still ${sameList.length === 1 ? "rolls" : "roll"} ${v} on ${sameList.length === 1 ? "its" : "their"} own, so ${sameList.length === 1 ? "it won't" : "they won't"} match this choice. `,
+          wcEl("button", { class: "chip", onclick: () => { for (const f of sameList) f.set(f.get().split(v).join(tok(k))); wcRenderWizard(); } }, `Use ${tok(k)} there instead`)) : null,
+        wcEl("div", { class: "wc-row" }, useIn));
+    });
+    body.push(wcEl("div", { class: "wc-explain" },
+      wcEl("p", {}, wcEl("b", {}, "Optional. "), "Every list in a field is rolled on its own, and per-element fields are rolled separately for each person. A ", wcEl("b", {}, "shared choice"), " is rolled ", wcEl("b", {}, "once"), " and then reused wherever you write its name, so those places always agree."),
+      wcEl("table", { class: "wc-demo" },
+        wcEl("tr", {}, wcEl("th", {}, ""), wcEl("th", {}, "Person 1"), wcEl("th", {}, "Person 2")),
+        wcEl("tr", {}, wcEl("td", {}, "Pose = ", wcEl("code", {}, "__people/poses__")), wcEl("td", {}, demoA), wcEl("td", {}, demoB)),
+        wcEl("tr", {}, wcEl("td", {}, "Pose = ", wcEl("code", {}, "${pose}"), wcEl("br"), wcEl("small", {}, "with pose = __people/poses__")), wcEl("td", {}, demoS), wcEl("td", {}, demoS))),
+      wcEl("p", {}, "It also links ", wcEl("b", {}, "different"), " fields: with ", wcEl("code", {}, "sport = __sports__"), ", “", wcEl("code", {}, "${sport} video game cover"), "” in the look and “", wcEl("code", {}, "${sport} kit"), "” in Clothes always name the same sport. A shared choice on its own never appears in the prompt — only where you use it.")));
+    if (candidates.length) body.push(wcEl("div", { class: "wc-slot" }, wcEl("b", {}, "Lists your fields roll from"),
+      wcEl("div", { class: "hint", style: { marginTop: 2 } }, "“Make it match” rolls the list once and puts that one result in every field below that uses it."),
+      candidates.map(([ref, fs]) => wcEl("div", { class: "wc-row" }, wcEl("code", {}, "__" + ref + "__"),
+        wcEl("span", { class: "hint", style: { margin: 0, flex: "1" } }, "in " + fs.map(f => f.label + (f.perElement ? " (each person rolls their own; matching gives everyone the same)" : "")).join(" · ")),
+        wcEl("button", { class: "chip", onclick: () => makeMatch(ref) }, "Make it match")))));
+    body.push(wcEl("b", { style: { display: "block", marginTop: "14px" } }, "Shared choices"), ...vrows,
+      vrows.length ? null : wcEl("div", { class: "hint" }, "None yet — that's fine; most templates don't need any."),
+      wcEl("div", { class: "wc-row" }, wcEl("span", { class: "hint", style: { margin: 0 } }, "Add one:"),
+        [["sport", "__sports__"], ["era", "__eras__"], ["mood", "__moods__"], ["colour", "__colours__"], ["pose", "__people/poses__"], ["time", "__time-of-day__"]].filter(([k]) => !t.vars[k]).map(([k, v]) =>
+          wcEl("button", { class: "chip", onclick: () => { t.vars[k] = v; wcRenderWizard(); } }, `${k} = ${v}`)),
+        wcEl("button", { class: "chip", onclick: () => { let n = "choice", i = 1; while (t.vars[n] != null) n = "choice" + ++i; t.vars[n] = ""; wcRenderWizard(); } }, "＋ other…")));
   } else {
     const name = wcEl("input", { type: "text", placeholder: "Template name", onkeydown: wcStop, oninput: () => { t.name = name.value; } }); name.value = t.name || "";
     const cat = wcEl("input", { type: "text", placeholder: "Category", onkeydown: wcStop, oninput: () => { t.category = cat.value; } }); cat.value = t.category || "Mine";
@@ -280,7 +358,7 @@ function wcRenderWizard() {
           wcEl("div", { class: "hint" }, "Tip: save without a picture, apply the template, render, then come back to 🎭 Templates → 🖼 → Use the current render."), file)),
       wcEl("div", { class: "wc-row" }, wcEl("button", { onclick: () => { try { wcSampleTemplate(t, out); } catch (err) { toast(err.message, "bad"); } } }, "🎲 Show 3 sample rolls")),
       out,
-      hasAny ? null : wcEl("div", { class: "status err" }, "The template is empty — fill some fields in steps 3 and 4."));
+      hasAny ? null : wcEl("div", { class: "status err" }, "The template is empty — fill some fields in steps 2 and 3."));
   }
   m.body.replaceChildren(steps, wcEl("div", { style: { height: "12px" } }), ...body.filter(Boolean));
   const last = w.step === WC_WIZ_STEPS.length - 1;
@@ -352,6 +430,11 @@ function wcOpenHelp(anchor) {
   .wc-chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 6px; }
   .wc-chips select { width: auto; padding: 2px 6px; font-size: 11px; }
   .chip.wc-varchip { border-color: #6366F1; color: #a5b4fc; }
+  .wc-warn { font-size: 12px; color: #f59e0b; margin-top: 4px; } .wc-warn:empty { display: none; }
+  .wc-warn .chip { margin-left: 4px; border-color: #f59e0b; color: #fbbf24; }
+  .wc-demo { border-collapse: collapse; font-size: 12.5px; margin: 6px 0 10px; }
+  .wc-demo th, .wc-demo td { border: 1px solid var(--border); padding: 5px 9px; text-align: left; vertical-align: top; }
+  .wc-demo th { color: var(--muted); font-weight: 600; } .wc-demo small { color: var(--faint); }
   .wc-sample { display: block; font-size: 12px; color: var(--muted); margin-top: 6px; font-style: italic; word-break: break-word; }
   .wc-col { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
   .wc-help-modal { max-height: 94vh; display: flex; flex-direction: column; }
