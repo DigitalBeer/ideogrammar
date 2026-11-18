@@ -23,6 +23,17 @@ Usage:
   # then open http://localhost:8189/ and set the editor's Server URL to
   #   http://localhost:8189   (or leave blank when served from here)
 
+Wildcards + style templates (file-backed, created lazily on first write):
+  --wildcards-dir DIR   default ./wildcards next to this script (env IDEOGRAMMAR_WILDCARDS)
+  --templates-dir DIR   default <wildcards-dir>/_templates   (env IDEOGRAMMAR_TEMPLATES)
+  GET    /ideogrammar/wildcards          -> {"root", "files": [{"path","mtime"(epoch ms),"size"}]}
+  GET    /ideogrammar/wildcards/<path>   -> raw text/plain; utf-8 (X-Mtime header), 404 if missing
+  PUT    /ideogrammar/wildcards/<path>   body = raw UTF-8 text -> {"ok","path","mtime","size"} (atomic)
+  DELETE /ideogrammar/wildcards/<path>   -> {"ok","path","existed"}
+  Same four on /ideogrammar/templates[/<name>.json] (flat, .json only, body must be valid JSON).
+  Wildcard paths: .txt .yaml .yml .json only; no '..', absolute paths, drive letters or
+  hidden segments (400 JSON error). Bodies over 2 MB -> 413.
+
 Stdlib only. Python 3.8+.
 """
 
@@ -476,6 +487,236 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    # ---- file-backed wildcards + style templates ----
+    # Wildcard lists live as plain files under --wildcards-dir in the Dynamic
+    # Prompts layout (colours.txt, clothes/hats.txt, packs.yaml ...), so the same
+    # folder can be shared with ComfyUI/A1111 wildcard extensions. Style templates
+    # are one JSON file each under --templates-dir. The browser keeps its own
+    # localStorage copy and syncs against these endpoints when the proxy is up.
+    _WC_EXT = (".txt", ".yaml", ".yml", ".json")
+    _TPL_EXT = (".json",)
+    _FILE_BODY_MAX = 2 * 1024 * 1024
+    _WC_PREFIX = "/ideogrammar/wildcards"
+    _TPL_PREFIX = "/ideogrammar/templates"
+
+    def _store_spec(self, path):
+        """Map a request path to (root, rel, exts, flat, kind) for the wildcard /
+        template stores, or None if the path isn't one of ours. rel is the raw
+        (still URL-encoded) remainder; "" means the collection itself."""
+        for prefix, kind in ((self._WC_PREFIX, "wildcards"), (self._TPL_PREFIX, "templates")):
+            if path == prefix or path.startswith(prefix + "/"):
+                rel = path[len(prefix) + 1:]  # keep a leading "/" so "//etc/x" is refused
+                if kind == "wildcards":
+                    return ARGS.wildcards_dir, rel, self._WC_EXT, False, kind
+                return ARGS.templates_dir, rel, self._TPL_EXT, True, kind
+        return None
+
+    @staticmethod
+    def _inside(root, cand):
+        root = os.path.normcase(os.path.realpath(root))
+        cand = os.path.normcase(os.path.realpath(cand))
+        try:
+            return os.path.commonpath([root, cand]) == root
+        except ValueError:  # different drives on Windows
+            return False
+
+    def _safe_store_path(self, root, raw_rel, exts, flat, kind):
+        """Validate a store-relative path. Returns (abs_path, clean_rel) or
+        (None, error message)."""
+        rel = unquote(raw_rel).replace("\\", "/")
+        if not rel:
+            return None, "Empty path"
+        if "\x00" in rel or rel.startswith("/") or re.match(r"^[A-Za-z]:", rel) or ":" in rel:
+            return None, "Absolute paths and drive letters are not allowed"
+        parts = rel.split("/")
+        if any(p in ("", ".", "..") for p in parts):
+            return None, "Path segments '', '.' and '..' are not allowed"
+        if any(p.startswith(".") for p in parts):
+            return None, "Hidden files/folders are not allowed"
+        if flat and len(parts) != 1:
+            return None, "Template names must not contain folders"
+        if not parts[-1].lower().endswith(exts):
+            return None, "Only %s files are allowed" % " ".join(exts)
+        if kind == "wildcards" and parts[0].lower() == "_templates":
+            return None, "_templates is reserved for style templates"
+        full = os.path.join(os.path.abspath(root), *parts)
+        if not self._inside(root, full):
+            return None, "Path escapes the store root"
+        if kind == "wildcards" and self._inside(ARGS.templates_dir, full):
+            return None, "That folder is the templates store"
+        return full, "/".join(parts)
+
+    @staticmethod
+    def _mtime_ms(fpath):
+        return int(os.stat(fpath).st_mtime_ns // 1000000)
+
+    def _store_list(self, root, exts, kind):
+        files = []
+        root_abs = os.path.abspath(root)
+        tpl_abs = os.path.normcase(os.path.realpath(ARGS.templates_dir))
+        if os.path.isdir(root_abs):
+            for dirpath, dirnames, filenames in os.walk(root_abs):
+                keep = []
+                for d in dirnames:
+                    if d.startswith("."):
+                        continue
+                    sub = os.path.join(dirpath, d)
+                    if kind == "wildcards" and (
+                            (dirpath == root_abs and d.lower() == "_templates")
+                            or os.path.normcase(os.path.realpath(sub)) == tpl_abs):
+                        continue
+                    if kind == "templates":
+                        continue  # templates are flat
+                    keep.append(d)
+                dirnames[:] = sorted(keep)
+                for fn in sorted(filenames):
+                    if fn.startswith(".") or not fn.lower().endswith(exts):
+                        continue
+                    fp = os.path.join(dirpath, fn)
+                    try:
+                        st = os.stat(fp)
+                    except OSError:
+                        continue
+                    rel = os.path.relpath(fp, root_abs).replace(os.sep, "/")
+                    files.append({"path": rel, "mtime": int(st.st_mtime_ns // 1000000), "size": st.st_size})
+        self._send_json({"root": root_abs, "files": files})
+
+    def _store_get(self, full, rel, kind):
+        if not os.path.isfile(full):
+            self._json_error(404, "Not found: %s" % rel)
+            return
+        try:
+            with open(full, "rb") as f:
+                body = f.read()
+            mtime = self._mtime_ms(full)
+        except OSError as e:
+            self._json_error(500, "Cannot read %s: %s" % (rel, e))
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8" if kind == "templates"
+                         else "text/plain; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Mtime", str(mtime))
+        self.send_header("Access-Control-Expose-Headers", "X-Mtime")
+        self._cors()
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _store_put(self, full, rel, kind, root):
+        try:
+            length = int(self.headers.get("Content-Length", 0) or 0)
+        except ValueError:
+            self._json_error(400, "Bad Content-Length")
+            return
+        if length > self._FILE_BODY_MAX:
+            # Drain the body (in chunks, discarded) so the client actually receives
+            # the 413 — on Windows closing with unread data resets the socket.
+            # Absurdly large bodies are not drained; the connection is dropped.
+            remaining = length if length <= 64 * 1024 * 1024 else 0
+            while remaining > 0:
+                chunk = self.rfile.read(min(remaining, 65536))
+                if not chunk:
+                    break
+                remaining -= len(chunk)
+            self.close_connection = True
+            body = json.dumps({"error": "Body too large (max %d bytes)" % self._FILE_BODY_MAX}).encode()
+            self.send_response(413)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Connection", "close")
+            self._cors()
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        data = self.rfile.read(length) if length else b""
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError:
+            self._json_error(400, "Body must be UTF-8 text")
+            return
+        if kind == "templates":
+            try:
+                json.loads(text)
+            except ValueError as e:
+                self._json_error(400, "Template body is not valid JSON: %s" % e)
+                return
+        import tempfile
+        parent = os.path.dirname(full)
+        tmp = None
+        try:
+            os.makedirs(parent, exist_ok=True)
+            if not self._inside(root, parent):
+                raise OSError("parent folder escapes the store root")
+            fd, tmp = tempfile.mkstemp(dir=parent, prefix="." + os.path.basename(full) + ".", suffix=".tmp")
+            with os.fdopen(fd, "wb") as f:
+                f.write(data)
+                f.flush()
+                os.fsync(f.fileno())
+            for attempt in range(5):  # Windows: replace can fail while a reader has it open
+                try:
+                    os.replace(tmp, full)
+                    tmp = None
+                    break
+                except PermissionError:
+                    if attempt == 4:
+                        raise
+                    import time
+                    time.sleep(0.05 * (attempt + 1))
+            mtime = self._mtime_ms(full)
+        except OSError as e:
+            if tmp:
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+            self._json_error(500, "Cannot write %s: %s" % (rel, e))
+            return
+        self._send_json({"ok": True, "path": rel, "mtime": mtime, "size": len(data)})
+
+    def _store_delete(self, full, rel, root):
+        existed = os.path.isfile(full)
+        if existed:
+            try:
+                os.remove(full)
+            except OSError as e:
+                self._json_error(500, "Cannot delete %s: %s" % (rel, e))
+                return
+            # prune now-empty parent folders, never the root itself
+            root_abs = os.path.normcase(os.path.realpath(root))
+            d = os.path.dirname(full)
+            while os.path.normcase(os.path.realpath(d)) != root_abs and self._inside(root, d):
+                try:
+                    os.rmdir(d)
+                except OSError:
+                    break
+                d = os.path.dirname(d)
+        self._send_json({"ok": True, "path": rel, "existed": existed})
+
+    def _handle_store(self, method):
+        """Dispatch wildcard/template requests. Returns True if handled."""
+        spec = self._store_spec(self.path.split("?", 1)[0])
+        if spec is None:
+            return False
+        root, raw_rel, exts, flat, kind = spec
+        if raw_rel == "":
+            if method == "GET":
+                self._store_list(root, exts, kind)
+            else:
+                self._json_error(405, "Use %s on a file path" % method)
+            return True
+        full, rel = self._safe_store_path(root, raw_rel, exts, flat, kind)
+        if full is None:
+            self._json_error(400, rel)
+            return True
+        if method == "GET":
+            self._store_get(full, rel, kind)
+        elif method in ("PUT", "POST"):
+            self._store_put(full, rel, kind, root)
+        elif method == "DELETE":
+            self._store_delete(full, rel, root)
+        return True
+
     # ---- HTTP verbs ----
     def do_OPTIONS(self):
         self.send_response(204)
@@ -487,6 +728,8 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         if self._is_ws():
             self._relay_websocket()
+            return
+        if self._handle_store("GET"):
             return
         if path == "/ideogrammar/outputs":
             self._list_outputs()
@@ -517,6 +760,8 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/ideogrammar/refimg":
             self._store_refimg()
             return
+        if self._handle_store("POST"):  # POST = PUT alias (sendBeacon)
+            return
         # POST is accepted alongside PUT so the editor can flush via
         # navigator.sendBeacon() on page unload (beacons are always POST).
         if p == "/ideogrammar/setups":
@@ -529,6 +774,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_PUT(self):
         p = self.path.split("?", 1)[0]
+        if self._handle_store("PUT"):
+            return
         if p == "/ideogrammar/setups":
             self._db_put_setups()
             return
@@ -538,6 +785,8 @@ class Handler(BaseHTTPRequestHandler):
         self._proxy()
 
     def do_DELETE(self):
+        if self._handle_store("DELETE"):
+            return
         self._proxy()
 
     # ---- transparent HTTP proxy to ComfyUI ----
@@ -1415,9 +1664,13 @@ def main():
     p.add_argument("--output-dir", default="", help="ComfyUI output/ folder (readable by this proxy) — enables gallery recovery via the editor's Rescan button, surviving ComfyUI restarts")
     p.add_argument("--ref-dir", default=os.environ.get("IDEOGRAMMAR_REF_DIR", os.path.join(here, ".ideogrammar_refimg")), help="where to cache reference images for the before/after compare slider (env: IDEOGRAMMAR_REF_DIR)")
     p.add_argument("--db-path", default=os.environ.get("IDEOGRAMMAR_DB", os.path.join(here, ".ideogrammar.db")), help="SQLite file for the render gallery + saved setups (env: IDEOGRAMMAR_DB)")
+    p.add_argument("--wildcards-dir", default=os.environ.get("IDEOGRAMMAR_WILDCARDS", os.path.join(here, "wildcards")), help="folder of wildcard lists in Dynamic Prompts layout (colours.txt, clothes/hats.txt, *.yaml); created on first write (env: IDEOGRAMMAR_WILDCARDS)")
+    p.add_argument("--templates-dir", default=os.environ.get("IDEOGRAMMAR_TEMPLATES", ""), help="folder of style-template JSON files (default: <wildcards-dir>/_templates; env: IDEOGRAMMAR_TEMPLATES)")
     p.add_argument("--timeout", type=float, default=600.0, help="upstream timeout (s)")
     p.add_argument("--verbose", action="store_true", help="log every request")
     ARGS = p.parse_args()
+    ARGS.wildcards_dir = os.path.abspath(ARGS.wildcards_dir)
+    ARGS.templates_dir = os.path.abspath(ARGS.templates_dir or os.path.join(ARGS.wildcards_dir, "_templates"))
 
     srv = ThreadingHTTPServer((ARGS.host, ARGS.port), Handler)
     srv.daemon_threads = True
@@ -1430,6 +1683,8 @@ def main():
         print("  output dir: %s%s" % (ARGS.output_dir, "" if ok else "  (NOT a readable folder — gallery recovery disabled)"))
     print("  ref images: %s" % ARGS.ref_dir)
     print("  gallery db: %s" % ARGS.db_path)
+    print("  wildcards:  %s" % ARGS.wildcards_dir)
+    print("  templates:  %s" % ARGS.templates_dir)
     print("  editor Server URL: leave blank (uses this origin) or set %s" % url.rstrip("/"))
     _sam_ckpt = os.environ.get("SAM_CHECKPOINT")
     if not _sam_ckpt:

@@ -250,6 +250,54 @@
   .handle { position: absolute; width: 11px; height: 11px; background: #fff; border: 1.5px solid var(--accent); border-radius: 3px; }
   .handle.se { right: -6px; bottom: -6px; cursor: nwse-resize; }
   .box, .handle { touch-action: none; }
+  .lock-btn { margin-left: auto; background: none; border: 0; padding: 0 4px; font-size: 13px; cursor: pointer; opacity: .55; }
+  .lock-btn.on { opacity: 1; }
+  .iconbtn.on { opacity: 1; }
+  .element.locked { box-shadow: inset 3px 0 0 var(--accent); }
+  .box.locked { outline: 1px dashed rgba(255,255,255,.55); outline-offset: 2px; }
+  .ai-target { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+  .ai-target-sel { width: auto; padding: 3px 6px; }
+  .rv-detail { white-space: pre-wrap; word-break: break-word; font-size: 12.5px; color: var(--muted); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin-bottom: 12px; }
+  .rv-table-wrap { max-height: 360px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
+  .rv-table { width: 100%; border-collapse: collapse; font-size: 12.5px; table-layout: fixed; }
+  .rv-table th, .rv-table td { text-align: left; vertical-align: top; padding: 7px 9px; border-bottom: 1px solid var(--border); white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; line-height: 1.45; }
+  .rv-table thead th { position: sticky; top: 0; background: var(--elevated, #161b24); color: var(--muted); font-weight: 600; z-index: 1; }
+  .rv-table thead th:first-child { width: 22%; } .rv-table tbody th { font-weight: 600; }
+  .rv-table tbody th span { font-weight: 700; margin-right: 2px; }
+  .rv-table tr:last-child th, .rv-table tr:last-child td { border-bottom: 0; }
+  .rv-line { margin-bottom: 3px; } .rv-line:last-child { margin-bottom: 0; }
+  .rv-line.ch { background: rgba(245,158,11,.12); border-radius: 3px; padding: 0 3px; margin-left: -3px; }
+  .rv-table i { display: inline-block; width: 14px; height: 14px; border-radius: 3px; margin-right: 3px; border: 1px solid var(--border); vertical-align: -2px; }
+  .rv-table .rv-add th span { color: #22c55e; } .rv-table .rv-del th span { color: var(--danger); } .rv-table .rv-chg th span { color: #f59e0b; }
+  .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .chip-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
+  .chip-group-name { font-size: 11px; color: var(--faint); min-width: 104px; }
+  .tokens { display: flex; flex-wrap: wrap; gap: 6px; min-height: 26px; align-items: center; font-size: 12px; }
+  .token { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 9px; border-radius: 999px; background: rgba(99,102,241,.18); border: 1px solid var(--accent); font-size: 11.5px; }
+  .token button { background: none; border: 0; padding: 0 4px; font-size: 13px; line-height: 1; cursor: pointer; color: var(--muted); }
+  .ai-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  .gen-options { margin-top: 12px; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px 10px; }
+  .gen-options summary { cursor: pointer; font-size: 12px; font-weight: 600; padding: 4px 0; }
+  .gen-opt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px 12px; }
+  .gen-opt-grid label { margin: 6px 0 0; } .gen-opt-grid select { margin-top: 4px; }
+  .gen-questions { margin-top: 12px; border: 1px solid var(--accent); border-radius: 6px; padding: 4px 10px 10px; }
+  .gen-q input { margin-top: 6px; }
+  .var-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .var-card { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+  .var-head { font-weight: 600; font-size: 13px; }
+  .var-meta { font-size: 11.5px; color: var(--muted); }
+  .var-desc { font-size: 12px; white-space: pre-wrap; word-break: break-word; flex: 1; }
+  .rv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 640px) { .rv-grid { grid-template-columns: 1fr; } }
+  .rv-list { list-style: none; margin: 0; padding: 0; font-size: 12.5px; max-height: 220px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
+  .rv-list li { display: flex; gap: 8px; align-items: flex-start; padding: 6px 9px; border-bottom: 1px solid var(--border); line-height: 1.4; }
+  .rv-list li:last-child { border-bottom: 0; }
+  .rv-list li > span:first-child { flex: 0 0 auto; font-weight: 700; }
+  .rv-list i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-left: 2px; border: 1px solid var(--border); }
+  .rv-list em { color: var(--muted); font-style: normal; }
+  .rv-add > span:first-child { color: #22c55e; } .rv-del > span:first-child { color: var(--danger); } .rv-chg > span:first-child { color: #f59e0b; }
+  .rv-none, .rv-note { color: var(--faint); }
+  .rv-issues input { margin-top: 2px; width: auto; }
   .marquee { position: absolute; border: 1px solid rgba(255,255,255,.7); background: rgba(99,102,241,.18); pointer-events: none; z-index: 60; border-radius: 2px; }
   .grid-line { position: absolute; background: rgba(255,255,255,.05); }
   .toggle { display: flex; align-items: center; gap: 7px; margin: 0; color: var(--muted); font-size: 12px; cursor: pointer; }
@@ -432,6 +480,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>
         <span>Generate prompt</span>
       </button>
+      <button id="undoAiBtn" title="Nothing to undo" aria-label="Undo AI change" disabled>↶</button>
       <button class="has-label" id="refineBtn" title="Ask the model to adjust the current setup" aria-label="Refine">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></svg>
         <span>Refine</span>
@@ -442,10 +491,10 @@
       <button id="resetBtn" title="Reset to the default example" aria-label="Reset">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
       </button>
-      <button id="copyBtn" title="Copy JSON" aria-label="Copy JSON">
+      <button id="copyBtn" title="Copy the JSON currently shown (Ideogram or Moss Image)" aria-label="Copy JSON">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
       </button>
-      <button id="downloadBtn" title="Download JSON" aria-label="Download">
+      <button id="downloadBtn" title="Download Ideogram JSON" aria-label="Download Ideogram JSON">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
       </button>
       <button id="quickSaveBtn" title="Quick-save setup" aria-label="Quick-save setup">
@@ -511,7 +560,7 @@
     </section>
 
     <section class="panel" data-collapsible>
-      <div class="panel-head"><span class="chev">▶</span><h2>Style description</h2></div>
+      <div class="panel-head"><span class="chev">▶</span><h2>Style description</h2><button type="button" class="lock-btn" id="lockStyle" title="Lock: Generate/Refine keep the style unchanged">🔓</button></div>
       <div class="panel-body">
         <label>Aesthetics</label>
         <textarea id="st-aesthetics" rows="2"></textarea>
@@ -521,6 +570,8 @@
         <input type="text" id="st-photo">
         <label>Medium</label>
         <input type="text" id="st-medium">
+        <label title="Ideogram 4 takes either Photo or Art style: when Photo is filled, Art style is not sent">Art style <span style="color:var(--faint)">(non-photo images; used when Photo is empty)</span></label>
+        <input type="text" id="st-artstyle" placeholder="e.g. vintage poster design, textured paper">
         <label>Color palette</label>
         <div class="palette" id="st-palette"></div>
         <button type="button" id="st-palette-presets" class="ghost" style="margin-top:8px;padding:5px 11px;font-size:12px;">🎨 Preset palettes…</button>
@@ -528,7 +579,7 @@
     </section>
 
     <section class="panel" data-collapsible>
-      <div class="panel-head"><span class="chev">▶</span><h2>Background</h2></div>
+      <div class="panel-head"><span class="chev">▶</span><h2>Background</h2><button type="button" class="lock-btn" id="lockBackground" title="Lock: Generate/Refine keep the background unchanged">🔓</button></div>
       <div class="panel-body">
         <textarea id="bg" rows="3"></textarea>
       </div>
@@ -542,6 +593,7 @@
       <div class="panel-body">
         <div class="el-tools">
           <span class="hint">Drag the ⠿ handle or use ↑↓ to reorder. Click a row to expand.</span>
+          <button id="checkLayoutBtn" title="Check the layout for problems that cause misplaced, merged or extra people, and review fixes">🩺 Check</button>
           <button class="primary" id="addEl">+ Add</button>
         </div>
         <div id="elements"></div>
@@ -569,6 +621,14 @@
               <option value="2:3 (Portrait Photo)">2:3 (Portrait Photo)</option>
               <option value="3:4 (Portrait Standard)">3:4 (Portrait Standard)</option>
               <option value="9:16 (Portrait Widescreen)">9:16 (Portrait Widescreen)</option>
+              <optgroup label="Moss Image only (no ComfyUI render)">
+                <option value="2:1 (Panorama, Moss only)">2:1 (Panorama)</option>
+                <option value="3:1 (Wide Panorama, Moss only)">3:1 (Wide Panorama)</option>
+                <option value="4:1 (Banner, Moss only)">4:1 (Banner)</option>
+                <option value="1:2 (Tall, Moss only)">1:2 (Tall)</option>
+                <option value="1:3 (Tall Panorama, Moss only)">1:3 (Tall Panorama)</option>
+                <option value="1:4 (Tall Banner, Moss only)">1:4 (Tall Banner)</option>
+              </optgroup>
             </select>
           </div>
           <div>
@@ -697,6 +757,7 @@
             </div>
             <label class="toggle" style="margin-top:10px;"><input type="checkbox" id="cf-queue-reseed"> Randomize seed each iteration</label>
             <label class="toggle" style="margin-top:8px;"><input type="checkbox" id="cf-queue-regen"> Regenerate prompt each iteration <span style="color:var(--faint)">(re-runs the model first)</span></label>
+            <label class="toggle" style="margin-top:8px;"><input type="checkbox" id="cf-queue-rewild"> Re-roll wildcards each iteration <span style="color:var(--faint)">(new picks for every 🎲 field; locked picks stay)</span></label>
             <label style="margin-top:10px;">Guidance <span style="color:var(--faint)">(steers each regenerated prompt)</span></label>
             <input type="text" id="cf-queue-guidance" placeholder="e.g. make it photorealistic" title="Applied on top of your ✨ Generate description for every regenerated prompt in the queue. Only used when 'Regenerate prompt' is on.">
             <div class="hint">Runs the render the chosen number of times in sequence; each result lands in the History gallery and the Cancel button stops the run. <b>Randomize seed</b> rerolls the noise seed before every render so each one differs. <b>Regenerate prompt</b> also rebuilds the layout from your <b>✨ Generate</b> description (or reference image) before each render — so both the wording and the seed change every time. <b>Guidance</b> is an extra steering instruction (e.g. <i>make it photorealistic</i>) folded into every regenerated prompt, so the whole queue keeps a consistent direction. Needs your model configured in ⚙ Settings.</div>
@@ -722,6 +783,7 @@
         <span class="tile-title">Layout preview</span>
         <div class="tile-bar-controls" id="canvasControls">
           <label class="toggle" title="Output aspect ratio — reshapes the canvas and sets the JSON canvas block (also editable in ComfyUI settings)">AR <select id="canvasAspect" class="bar-select"></select></label>
+          <label class="toggle" title="Output size in megapixels — sets the pixel size of the canvas block and of Moss Image's absolute bboxes. Match your workflow (e.g. 1 for 1 MP). Also editable in ComfyUI settings.">MP <input type="number" id="canvasMegapixels" class="bar-select" min="0.1" step="0.1" style="width:4.2em"></label>
           <label class="toggle"><input type="checkbox" id="gridToggle" checked> Grid</label>
           <label class="toggle"><input type="checkbox" id="labelToggle" checked> Labels</label>
           <span class="toggle comfy-only" id="backdropCtrls" style="gap:6px;">
@@ -768,11 +830,18 @@
   <!-- JSON -->
   <div class="grid-stack-item" gs-id="json" gs-x="3" gs-y="9" gs-w="9" gs-h="3" gs-min-w="2" gs-min-h="2">
     <div class="grid-stack-item-content tile">
-      <div class="tile-bar"><span class="tile-title">JSON output</span></div>
+      <div class="tile-bar"><span class="tile-title">JSON output</span>
+        <label class="toggle" title="Which model's prompt JSON is shown below">Showing <select id="jsonFormat" class="bar-select"><option value="ideogram">Ideogram</option><option value="moss">Moss Image</option></select></label>
+        <label class="toggle" title="Extra, non-official wording in the Moss export: each caption gets its position in words, and the summary states how many subjects there are, left to right. Off = exactly the official node's output."><input type="checkbox" id="mossHints"> Moss layout hints</label>
+        <label class="toggle" title="Copy and download the prompt indented over several lines (the official nodes' 'pretty' option) instead of compact single-line JSON (their default)."><input type="checkbox" id="indentedCopy"> Indented copy</label>
+        <label class="toggle" title="Start the Moss layout with a full-frame 'panel' item holding the background, as mossimage.org's builder does. Moss works out the image frame from how far the boxes reach, so without it the image can come out with borders or black bars. Turn off only for the bare official-node output."><input type="checkbox" id="mossFrame"> Moss frame panel</label>
+      </div>
       <div class="tile-body json-body">
         <div class="json-toolbar">
-          <button id="copyBtn2" class="primary">Copy</button>
-          <button id="downloadBtn2">Download .json</button>
+          <button id="copyBtn2" class="primary" title="Copy the Ideogram 4 prompt JSON">Copy for Ideogram</button>
+          <button id="copyMossBtn" class="primary" title="Copy the Moss Image prompt JSON">Copy for Moss Image</button>
+          <button id="downloadBtn2" title="Ideogram 4 prompt JSON (re-importable)">Download for Ideogram</button>
+          <button id="downloadMossBtn" title="Moss Image prompt JSON (abs_centralized, yxyx bboxes)">Download for Moss Image</button>
         </div>
         <pre id="json"></pre>
       </div>
@@ -790,8 +859,31 @@
     </div>
     <div class="modal-body">
       <div class="hint" style="margin-bottom:10px;">Uses the model configured in <b>⚙ Settings</b>. <button type="button" id="genOpenSettings" style="padding:2px 8px;font-size:11px;">Open settings</button></div>
+      <div class="ai-target">Optimise for <select id="genTarget" class="ai-target-sel"><option value="ideogram">Ideogram 4</option><option value="moss">Moss Image</option></select> <span class="hint" style="margin:0">— follows the JSON panel's “Showing”; locked parts (🔒) are kept.</span></div>
+      <div class="ai-row" style="margin-top:0">
+        <select id="genTemplate" class="ai-target-sel" title="Load a saved template (description + options)"><option value="">Templates…</option></select>
+        <button type="button" id="genTemplateSave" title="Save the description and options as a template">★ Save template</button>
+        <button type="button" id="genTemplateDel" title="Delete the selected template" disabled>🗑</button>
+      </div>
       <label>Describe the image you want</label>
       <textarea id="genPrompt" rows="5" placeholder="e.g. A bold 80s synthwave concert poster for a band called NEON TIDE, with a retro sports car driving toward a setting sun, palm trees, and a grid floor. Big chrome title at the top, tour dates at the bottom."></textarea>
+      <div class="ai-row">
+        <button type="button" id="genImprove" title="Have the model rewrite your idea as a detailed description you can edit">✍ Improve description</button>
+        <button type="button" id="genImproveUndo" style="display:none;">↶ Restore my text</button>
+      </div>
+      <details id="genOptions" class="gen-options">
+        <summary>Options <span style="color:var(--faint)">— requirements the model must follow</span></summary>
+        <div class="gen-opt-grid">
+          <label>People <select id="genPeople"><option value="">Any</option><option value="0">None</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option value="6">6 or more</option></select></label>
+          <label>Look <select id="genLook"><option value="">Any</option><option value="photo">Photograph</option><option value="illustration">Illustration</option><option value="render3d">3D render</option><option value="painting">Painting</option><option value="graphic">Graphic design / poster</option></select></label>
+          <label>Text in image <select id="genText"><option value="">Any</option><option value="none">None</option><option value="title">Title only</option><option value="full">Title + details</option></select></label>
+          <label>Colour palette <select id="genPalette"><option value="">Any</option></select></label>
+          <label>Starting layout <select id="genLayout"><option value="">Free</option></select></label>
+          <label>Aspect ratio <select id="genAspect"><option value="">Keep current</option></select></label>
+        </div>
+        <label class="toggle" style="margin-top:8px;"><input type="checkbox" id="genAsk"> Ask me clarifying questions first</label>
+      </details>
+      <div id="genQuestions" class="gen-questions" style="display:none;"></div>
       <label style="margin-top:12px;">…or build from an image <span style="color:var(--faint)">(optional — needs a vision-capable model)</span></label>
       <div class="img-drop" id="genImageDrop">
         <input type="file" id="genImageInput" accept="image/*" hidden>
@@ -810,6 +902,7 @@
           <button type="button" data-x="full" class="active">Full setup</button>
           <button type="button" data-x="composition">Composition only</button>
           <button type="button" data-x="style">Style only</button>
+          <button type="button" data-x="subjects">Subjects only</button>
         </div>
         <div class="hint" id="genExtractHint" style="margin-top:6px;">Build a complete new setup from the image (style, composition and content).</div>
       </div>
@@ -817,9 +910,48 @@
     </div>
     <div class="modal-foot">
       <span class="status" id="genStatus"></span>
+      <label class="toggle">Variations <select id="genVariations" class="ai-target-sel"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
       <button id="genCancel">Cancel</button>
       <button id="genRun">Generate</button>
       <button class="primary" id="genRunRender" title="Generate the setup, then immediately send it to ComfyUI to render">Generate &amp; render</button>
+    </div>
+  </div>
+</div>
+
+<!-- VARIATIONS PICKER -->
+<div class="overlay" id="variationsOverlay">
+  <div class="modal" style="max-width:1100px;">
+    <div class="modal-head">
+      <h2 id="variationsTitle">Pick a variation</h2>
+      <button class="close" id="variationsClose">×</button>
+    </div>
+    <div class="modal-body"><div id="variationsGrid" class="var-grid"></div></div>
+    <div class="modal-foot"><span class="status">After you pick one you'll see its review before anything changes.</span><button id="variationsCancel">Cancel</button></div>
+  </div>
+</div>
+
+<!-- AI REVIEW MODAL -->
+<div class="overlay" id="reviewOverlay">
+  <div class="modal" style="max-width:860px;">
+    <div class="modal-head">
+      <h2>Review: <span id="reviewTitle"></span></h2>
+      <button class="close" id="reviewClose">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="reviewDetail" class="rv-detail"></div>
+      <div class="rv-grid">
+        <div><label>Before</label><div id="reviewBefore"></div></div>
+        <div><label>After <span style="color:var(--faint)">(green = added, amber = changed, dashed = locked)</span></label><div id="reviewAfter"></div></div>
+      </div>
+      <label style="margin-top:12px;">Changes</label>
+      <div class="rv-table-wrap" id="reviewChanges"></div>
+      <label id="reviewIssuesHead" style="margin-top:12px;">Layout check <span style="color:var(--faint)">(ticked fixes are applied with the change)</span></label>
+      <ul class="rv-list rv-issues" id="reviewIssues"></ul>
+    </div>
+    <div class="modal-foot">
+      <span class="status">Applied changes can be undone with ↶ in the header.</span>
+      <button id="reviewDiscard">Discard</button>
+      <button class="primary" id="reviewApply">Apply</button>
     </div>
   </div>
 </div>
@@ -832,19 +964,15 @@
       <button class="close" id="refineClose">×</button>
     </div>
     <div class="modal-body">
-      <div class="hint" style="margin-bottom:10px;">Describe a change and the model rewrites the <b>entire current setup</b> (style, background, every positioned element) to reflect it — keeping everything else intact. Uses the model in <b>⚙ Settings</b>.</div>
+      <div class="hint" style="margin-bottom:10px;">Describe a change and the model rewrites the current setup (style, background, positioned elements) to reflect it — keeping everything else and anything 🔒 locked intact. You review the result before it's applied. Uses the model in <b>⚙ Settings</b>.</div>
+      <div class="ai-target">Optimise for <select id="refineTarget" class="ai-target-sel"><option value="ideogram">Ideogram 4</option><option value="moss">Moss Image</option></select> <span class="hint" style="margin:0">— follows the JSON panel's “Showing”; locked parts (🔒) are kept.</span></div>
       <label>What should change?</label>
       <textarea id="refinePrompt" rows="3" placeholder="e.g. Make it a lighter, airier composition · Move the title to the bottom · Swap the palette to autumn tones · Add a small bird in the top-right"></textarea>
-      <div class="chips" id="refineChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
-        <button type="button" class="chip" data-refine="Make it a lighter, airier composition with more negative space.">Lighter composition</button>
-        <button type="button" class="chip" data-refine="Make it darker and more dramatic with moodier lighting.">Darker &amp; moodier</button>
-        <button type="button" class="chip" data-refine="Simplify the scene — fewer elements, cleaner layout.">Simplify</button>
-        <button type="button" class="chip" data-refine="Make the color palette warmer.">Warmer palette</button>
-        <button type="button" class="chip" data-refine="Make the color palette cooler.">Cooler palette</button>
-        <button type="button" class="chip" data-refine="Make the main subject larger and more central.">Bigger subject</button>
-      </div>
-      <label style="margin-top:12px;">Style preset <span style="color:var(--faint)">(re-style while keeping the composition)</span></label>
-      <div class="row2" style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+      <label class="toggle" id="refineOnlySelWrap" style="display:none;margin-top:8px;"><input type="checkbox" id="refineOnlySel"> Only change the <span id="refineSelCount"></span> — everything else is kept</label>
+      <label style="margin-top:12px;">Quick changes <span style="color:var(--faint)">(click to add or remove — combine as many as you like; right-click one of your presets to delete it)</span></label>
+      <div id="refineGroups"></div>
+      <label style="margin-top:12px;">Style preset <span style="color:var(--faint)">(re-style while keeping the composition — add as many as you like)</span></label>
+      <div style="display:grid; grid-template-columns:1fr 1fr auto; gap:8px;">
         <select id="refineStyleMode">
           <option value="">— choose a transform —</option>
           <option value="faithful">↩ Faithful (revert to photo-real)</option>
@@ -853,12 +981,20 @@
           <option value="genre">🎭 Genre / mood</option>
         </select>
         <select id="refineStyleSub" style="display:none;"></select>
+        <button type="button" id="refineStyleAdd">+ Add</button>
+      </div>
+      <label style="margin-top:12px;">Selected changes <span style="color:var(--faint)">(sent together with the text above)</span></label>
+      <div id="refineSelected" class="tokens"></div>
+      <div class="ai-row">
+        <label class="toggle">Variations <select id="refineVariations" class="ai-target-sel"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
+        <button type="button" id="refineSavePreset" title="Save the text and selected changes as one of your presets">★ Save as preset</button>
       </div>
       <div class="hint" style="margin-top:8px;">Press ⌘/Ctrl + Enter to apply. You can edit everything afterwards.</div>
     </div>
     <div class="modal-foot">
       <span class="status" id="refineStatus"></span>
       <button id="refineCancel">Cancel</button>
+      <button id="refineCheck" title="Check the current layout for problems (no AI call) and review fixes">🩺 Check layout</button>
       <button class="primary" id="refineRun">Refine</button>
       <button id="refineRenderRun" title="Apply the change and render it on ComfyUI" style="display:none;">🎨 Refine &amp; Render</button>
     </div>
@@ -1017,6 +1153,8 @@
 <div class="toast" id="toast"></div>
 
 <script src="llmcore.js"></script>
+<script src="wildcards.js"></script>
+<script src="wildcards-data.js"></script>
 <script>
 "use strict";
 
@@ -1033,11 +1171,58 @@ function emptyElement(seed = {}) {
     bbox: seed.bbox ?? [100, 100, 500, 500],
     desc: seed.desc ?? "",
     font: seed.font ?? "",
+    locked: !!seed.locked,                                  // Generate/Refine leave it untouched
+    text: seed.text ?? "",                                  // literal words to render (text/logo) — Moss "text" field
+    tags: Array.isArray(seed.tags) ? seed.tags.slice() : [], // short keywords — Moss "tags" field
     color_palette: seed.color_palette ?? ["#FFFFFF"],
     vectorize: seed.vectorize ?? "auto",
     enabled: seed.enabled !== false,   // off elements stay in the setup but drop out of the prompt
+    style: normStyle(seed.style),       // per-element lighting/camera/lens/… (style templates, wildcards)
+    wild: normElWild(seed.wild),        // { key, src: {field: wildcard source}, templateId }
     _collapsed: seed._collapsed ?? true
   };
+}
+
+// ---- Style templates & wildcards: data helpers ----------------------------
+// el.style holds per-element style fields (ELEMENT_STYLE_FIELDS in llmcore.js).
+// el.wild / state.wild keep the *unresolved* wildcard source of every field that
+// had wildcard syntax (src), so a template stays live and can be re-rolled.
+// state.wild also holds the roll seed and the locked / re-salted picks, keyed by
+// slot id ("<field path>.<position>"); element field paths use el.wild.key so
+// they survive reloads (element _ids don't).
+const ELEMENT_STYLE_KEYS = ELEMENT_STYLE_FIELDS.map(f => f[0]);
+function normStyle(st) {
+  const o = {};
+  if (st && typeof st === "object") ELEMENT_STYLE_KEYS.forEach(k => { if (typeof st[k] === "string" && st[k].trim()) o[k] = st[k]; });
+  return o;
+}
+function normStrMap(m) {
+  const o = {};
+  if (m && typeof m === "object") for (const [k, v] of Object.entries(m)) if (typeof v === "string" && v !== "") o[k] = v;
+  return o;
+}
+function newElKey() { return Math.random().toString(36).slice(2, 10); }
+function normElWild(w) {
+  w = w && typeof w === "object" ? w : {};
+  const o = { key: typeof w.key === "string" && w.key ? w.key : newElKey(), src: normStrMap(w.src), templateId: typeof w.templateId === "string" ? w.templateId : "" };
+  if (typeof w.descBase === "string") o.descBase = w.descBase;   // desc before a template's prefix/suffix
+  return o;
+}
+function normWild(w) {
+  w = w && typeof w === "object" ? w : {};
+  const salts = {};
+  if (w.salts && typeof w.salts === "object") for (const [k, v] of Object.entries(w.salts)) if (+v) salts[k] = +v;
+  return {
+    seed: w.seed !== null && w.seed !== undefined && w.seed !== "" && Number.isFinite(+w.seed) ? +w.seed : WC.newSeed(),
+    locks: normStrMap(w.locks), salts, src: normStrMap(w.src),
+    templateId: typeof w.templateId === "string" ? w.templateId : "",
+    ...(typeof w.hldBase === "string" ? { hldBase: w.hldBase } : {})   // high-level text before a template's suffix
+  };
+}
+// Editor-only wildcard data worth saving with an element.
+function elWildOut(e) {
+  const w = e.wild || {};
+  return (Object.keys(w.src || {}).length || w.templateId || typeof w.descBase === "string") ? JSON.parse(JSON.stringify(w)) : (w.key ? { key: w.key } : undefined);
 }
 
 function defaultState() {
@@ -1048,13 +1233,15 @@ function defaultState() {
       lighting: "soft, even studio lighting with gentle, diffused shadows",
       photo: "high-resolution product photography, 50mm lens, shallow depth of field",
       medium: "digital photography",
+      art_style: "",
       color_palette: ["#F5F5F5", "#1A1A1A", "#6366F1"]
     },
     background: "A smooth, seamless light-grey studio backdrop with a subtle top-to-bottom gradient.",
     elements: [
       emptyElement({ type: "subject", bbox: [320, 300, 680, 760], desc: "The main product, centered in the frame and sharply in focus.", color_palette: ["#6366F1", "#FFFFFF"] }),
       emptyElement({ type: "text", bbox: [200, 90, 800, 210], desc: "Bold sans-serif title text near the top reading 'YOUR TITLE HERE'.", color_palette: ["#1A1A1A"] })
-    ]
+    ],
+    wild: normWild()
   };
 }
 
@@ -1090,16 +1277,19 @@ function loadEditorState() {
     high_level_description: s.high_level_description || "",
     style_description: {
       aesthetics: sd.aesthetics || "", lighting: sd.lighting || "",
-      photo: sd.photo || "", medium: sd.medium || "",
+      photo: sd.photo || "", medium: sd.medium || "", art_style: sd.art_style || "",
       color_palette: Array.isArray(sd.color_palette) ? sd.color_palette.slice() : []
     },
     background: s.background || "",
     elements: s.elements.map(e => emptyElement({
       type: e.type,
       bbox: Array.isArray(e.bbox) && e.bbox.length === 4 ? e.bbox.slice() : undefined,
-      desc: e.desc, font: e.font, color_palette: e.color_palette,
-      vectorize: e.vectorize, enabled: e.enabled, _collapsed: e._collapsed
-    }))
+      desc: e.desc, font: e.font, text: e.text, tags: e.tags, color_palette: e.color_palette,
+      vectorize: e.vectorize, enabled: e.enabled, locked: e.locked, _collapsed: e._collapsed,
+      style: e.style, wild: e.wild
+    })),
+    locks: { style: !!(s.locks && s.locks.style), background: !!(s.locks && s.locks.background) },
+    wild: normWild(s.wild)
   };
 }
 
@@ -1204,9 +1394,14 @@ function renderForm() {
   $("st-lighting").value = state.style_description.lighting;
   $("st-photo").value = state.style_description.photo;
   $("st-medium").value = state.style_description.medium;
+  $("st-artstyle").value = state.style_description.art_style || "";
   $("bg").value = state.background;
+  [["lockStyle", "style"], ["lockBackground", "background"]].forEach(([id, k]) => {
+    const on = !!locksOf(state)[k]; $(id).textContent = on ? "🔒" : "🔓"; $(id).classList.toggle("on", on);
+  });
   renderPalette($("st-palette"), state.style_description.color_palette);
   $("elCount").textContent = state.elements.length;
+  if (typeof wcDecorateForm === "function") wcDecorateForm();
 }
 
 function renderPalette(container, arr) {
@@ -1244,7 +1439,7 @@ function renderElements() {
   wrap.innerHTML = "";
   state.elements.forEach((el, i) => {
     const card = document.createElement("div");
-    card.className = "element" + (el._id === selectedId ? " selected" : "") + (el._collapsed ? " collapsed" : "") + (el.enabled === false ? " disabled" : "");
+    card.className = "element" + (el._id === selectedId ? " selected" : "") + (el._collapsed ? " collapsed" : "") + (el.enabled === false ? " disabled" : "") + (el.locked ? " locked" : "");
     card.dataset.index = i;
 
     /* ---- header ---- */
@@ -1279,7 +1474,10 @@ function renderElements() {
       () => { el.enabled = !on; selectedId = el._id; render(); });
     const del = iconBtn("🗑", "Delete", () => removeElement(el._id));
     del.classList.add("del");
-    acts.append(eye, up, down, del);
+    const lock = iconBtn(el.locked ? "🔒" : "🔓", el.locked ? "Locked — Generate/Refine keep this element exactly as is. Click to unlock." : "Lock this element so Generate/Refine can't change it",
+      () => { el.locked = !el.locked; render(); });
+    if (el.locked) lock.classList.add("on");
+    acts.append(lock, eye, up, down, del);
 
     const toggle = () => { el._collapsed = !el._collapsed; selectedId = el._id; render(); };
     chev.addEventListener("click", (e) => { e.stopPropagation(); toggle(); });
@@ -1363,10 +1561,24 @@ function renderElements() {
     if (isTextual(el.type)) ensureFontPreviewCss();
     body.appendChild(fontWrap);
 
+    // Literal text — the exact words to render (text/logo only). Exported as the
+    // Moss "text" field; Ideogram still reads the words from the description.
+    const textWrap = document.createElement("div");
+    const textLabel = document.createElement("label"); textLabel.textContent = "Literal text (exact words, one line per row)";
+    const textArea = document.createElement("textarea");
+    textArea.rows = 2; textArea.value = el.text || "";
+    textArea.placeholder = "e.g. STRONGER\nHAPPIER";
+    textArea.addEventListener("keydown", e => e.stopPropagation());
+    textArea.addEventListener("input", () => { el.text = textArea.value; renderJSON(); });
+    textWrap.append(textLabel, textArea);
+    textWrap.style.display = isTextual(el.type) ? "" : "none";
+    body.appendChild(textWrap);
+
     typeSel.addEventListener("change", () => {
       el.type = typeSel.value;
       const textual = isTextual(el.type);
       fontWrap.style.display = textual ? "" : "none";
+      textWrap.style.display = textual ? "" : "none";
       if (textual) ensureFontPreviewCss();
       renderJSON();
     });
@@ -1386,6 +1598,18 @@ function renderElements() {
     desc.rows = 3; desc.value = el.desc;
     desc.addEventListener("input", () => { el.desc = desc.value; title.innerHTML = escapeHtml(el.desc) || "<em style='color:var(--faint)'>empty object</em>"; renderCanvas(); renderJSON(); });
     body.appendChild(desc);
+
+    const tagsLabel = document.createElement("label"); tagsLabel.textContent = "Tags (comma-separated, used by Moss)";
+    body.appendChild(tagsLabel);
+    const tagsInput = document.createElement("input");
+    tagsInput.type = "text"; tagsInput.placeholder = "e.g. trainer, man, spotting";
+    tagsInput.value = (el.tags || []).join(", ");
+    tagsInput.addEventListener("keydown", e => e.stopPropagation());
+    tagsInput.addEventListener("input", () => { el.tags = normalizeTags(tagsInput.value); renderJSON(); });
+    body.appendChild(tagsInput);
+
+    // Style fields, element template and wildcard badges (wildcards-ui.js)
+    if (typeof wcElementStyleSection === "function") body.appendChild(wcElementStyleSection(el, { desc, title }));
 
     const refLabel = document.createElement("label"); refLabel.textContent = "Refine with AI";
     body.appendChild(refLabel);
@@ -1465,13 +1689,20 @@ function renderCanvas() {
     }
   }
 
+  // Stack by size, smallest on top, so a large box (a full-canvas panel, a
+  // figure spanning the frame) can never sit over smaller ones and swallow
+  // every click. Selection doesn't raise a box for the same reason.
+  const areaOf = el => Math.abs(el.bbox[2] - el.bbox[0]) * Math.abs(el.bbox[3] - el.bbox[1]);
+  const zRank = new Map([...state.elements].sort((a, b) => areaOf(b) - areaOf(a)).map((el, k) => [el._id, k + 1]));
+
   state.elements.forEach((el, i) => {
     const [x1, y1, x2, y2] = el.bbox;
     const left = Math.min(x1, x2), top = Math.min(y1, y2);
     const w = Math.abs(x2 - x1), h = Math.abs(y2 - y1);
     const box = document.createElement("div");
-    box.className = "box" + ((el._id === selectedId || selectedIds.has(el._id)) ? " selected" : "") + (el.enabled === false ? " disabled" : "");
+    box.className = "box" + ((el._id === selectedId || selectedIds.has(el._id)) ? " selected" : "") + (el.enabled === false ? " disabled" : "") + (el.locked ? " locked" : "");
     box.dataset.elId = el._id;
+    box.style.zIndex = zRank.get(el._id);
     box.style.left = (left / COORD * 100) + "%";
     box.style.top = (top / COORD * 100) + "%";
     box.style.width = (w / COORD * 100) + "%";
@@ -1732,6 +1963,7 @@ function buildLayoutJSON() {
       lighting: state.style_description.lighting,
       photo: state.style_description.photo,
       medium: state.style_description.medium,
+      art_style: state.style_description.art_style || "",
       color_palette: state.style_description.color_palette.slice()
     },
     compositional_deconstruction: {
@@ -1741,6 +1973,9 @@ function buildLayoutJSON() {
       elements: state.elements.filter(el => el.enabled !== false).map(el => {
         const o = { type: el.type, bbox: el.bbox.map(n => Math.round(n)), desc: el.desc, color_palette: el.color_palette.slice() };
         if (el.font) o.font = el.font;
+        if (el.text) o.text = el.text;
+        if (el.tags && el.tags.length) o.tags = el.tags.slice();
+        if (el.style && Object.keys(el.style).length) o.style = { ...el.style };
         return o;
       })
     }
@@ -1758,13 +1993,176 @@ function buildLayoutJSON() {
 // first so the model reads the frame/aspect up front.
 function buildJSON() { return buildPromptObj(buildLayoutJSON()); }  // engine in llmcore.js
 
+// Tags arrive as an array (state/JSON) or a comma-separated string (the input box).
+function normalizeTags(t) {
+  const arr = Array.isArray(t) ? t : (typeof t === "string" ? t.split(",") : []);
+  return arr.map(s => String(s).trim()).filter(Boolean);
+}
+
+// Moss Image prompt, shaped exactly like the official ComfyUI node
+// (KJNodes MossImagePromptBuilderKJ, which mirrors comfy_extras/nodes_moss_image.py):
+//   { summary: { meta?, caption, palette? },
+//     items: [{ label, caption, text (text items, always), tags?, palette?, bbox }],
+//     bbox_coord_space: "abs_centralized", bbox_format: "yxyx" }
+// Labels are object / character / text. abs_centralized = output-pixel edges with
+// the origin at the image CENTRE, Y-first: a 1184x1776 portrait spans
+// [-888, -592, 888, 592]. There is no background item or style block: the
+// background and style fold into summary.caption, the style palette is
+// summary.palette, and summary.canvas is left out (the node's default).
+const MOSS_LABEL = { obj: "object", subject: "character", text: "text", logo: "text", bg: "object" };
+const MOSS_ROLE_TAG = { logo: "logo", bg: "background" };
+const MOSS_ROLE_TAGS = Object.values(MOSS_ROLE_TAG);
+// Optional extras (not in the official node): position words on each caption and
+// a subject count / left-to-right roll call in the summary. Off by default.
+// Full-frame background panel (on by default). abs_centralized boxes carry no
+// image size, so Moss infers the frame from how far the boxes reach; without a
+// box spanning the whole canvas it composes into a smaller (often differently
+// shaped) area and pads the rest with borders or black bars. mossimage.org's
+// own builder always starts with this panel; the KJ node leaves it to the user.
+let mossFramePanel = (() => { try { return localStorage.getItem("ideogrammar.mossFrame") !== "0"; } catch (_) { return true; } })();
+let mossLayoutHints = (() => { try { return localStorage.getItem("ideogrammar.mossHints") === "1"; } catch (_) { return false; } })();
+function mossMeta(sd) {
+  const s = `${sd.medium || ""} ${sd.aesthetics || ""}`.toLowerCase();
+  if (sd.photo || /photo/.test(s)) return ["photograph"];
+  if (/3d|render|cgi/.test(s)) return ["3d render"];
+  if (/illustr|anime|manga|cartoon|comic|drawing|paint|sketch|vector/.test(s)) return ["illustration"];
+  return [];
+}
+// Plain-words position for a 0..1000 X-first box, e.g. "positioned center-right
+// (centre at about 64% from the left, 48% from the top), spanning nearly the full height".
+function mossPosition([x1, y1, x2, y2]) {
+  const cx = (x1 + x2) / 2 / COORD, cy = (y1 + y2) / 2 / COORD;
+  const w = Math.abs(x2 - x1) / COORD, h = Math.abs(y2 - y1) / COORD;
+  const horiz = cx < 0.2 ? "at the far left" : cx < 0.4 ? "left of center" : cx <= 0.6 ? "in the center" : cx <= 0.8 ? "right of center" : "at the far right";
+  const vert = cy < 0.25 ? "near the top" : cy < 0.42 ? "in the upper half" : cy <= 0.58 ? "at mid-height" : cy <= 0.75 ? "in the lower half" : "near the bottom";
+  const span = [];
+  if (h >= 0.85) span.push("spanning nearly the full height");
+  if (w >= 0.85) span.push("spanning nearly the full width");
+  return `positioned ${horiz}, ${vert} (centre at about ${Math.round(cx * 100)}% from the left and ${Math.round(cy * 100)}% from the top)` +
+    (span.length ? ", " + span.join(" and ") : "");
+}
+function buildMossJSON() {
+  const { width: W, height: H } = computeDims();
+  const hx = Math.floor(W / 2), hy = Math.floor(H / 2);
+  // Same rounding as the official node: min edges floor, max edges ceil.
+  const fr = v => Math.max(0, Math.min(1, v / COORD));
+  const box = ([x1, y1, x2, y2]) => {
+    const [ax, bx] = [x1, x2].map(fr).sort((p, q) => p - q), [ay, by] = [y1, y2].map(fr).sort((p, q) => p - q);
+    const r9 = v => Math.round(v * 1e9) / 1e9;
+    return [Math.floor(r9(ay * H)) - hy, Math.floor(r9(ax * W)) - hx, Math.ceil(r9(by * H)) - hy, Math.ceil(r9(bx * W)) - hx];
+  };
+  const sentence = s => { s = String(s || "").trim(); return !s ? "" : /[.!?]$/.test(s) ? s : s + "."; };
+  const sd = state.style_description;
+  const active = state.elements.filter(el => el.enabled !== false);
+  // Optional hints: Moss reads boxes as text, so restating positions in words and
+  // stating how many subjects there are can curb swapped or extra people.
+  let countLine = "";
+  if (mossLayoutHints) {
+    const subjects = active.filter(el => el.type === "subject")
+      .sort((a, b) => (a.bbox[0] + a.bbox[2]) - (b.bbox[0] + b.bbox[2]));
+    const shortName = el => {
+      const first = String(el.desc || "").split(/[.;,]/)[0].trim().replace(/^(a|an|the)\s+/i, "");
+      const words = first.split(/\s+/);
+      return words.length > 10 ? words.slice(0, 10).join(" ") + "…" : first;
+    };
+    if (subjects.length === 1) countLine = `The image contains exactly one main subject: ${shortName(subjects[0]) || "the subject"}, ${mossPosition(subjects[0].bbox)}.`;
+    else if (subjects.length > 1) countLine = `The image contains exactly ${subjects.length} main subjects and no others; from left to right: ` +
+      subjects.map((el, i) => `(${i + 1}) ${shortName(el) || "subject " + (i + 1)}, ${mossPosition(el.bbox)}`).join("; ") + ".";
+  }
+  // summary.caption = "description of the whole scene and its style".
+  const caption = [
+    sentence(state.high_level_description),
+    countLine,
+    sentence(!mossFramePanel && state.background && "Background: " + state.background),   // else it's the panel's caption
+    sentence(sd.medium && "Medium: " + sd.medium),
+    sentence(sd.aesthetics && "Style: " + sd.aesthetics),
+    sentence(sd.art_style && !sd.photo && "Art style: " + sd.art_style),
+    sentence(sd.lighting && "Lighting: " + sd.lighting),
+    sentence(sd.photo && "Camera: " + sd.photo)
+  ].filter(Boolean).join(" ");
+
+  const items = active.map(el => {
+    const textual = el.type === "text" || el.type === "logo";
+    const text = textual ? (el.text || mossTextFromDesc(el.desc)) : "";
+    let label = MOSS_LABEL[el.type] || "object";
+    if (el.type === "logo" && !text) label = "object";
+    // Caption is the description as written (the official node adds nothing);
+    // font and the optional position hint are appended as extra sentences.
+    let cap = joinDescExtras(el.desc, el.font, el.style);   // font + style fields as labelled sentences
+    const add = t => { cap = cap ? (/[.!?]$/.test(cap) ? cap + " " : cap + ". ") + t : t; };
+    if (mossLayoutHints) add(mossPosition(el.bbox).replace(/^./, c => c.toUpperCase()) + ".");
+    const o = { label, caption: cap };
+    if (label === "text") o.text = text;
+    // Moss has no logo/background-element labels, so the role rides in tags
+    // (the model reads tags; import turns them back into the element type).
+    const tags = (el.tags || []).filter(t => !MOSS_ROLE_TAGS.includes(t));
+    if (MOSS_ROLE_TAG[el.type]) tags.push(MOSS_ROLE_TAG[el.type]);
+    if (tags.length) o.tags = tags;
+    if (el.color_palette.length) o.palette = el.color_palette.slice();
+    o.bbox = box(el.bbox);
+    return o;
+  });
+  // No boxes: the official node outputs the plain prompt instead of a layout.
+  if (!items.length) return caption;
+  if (mossFramePanel) {
+    const panel = { label: "panel", caption: state.background || state.high_level_description || "" };
+    if (sd.color_palette.length) panel.palette = sd.color_palette.slice();
+    panel.bbox = box([0, 0, COORD, COORD]);
+    items.unshift(panel);
+  }
+
+  const summary = {};
+  const meta = mossMeta(sd);
+  if (meta.length) summary.meta = meta;
+  summary.caption = caption;
+  if (sd.color_palette.length) summary.palette = sd.color_palette.slice();
+  return { summary, items, bbox_coord_space: "abs_centralized", bbox_format: "yxyx" };
+}
+
 let jsonThrottle = null;
 function renderJSONThrottled() {
   if (jsonThrottle) return;
   jsonThrottle = requestAnimationFrame(() => { jsonThrottle = null; renderJSON(); });
 }
 
-function renderJSON() { $("json").innerHTML = highlight(JSON.stringify(buildJSON(), null, 2)); scheduleSaveState(); }
+// Which model's JSON the output tile shows ("ideogram" | "moss"); a per-browser preference.
+let jsonFormat = (() => { try { return localStorage.getItem("ideogrammar.jsonFormat") === "moss" ? "moss" : "ideogram"; } catch (_) { return "ideogram"; } })();
+function buildJSONFor(fmt) { return fmt === "moss" ? buildMossJSON() : buildJSON(); }
+// What gets copied/downloaded: compact JSON, the official nodes' default output.
+// A Moss setup with no boxes is a plain-text prompt (buildMossJSON returns a string).
+// "Indented copy" (off by default) = the official nodes' "pretty" output:
+// 4-space indent, arrays of plain values kept on one line.
+let indentedCopy = (() => { try { return localStorage.getItem("ideogrammar.indentedCopy") === "1"; } catch (_) { return false; } })();
+function prettyJSON(v, lvl = 0) {
+  const ind = "    ", pad = ind.repeat(lvl + 1), end = ind.repeat(lvl);
+  if (Array.isArray(v)) {
+    if (!v.length) return "[]";
+    if (v.every(x => x === null || typeof x !== "object")) return "[" + v.map(x => JSON.stringify(x)).join(", ") + "]";
+    return "[\n" + v.map(x => pad + prettyJSON(x, lvl + 1)).join(",\n") + "\n" + end + "]";
+  }
+  if (v && typeof v === "object") {
+    const keys = Object.keys(v);
+    if (!keys.length) return "{}";
+    return "{\n" + keys.map(k => pad + JSON.stringify(k) + ": " + prettyJSON(v[k], lvl + 1)).join(",\n") + "\n" + end + "}";
+  }
+  return JSON.stringify(v);
+}
+function stringifyPrompt(v) { return typeof v === "string" ? v : indentedCopy ? prettyJSON(v) : JSON.stringify(v); }
+function promptString(fmt) { return stringifyPrompt(buildJSONFor(fmt)); }
+function setJSONFormat(fmt) {
+  jsonFormat = fmt === "moss" ? "moss" : "ideogram";
+  try { localStorage.setItem("ideogrammar.jsonFormat", jsonFormat); } catch (_) {}
+  if ($("jsonFormat")) $("jsonFormat").value = jsonFormat;
+  ["genTarget", "refineTarget"].forEach(id => { if ($(id)) $(id).value = jsonFormat; });
+  renderJSON();
+}
+
+// Shown indented for readability; Copy/Download send the compact form (promptString).
+function renderJSON() {
+  const v = buildJSONFor(jsonFormat);
+  $("json").innerHTML = typeof v === "string" ? escapeHtml(v) : highlight(JSON.stringify(v, null, 2));
+  scheduleSaveState();
+}
 
 function highlight(json) {
   return escapeHtml(json).replace(/("(\\.|[^"\\])*")(\s*:)?|\b(-?\d+\.?\d*)\b|([{}\[\],])/g,
@@ -1794,10 +2192,15 @@ function removeElement(id) {
   render();
 }
 
-async function doCopy() {
-  const str = JSON.stringify(buildJSON(), null, 2);
-  const ok = await copyText(str);
-  toast(ok ? "Copied to clipboard ✓" : "Copy failed — select the JSON manually", ok ? "ok" : "bad");
+// fmt: "ideogram" | "moss"; omitted (header button) = whatever the tile is showing.
+// Copying also switches the tile to that format so what you see is what you copied.
+async function doCopy(fmt) {
+  if (typeof wcEnsureRolled === "function") wcEnsureRolled();
+  fmt = fmt || jsonFormat;
+  if (fmt !== jsonFormat) setJSONFormat(fmt);
+  const ok = await copyText(promptString(fmt));
+  const name = fmt === "moss" ? "Moss Image" : "Ideogram";
+  toast(ok ? `Copied ${name} prompt ✓` : "Copy failed — select the JSON manually", ok ? "ok" : "bad");
 }
 
 // Works on http:// LAN (insecure context) where navigator.clipboard is unavailable.
@@ -1852,10 +2255,8 @@ function restoreEditorRefs(ed) {
 }
 
 function doDownload() {
-  const obj = buildJSON();
-  const ed = collectEditorRefs();
-  if (ed) obj._editor = ed;
-  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
+  if (typeof wcEnsureRolled === "function") wcEnsureRolled();
+  const blob = new Blob([stringifyPrompt(buildIdeogramDownload())], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "ideogram-prompt.json";
@@ -1863,11 +2264,55 @@ function doDownload() {
   URL.revokeObjectURL(a.href);
   toast("Downloaded ✓", "ok");
 }
+function buildIdeogramDownload() {
+  const obj = buildJSON();
+  // The official caption has no canvas block, so the frame (aspect + pixel size)
+  // rides in _editor with the images, letting a re-import restore it.
+  const info = aspectInfo(), d = computeDims();
+  obj._editor = Object.assign({
+    canvas: { width: d.width, height: d.height, aspect_ratio: info.ratio, orientation: info.orientation },
+    // Same order as the caption's elements (enabled ones), so a re-import restores
+    // what the official format can't say: subject/logo/bg types, tags, font.
+    elements: state.elements.filter(el => el.enabled !== false).map(el => {
+      const x = { type: el.type };
+      if (el.tags && el.tags.length) x.tags = el.tags.slice();
+      if (el.font) x.font = el.font;
+      if (el.vectorize && el.vectorize !== "auto") x.vectorize = el.vectorize;
+      if (el.style && Object.keys(el.style).length) x.style = { ...el.style };
+      const w = elWildOut(el); if (w) x.wild = w;
+      return x;
+    }),
+    wild: JSON.parse(JSON.stringify(state.wild || {}))
+  }, collectEditorRefs() || {});
+  return obj;
+}
+
+// Moss Image export — prompt only (no _editor/canvas round-trip data, since
+// Moss's own tools read this file). Import still uses the Ideogram download.
+function doDownloadMoss() {
+  if (typeof wcEnsureRolled === "function") wcEnsureRolled();
+  const blob = new Blob([promptString("moss")], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "moss-image-prompt.json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast("Downloaded Moss Image prompt ✓", "ok");
+}
 
 function doImport(file) {
   const reader = new FileReader();
   reader.onload = () => {
-    try { const data = JSON.parse(reader.result); loadFromJSON(data); restoreEditorRefs(data._editor); toast("Imported ✓", "ok"); }
+    try {
+      const data = JSON.parse(reader.result);
+      const r = loadFromJSON(data, { guessOrder: true });
+      restoreEditorRefs(data._editor);
+      const notes = [];
+      if (r.xFirstGuess) notes.push("boxes read as [x1, y1, x2, y2]");
+      if (r.inferredSubjects) notes.push(`${r.inferredSubjects} element${r.inferredSubjects > 1 ? "s" : ""} recognised as people/animals → subject`);
+      if (r.frameFromCanvas) notes.push("boxes placed in the current AR/MP frame");
+      toast((isMossJSON(data) ? "Imported Moss Image layout ✓" : "Imported ✓") + (notes.length ? " (" + notes.join("; ") + ")" : ""), "ok");
+    }
     catch (err) { toast("Invalid JSON: " + err.message, "bad"); }
   };
   reader.readAsText(file);
@@ -1878,7 +2323,152 @@ function scaleBoxFromPixels(b, w, h) {
           clamp(Math.round((+b[2] || 0) / w * COORD), 0, COORD), clamp(Math.round((+b[3] || 0) / h * COORD), 0, COORD)];
 }
 
-function loadFromJSON(data) {
+// Moss Image JSON (see buildMossJSON) — both shapes their layout builder emits:
+//   • { summary, items: [{ label, caption, tags, palette, bbox, text }] }
+//   • { scene_type, gen_brief, elements: [{ type, salience, identity, bbox }] }
+// Converted to our download shape (canvas + Y-first 0..1000 boxes) so the rest
+// of loadFromJSON handles it like any other import.
+function isMossJSON(data) {
+  return !!data && (data.bbox_coord_space === "abs_centralized" || Array.isArray(data.items) || typeof data.gen_brief === "string");
+}
+// ---- Lossless round trips -------------------------------------------------
+// The official formats have fewer fields than the editor, so exports fold the
+// extras into prose with fixed labels, and imports split them back out:
+//   element desc/caption: "<desc>. Typography: <font>[. Positioned … (centre at about …).]"
+//   Moss summary.caption: "<high-level>[ The image contains exactly …] Background: … Medium: …
+//                          Style: … Art style: … Lighting: … Camera: …"
+const POSITION_HINT_RE = /\s*Positioned [^.]*?\(centre at about [^)]*\)[^.]*\.\s*$/;
+//   …then the element style fields: " Lighting: … Camera: … Lens: … Details: …"
+const DESC_EXTRA_KEYS = Object.assign({ "Typography": "font" }, Object.fromEntries(ELEMENT_STYLE_FIELDS.map(([k, l]) => [l, k])));
+const DESC_EXTRA_RE = new RegExp("(^|\\s)(" + Object.keys(DESC_EXTRA_KEYS).join("|") + "): ", "g");
+function splitDescExtras(desc) {
+  let d = String(desc || "");
+  const hinted = POSITION_HINT_RE.test(d);
+  d = d.replace(POSITION_HINT_RE, "");
+  // Labels count only at the start or after a sentence end (Typography after any
+  // space, as older exports wrote it). Each value runs to the next label.
+  const marks = []; let m;
+  DESC_EXTRA_RE.lastIndex = 0;
+  while ((m = DESC_EXTRA_RE.exec(d))) {
+    const at = m.index + m[1].length, before = d.slice(0, at).trimEnd();
+    if (before && !/[.!?]$/.test(before) && m[2] !== "Typography") continue;
+    marks.push({ key: DESC_EXTRA_KEYS[m[2]], start: at, vs: m.index + m[0].length });
+  }
+  let font = ""; const style = {};
+  if (marks.length) {
+    marks.forEach((mk, i) => {
+      const v = d.slice(mk.vs, i + 1 < marks.length ? marks[i + 1].start : d.length).trim().replace(/\.$/, "").trim();
+      if (mk.key === "font") font = v; else if (v) style[mk.key] = v;
+    });
+    d = d.slice(0, marks[0].start);
+  }
+  if (marks.length || hinted) d = d.trim().replace(/\.$/, "");   // the exporter adds ". " before each extra
+  return { desc: d.trim(), font: font.trim(), style };
+}
+const MOSS_CAPTION_LABELS = { "Background": "background", "Medium": "medium", "Style": "aesthetics", "Art style": "art_style", "Lighting": "lighting", "Camera": "photo" };
+function parseMossSummaryCaption(caption) {
+  let c = String(caption || "");
+  // Drop the optional layout-hints count line (regenerated from the boxes on export).
+  c = c.replace(/\s*The image contains exactly .*?\.(?=\s+(?:Background|Medium|Style|Art style|Lighting|Camera): |\s*$)/s, "");
+  const re = /(?:^|\s)(Background|Medium|Style|Art style|Lighting|Camera): /g;
+  const out = {}; const marks = []; let m;
+  while ((m = re.exec(c))) marks.push({ key: MOSS_CAPTION_LABELS[m[1]], start: m.index, valueStart: m.index + m[0].length });
+  out.high_level_description = (marks.length ? c.slice(0, marks[0].start) : c).trim();
+  marks.forEach((mk, i) => {
+    const v = c.slice(mk.valueStart, i + 1 < marks.length ? marks[i + 1].start : c.length).trim();
+    out[mk.key] = v.replace(/\.$/, "");
+  });
+  return out;
+}
+// The official Ideogram format has only obj/text, so a person is an "obj".
+// For files that didn't come from this editor, recognise people and animals
+// from the start of the description so they become subjects again (and Moss
+// "character" items on export).
+const SUBJECT_WORDS = /\b(man|men|woman|women|person|people|boy|boys|girl|girls|child|children|kid|kids|baby|lady|ladies|guy|guys|gentleman|couple|family|crowd|figure|character|portrait|self-portrait|trainer|athlete|player|musician|trumpeter|guitarist|pianist|drummer|singer|dancer|model|warrior|knight|soldier|worker|chef|doctor|nurse|student|teacher|client|customer|officer|detective|wizard|witch|princess|prince|king|queen|hero|heroine|robot|android|dog|puppy|cat|kitten|horse|bird|animal|creature|dragon|fox|wolf|bear)\b/i;
+function looksLikeSubject(desc) {
+  const head = String(desc || "").split(/[,.;:]/)[0];
+  return SUBJECT_WORDS.test(head);
+}
+
+function mossToLayout(data) {
+  const src = Array.isArray(data.items) ? data.items : (Array.isArray(data.elements) ? data.elements : []);
+  const boxes = src.map(it => it.bbox).filter(b => Array.isArray(b) && b.length === 4).map(b => b.map(n => +n || 0));
+  // abs_centralized carries no frame size. mossimage.org files have a full-canvas
+  // panel, so the extent of the boxes is the frame. Official-node files (and this
+  // editor's exports) don't: like the node, which is given width/height, use the
+  // current canvas when every box fits inside it; otherwise fall back to the extent.
+  const eh = Math.max(1, ...boxes.flatMap(b => [Math.abs(b[0]), Math.abs(b[2])]));
+  const ew = Math.max(1, ...boxes.flatMap(b => [Math.abs(b[1]), Math.abs(b[3])]));
+  const spansAll = boxes.some(b => -b[0] >= eh * 0.99 && b[2] >= eh * 0.99 && -b[1] >= ew * 0.99 && b[3] >= ew * 0.99);
+  const cur = computeDims(), cy = Math.floor(cur.height / 2), cx = Math.floor(cur.width / 2);
+  const useCurrent = !spansAll && eh <= cy && ew <= cx;
+  const hh = useCurrent ? cy : eh, hw = useCurrent ? cx : ew;
+  // Exports floor min edges and ceil max edges (official rounding), so map each
+  // pixel edge back to the middle of the 0..1000 interval that produced it —
+  // re-exporting then gives the same pixels. Edges on the frame stay on it.
+  const back = (v, h, max) => v <= -h ? 0 : v >= h ? COORD : clamp(Math.round((v + h + (max ? -0.5 : 0.5)) / (2 * h) * COORD), 0, COORD);
+  const ny = (v, max) => back(v, hh, max);
+  const nx = (v, max) => back(v, hw, max);
+  const isFull = b => b && ny(b[0]) <= 5 && nx(b[1]) <= 5 && ny(b[2], true) >= 995 && nx(b[3], true) >= 995;
+  const TYPE = { object: "obj", obj: "obj", character: "subject", subject: "subject", text: "text", panel: "bg" };
+
+  // The first full-canvas panel (mossimage.org files) is the background; every other item is an element.
+  const bgIdx = src.findIndex(it => (it.label || it.type) === "panel" && isFull(it.bbox));
+  const bgItem = bgIdx >= 0 ? src[bgIdx] : null;
+  const summary = data.summary || {};
+  const elements = src.filter((_, i) => i !== bgIdx && Array.isArray(src[i].bbox) && src[i].bbox.length === 4).map(it => {
+    const b = it.bbox.map(n => +n || 0);
+    const text = typeof it.text === "string" ? it.text : "";
+    const { desc: d0, font, style } = splitDescExtras(it.caption || it.identity || "");
+    const desc = d0 || (it.tags || []).join(", ");
+    let tags = normalizeTags(it.tags);
+    if (it.salience) tags.push("salience:" + it.salience);
+    let type = TYPE[it.label || it.type] || "obj";
+    const role = Object.keys(MOSS_ROLE_TAG).find(k => tags.includes(MOSS_ROLE_TAG[k]));
+    if (role && type !== "subject") { type = role; tags = tags.filter(t => t !== MOSS_ROLE_TAG[role]); }
+    return {
+      type,
+      bbox: [ny(b[0]), nx(b[1]), ny(b[2], true), nx(b[3], true)],
+      desc, font, text, tags, style,
+      color_palette: Array.isArray(it.palette) ? it.palette : []
+    };
+  });
+  const cap = typeof summary.caption === "string" ? parseMossSummaryCaption(summary.caption) : {};
+  return {
+    canvas: { width: Math.round(hw * 2), height: Math.round(hh * 2) },
+    frameFromCanvas: useCurrent,
+    high_level_description: cap.high_level_description || data.gen_brief || data.scene_type || (bgItem && (bgItem.caption || bgItem.identity)) || "",
+    style_description: {
+      aesthetics: cap.aesthetics || (data.scene_type && summary.caption === undefined && data.gen_brief ? data.scene_type : ""),
+      lighting: cap.lighting || "", photo: cap.photo || "", art_style: cap.art_style || "",
+      medium: cap.medium || (Array.isArray(summary.meta) ? summary.meta.join(", ") : ""),
+      color_palette: Array.isArray(summary.palette) ? summary.palette : (bgItem && Array.isArray(bgItem.palette) ? bgItem.palette : [])
+    },
+    compositional_deconstruction: {
+      background: cap.background || (bgItem ? (bgItem.caption || bgItem.identity || (bgItem.tags || []).join(", ")) : ""),
+      elements
+    }
+  };
+}
+
+// Text is almost always wider than tall, so the text/logo boxes vote on the
+// file's box order: tall-and-narrow read X-first means it's [ymin,xmin,ymax,xmax].
+function looksXFirst(els) { return boxOrderVotes(els).x > boxOrderVotes(els).y; }
+function boxOrderVotes(els) {
+  let yVotes = 0, xVotes = 0;
+  els.forEach(e => {
+    if ((e.type !== "text" && e.type !== "logo") || !Array.isArray(e.bbox) || e.bbox.length !== 4) return;
+    const [a, b, c, d] = e.bbox.map(n => +n || 0);
+    const asXFirst = (c - a) / Math.max(1, d - b);   // width / height if [x1,y1,x2,y2]
+    if (asXFirst < 0.5) yVotes++; else if (asXFirst > 2) xVotes++;
+  });
+  return { x: xVotes, y: yVotes };
+}
+
+// Returns { xFirstGuess } so the importer can say when it read a file X-first.
+function loadFromJSON(data, opts = {}) {
+  const isMoss = isMossJSON(data);
+  if (isMoss) data = mossToLayout(data);
   const sd = data.style_description || {};
   const cd = data.compositional_deconstruction || {};
   const srcEls = Array.isArray(cd.elements) ? cd.elements : [];
@@ -1887,15 +2477,24 @@ function loadFromJSON(data) {
   //    bboxes Y-first ([ymin,xmin,ymax,xmax]), normally on the 0..1000 grid
   //    (very old exports scaled them to pixels). Decode = transpose to X-first,
   //    and only divide by the canvas size if the values are actually in pixels.
-  //  • External / LLM JSON — no canvas, bboxes already X-first 0..1000.
-  const cv = data.canvas || {};
-  const hasCanvas = (+cv.width > 0 && +cv.height > 0) || !!cv.aspect_ratio || !!cv.orientation;
+  //    Current downloads keep the canvas in _editor.canvas (the official
+  //    caption has no canvas block); older ones have it at the top level.
+  //  • An imported file with no canvas (opts.guessOrder) — an official Ideogram
+  //    caption, e.g. from the KJNodes builder: Y-first 0..1000, unless its text
+  //    boxes only make sense read X-first.
+  //  • LLM JSON — no canvas, bboxes X-first 0..1000 (see SYSTEM_PROMPT).
+  const cv = data.canvas || (data._editor && data._editor.canvas) || {};
+  const hasCanvasBlock = (+cv.width > 0 && +cv.height > 0) || !!cv.aspect_ratio || !!cv.orientation;
+  const xFirstGuess = !hasCanvasBlock && !!opts.guessOrder && looksXFirst(srcEls);
+  const hasCanvas = hasCanvasBlock || (!!opts.guessOrder && !xFirstGuess);
   const srcW = (+cv.width > 0) ? +cv.width : COORD;
   const srcH = (+cv.height > 0) ? +cv.height : COORD;
   // Pixel-space only if some coordinate exceeds the normalized 0..1000 range.
   const maxCoord = Math.max(0, ...srcEls.flatMap(e => Array.isArray(e.bbox) ? e.bbox.map(n => +n || 0) : []));
   const pixelSpace = maxCoord > COORD;
   const clampBox = b => b.map(v => clamp(Math.round(+v || 0), 0, COORD));
+  const edEls = data._editor && Array.isArray(data._editor.elements) && data._editor.elements.length === srcEls.length ? data._editor.elements : null;
+  let inferredSubjects = 0;
   const decodeBbox = (b) => {
     if (!Array.isArray(b) || b.length !== 4) return [100, 100, 500, 500];
     if (hasCanvas) {
@@ -1908,31 +2507,46 @@ function loadFromJSON(data) {
     high_level_description: data.high_level_description || "",
     style_description: {
       aesthetics: sd.aesthetics || "", lighting: sd.lighting || "",
-      photo: sd.photo || "", medium: sd.medium || "",
+      photo: sd.photo || "", medium: sd.medium || "", art_style: sd.art_style || "",
       color_palette: Array.isArray(sd.color_palette) ? sd.color_palette.map(normalizeUpper) : []
     },
     background: cd.background || "",
-    elements: srcEls.map(e => emptyElement({
-      type: e.type || "obj",
-      bbox: decodeBbox(e.bbox),
-      desc: e.desc || "",
-      font: e.font || "",
-      color_palette: Array.isArray(e.color_palette) ? e.color_palette.map(normalizeUpper) : [],
-      enabled: e.enabled
-    }))
+    elements: srcEls.map((e, i) => {
+      // Editor-only detail that the official format can't hold (element type,
+      // tags, font, vectorize) rides in a download's _editor.elements.
+      const x = edEls ? edEls[i] || {} : {};
+      const split = (e.font || e.style) ? { desc: e.desc || "", font: e.font || "", style: e.style || {} } : splitDescExtras(e.desc);
+      let type = x.type || e.type || "obj";
+      if (!x.type && !isMoss && opts.guessOrder && type === "obj" && looksLikeSubject(split.desc)) { type = "subject"; inferredSubjects++; }
+      return emptyElement({
+        type,
+        bbox: decodeBbox(e.bbox),
+        desc: split.desc,
+        font: x.font || split.font || "",
+        text: typeof e.text === "string" ? e.text : "",
+        tags: normalizeTags(x.tags || e.tags),
+        color_palette: Array.isArray(e.color_palette) ? e.color_palette.map(normalizeUpper) : [],
+        vectorize: x.vectorize,
+        enabled: e.enabled,
+        style: x.style || split.style,
+        wild: x.wild || e.wild
+      });
+    }),
+    wild: normWild((data._editor && data._editor.wild) || data.wild)
   };
   selectedId = null;
   selectedIds.clear();
   // Reshape the preview frame (and the next render) to the imported canvas so
   // the boxes sit in the aspect ratio they were authored for.
-  if (hasCanvas) {
+  if (hasCanvasBlock && !data.frameFromCanvas) {   // a Moss file sized to the current canvas keeps it
     const ar = (+cv.width > 0 && +cv.height > 0) ? (+cv.width / +cv.height) : parseAspectRatio(cv.aspect_ratio || "1:1");
-    comfyCfg.aspect_ratio = nearestAspect(ar);
+    comfyCfg.aspect_ratio = nearestAspect(ar, isMoss);   // Moss panoramas may need a Moss-only frame
     if ($("cf-aspect")) $("cf-aspect").value = comfyCfg.aspect_ratio;
     saveComfyCfg();
   }
   render();
   applyCanvasAspect();
+  return { xFirstGuess, inferredSubjects, frameFromCanvas: !!data.frameFromCanvas };
 }
 
 function normalizeUpper(c) { return typeof c === "string" ? c.toUpperCase() : "#FFFFFF"; }
@@ -1983,6 +2597,11 @@ REFINEMENT MODE: You are given an EXISTING setup as JSON and a change request. R
 
 const ELEMENT_REFINE_SYSTEM_PROMPT = `You rewrite ONE element's description for an Ideogram 4 image-layout prompt. You are given the overall scene (for context only), the element's type, its current description, and a change request. Return ONLY the rewritten description as a single concise, vivid plain-text line — no JSON, no quotes, no field names, no preamble, no explanation. Apply the change request and keep the rest faithful to the current description; if the current description is empty, write one from the request. For a "text" element, keep or produce the literal words to render. Do not describe other elements or the whole scene — only this one element.`;
 
+// Keep only the people/animals from a reference image; build the rest from text.
+const SUBJECTS_ONLY_DIRECTIVE = `
+
+SUBJECTS-ONLY MODE: Take ONLY the people and animals from the image — how each one looks (build, age, hair, clothing, colours) and their pose, and keep each one's bbox where it sits in the image. Do NOT take the image's background, objects, setting, text, lighting or style: build all of those from the user's description instead (or invent a fitting new setting if there is none).`;
+
 // Transfer ONLY the composition from a reference image onto the current setup,
 // keeping the setup's style/colors/content. Outputs the full setup schema.
 const COMPOSITION_TRANSFER_SYSTEM_PROMPT = SYSTEM_PROMPT + `
@@ -1998,6 +2617,593 @@ const STYLE_TRANSFER_SYSTEM_PROMPT = SYSTEM_PROMPT + `
 STYLE-TRANSFER MODE: You are given an EXISTING setup as JSON and a reference IMAGE. Return the COMPLETE updated setup in the exact same schema, changed in ONE way only: restyle it to match the reference image's LOOK. Rewrite style_description.aesthetics, .lighting, .photo and .medium to describe the image's art direction, rendering, mood and lighting; set style_description.color_palette to the image's dominant colors (3 to 6 UPPERCASE 6-digit hex); and update each element's color_palette to the matching colors drawn from the image.
 
 KEEP the composition and content identical to the given setup: the SAME elements in the SAME order, the SAME types, the SAME bbox for every element (do not move, resize, add or remove anything), the SAME fonts, and the SAME subject/words of every element description and the background — you may only adjust COLOR words inside a description to fit the new palette. Take ONLY the image's visual style and colors; do NOT take its subjects, objects, layout or any text. Return JSON only.`;
+
+/* ------------------------------------------------------------------ */
+/*  AI changes: target model, locks, review & undo, layout check      */
+/* ------------------------------------------------------------------ */
+// Every Generate / Refine result goes through proposeChange(): the reply is
+// loaded into a candidate state, locked parts are put back, and the user sees a
+// before/after review (with any layout issues) before it replaces their work.
+// Applied changes can be undone.
+
+// ---- 1. Target model: extra guidance for the model the prompt is meant for ----
+// Follows the JSON tile's "Showing" format, so the layout is designed for the
+// model you're about to copy it to.
+const TARGET_GUIDANCE = {
+  ideogram: `
+
+TARGET MODEL: Ideogram 4. Keep each element desc to one or two vivid, concrete sentences. Every word the image must show goes in a "text" element with the exact words in its "text" field. Use "subject" for each person or animal (one element per individual).`,
+  moss: `
+
+TARGET MODEL: Moss Image. Moss reads the whole layout as text and is prone to swapping similar-looking people, adding people nobody asked for, and merging limbs where people overlap. Design against that:
+- One "subject" element per person or animal, never one box for a group.
+- Make every subject visually distinct — different clothing colours, hair, build, age or pose — and say so in its desc.
+- State the exact number of people in high_level_description (e.g. "three people: a coach, a client and a spotter").
+- Keep subjects' boxes from overlapping by more than about a fifth unless they physically interact; when they do, describe the contact explicitly in both descs (whose hand is on whose shoulder).
+- Describe each subject in 1-3 detailed sentences: appearance, clothing, pose, expression, and what each hand is doing.
+- Never write position words in a desc ("on the left", "at the top") that disagree with its bbox; the bbox is the position.
+- Give every text element its exact words in "text".`
+};
+function aiTarget() { return jsonFormat === "moss" ? "moss" : "ideogram"; }
+function targetDirective() { return TARGET_GUIDANCE[aiTarget()]; }
+
+// ---- 2. Locks: parts of the setup the AI must not change ----
+function locksOf(s) { return (s && s.locks) || {}; }
+// The layout the model may edit (enabled, unlocked elements) plus the locked
+// context it must respect. Locked elements are sent as context only and are put
+// back afterwards by enforceLocks(), so a model that ignores the instruction
+// can't change, drop or duplicate them.
+function llmLayoutWithLocks() {
+  const layout = buildLayoutJSON();
+  const enabled = state.elements.filter(e => e.enabled !== false);
+  const editable = [], locked = [];
+  layout.compositional_deconstruction.elements.forEach((e, i) => (enabled[i] && aiLocked(enabled[i]) ? locked : editable).push(e));
+  layout.compositional_deconstruction.elements = editable;
+  return { layout, locked };
+}
+function lockDirective(locked) {
+  const L = aiLocks(state), parts = [];
+  if (_aiScope) parts.push("ONLY the elements in the setup above may change (the user selected them). Everything else — style, background and the elements listed below — stays exactly as it is.");
+  if (L.style) parts.push("style_description is LOCKED — return it exactly as given:\n" + JSON.stringify(buildLayoutJSON().style_description));
+  if (L.background) parts.push("compositional_deconstruction.background is LOCKED — return it exactly as given:\n" + JSON.stringify(state.background));
+  if (locked.length) parts.push("These elements are LOCKED and fixed in place. Do NOT include them in your elements array — they are added back automatically. Treat them as part of the scene: don't duplicate them, keep new or moved elements clear of them unless layering is intended, and keep everything consistent with them:\n" + JSON.stringify(locked));
+  return parts.length ? "\n\nLOCKED PARTS (must not change):\n" + parts.join("\n\n") : "";
+}
+function enforceLocks(prev) {
+  const L = aiLocks(prev);
+  if (L.style) state.style_description = JSON.parse(JSON.stringify(prev.style_description));
+  if (L.background) state.background = prev.background;
+  if (_aiScope) state.high_level_description = prev.high_level_description;
+  // Put locked (or out-of-selection) elements back at their original positions.
+  prev.elements.forEach((e, i) => { if (aiLocked(e)) state.elements.splice(Math.min(i, state.elements.length), 0, JSON.parse(JSON.stringify(e))); });
+  state.locks = JSON.parse(JSON.stringify(locksOf(prev)));
+}
+// Load a model reply into state as the candidate. keepRest (refine/transfer)
+// carries per-element vectorize modes over by position and re-appends disabled
+// elements the model never saw; a fresh Generate replaces those.
+function applyLLMLayout(parsed, prev, keepRest) {
+  const prevEditable = prev.elements.filter(e => e.enabled !== false && !aiLocked(e));
+  const disabled = prev.elements.filter(e => e.enabled === false && !aiLocked(e));
+  loadFromJSON(parsed);
+  state.wild = cloneState(prev.wild || normWild());   // seed, locks and live template sources aren't the model's to change
+  if (keepRest) state.elements.forEach((e, i) => { if (prevEditable[i]) { e.vectorize = prevEditable[i].vectorize || "auto"; e.wild = cloneState(prevEditable[i].wild || normElWild()); } });
+  enforceLocks(prev);
+  if (keepRest && disabled.length) state.elements.push(...JSON.parse(JSON.stringify(disabled)));
+}
+
+// ---- 3. Review & undo ----
+const undoStack = [];
+function cloneState(s) { return JSON.parse(JSON.stringify(s)); }
+function syncUndoBtn() {
+  const b = $("undoAiBtn"); if (!b) return;
+  b.disabled = !undoStack.length;
+  b.title = undoStack.length ? "Undo: " + undoStack[undoStack.length - 1].label : "Nothing to undo";
+}
+function commitState(next, label) {
+  undoStack.push({ label, state: cloneState(state) });
+  if (undoStack.length > 15) undoStack.shift();
+  state = next; selectedId = null; selectedIds.clear();
+  render(); syncUndoBtn();
+}
+function undoAiChange() {
+  const u = undoStack.pop(); if (!u) return;
+  state = u.state; selectedId = null; selectedIds.clear();
+  render(); syncUndoBtn();
+  toast("Undid: " + u.label, "ok");
+}
+// build(prev) mutates state into the candidate. With review, the user sees the
+// before/after and any layout issues and picks Apply or Discard; resolves true
+// when applied. Without review (render queue) the candidate is applied directly.
+// builds: one build function per model reply (several = variations to pick from).
+// Each build(prev) mutates state into a candidate. With review, the user picks a
+// variation (when there are several), then sees the before/after and the layout
+// check and chooses Apply or Discard; resolves true when applied. Without review
+// (render queue) the first candidate is applied directly.
+async function proposeChange({ label, detail, build, builds, review = true }) {
+  builds = builds || [build];
+  const prev = cloneState(state);
+  const cands = builds.map(b => { state = cloneState(prev); b(prev); return cloneState(state); });
+  state = prev;
+  if (!review) { commitState(cands[0], label); return true; }
+  render();
+  let pick = 0;
+  if (cands.length > 1) { pick = await pickVariation(label, cands); if (pick < 0) return false; }
+  return openReview(label, prev, cands[pick], detail);
+}
+
+// Pair before/after elements: same id first (locked/untouched), then by overlap.
+function iou(a, b) {
+  const ix = Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0])), iy = Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
+  const inter = ix * iy, u = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - inter;
+  return u > 0 ? inter / u : 0;
+}
+function matchElements(A, B) {
+  const pairs = [], usedA = new Set(), usedB = new Set();
+  A.forEach((a, i) => { const j = B.findIndex((b, k) => !usedB.has(k) && b._id === a._id); if (j >= 0) { pairs.push([i, j]); usedA.add(i); usedB.add(j); } });
+  const cand = [];
+  A.forEach((a, i) => { if (usedA.has(i)) return; B.forEach((b, j) => { if (usedB.has(j)) return; const o = iou(a.bbox, b.bbox); if (o > 0.3) cand.push([o + (a.type === b.type ? 0.15 : 0), i, j]); }); });
+  cand.sort((p, q) => q[0] - p[0]).forEach(([, i, j]) => { if (!usedA.has(i) && !usedB.has(j)) { pairs.push([i, j]); usedA.add(i); usedB.add(j); } });
+  return { pairs, removed: A.map((_, i) => i).filter(i => !usedA.has(i)), added: B.map((_, j) => j).filter(j => !usedB.has(j)) };
+}
+const short = (s, n = 70) => { s = String(s || "").replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
+// Before/after rows for the review table: [label, value, changed] lines per cell.
+function fmtBox(b) { return `x ${b[0]}–${b[2]}, y ${b[1]}–${b[3]}`; }
+function elLines(e, other) {
+  const L = [["Type", e.type, other && other.type !== e.type], ["Position", fmtBox(e.bbox), other && JSON.stringify(other.bbox) !== JSON.stringify(e.bbox)],
+             ["Description", e.desc || "", other && other.desc !== e.desc]];
+  if (e.text || (other && other.text)) L.push(["Text", e.text || "", other && (other.text || "") !== (e.text || "")]);
+  const styleStr = x => ELEMENT_STYLE_FIELDS.filter(([k]) => x && x.style && x.style[k]).map(([k, l]) => l + ": " + x.style[k]).join("; ");
+  if (styleStr(e) || (other && styleStr(other))) L.push(["Style", styleStr(e), other && styleStr(other) !== styleStr(e)]);
+  if (e.locked) L.push(["Locked", "yes", false]);
+  return L;
+}
+function diffStates(a, b) {
+  const rows = [];
+  const field = (what, x, y) => rows.push({ k: "chg", what, before: [["", x || "(empty)", true]], after: [["", y || "(empty)", true]] });
+  if (a.high_level_description !== b.high_level_description) field("Description", a.high_level_description, b.high_level_description);
+  ["aesthetics", "lighting", "photo", "medium", "art_style"].forEach(f => {
+    if ((a.style_description[f] || "") !== (b.style_description[f] || "")) field("Style · " + f.replace("_", " "), a.style_description[f], b.style_description[f]);
+  });
+  if (JSON.stringify(a.style_description.color_palette) !== JSON.stringify(b.style_description.color_palette))
+    rows.push({ k: "chg", what: "Style · colour palette", beforePal: a.style_description.color_palette, afterPal: b.style_description.color_palette });
+  if (a.background !== b.background) field("Background", a.background, b.background);
+  const A = a.elements, B = b.elements, m = matchElements(A, B);
+  m.pairs.forEach(([i, j]) => {
+    const x = A[i], y = B[j];
+    const changed = x.type !== y.type || x.desc !== y.desc || (x.text || "") !== (y.text || "") || JSON.stringify(x.bbox) !== JSON.stringify(y.bbox) || JSON.stringify(x.style || {}) !== JSON.stringify(y.style || {});
+    if (!changed) return;
+    const d = Math.max(...x.bbox.map((v, k) => Math.abs(v - y.bbox[k])));
+    const moved = Math.hypot((x.bbox[0] + x.bbox[2] - y.bbox[0] - y.bbox[2]) / 2, (x.bbox[1] + x.bbox[3] - y.bbox[1] - y.bbox[3]) / 2) > 15;
+    const resized = Math.abs((x.bbox[2] - x.bbox[0]) - (y.bbox[2] - y.bbox[0])) > 15 || Math.abs((x.bbox[3] - x.bbox[1]) - (y.bbox[3] - y.bbox[1])) > 15;
+    const how = d > 15 ? [moved && "moved", resized && "resized"].filter(Boolean).join(" & ") : "";
+    rows.push({ k: "chg", what: `#${j + 1} ${y.type}` + (how ? ` (${how})` : ""), before: elLines(x, y), after: elLines(y, x) });
+  });
+  m.added.forEach(j => rows.push({ k: "add", what: `#${j + 1} ${B[j].type} (added)`, before: null, after: elLines(B[j]) }));
+  m.removed.forEach(i => rows.push({ k: "del", what: `${A[i].type} (removed)`, before: elLines(A[i]), after: null }));
+  return { rows, match: m };
+}
+function previewSvg(s, highlight) {
+  const { width: W, height: H } = computeDims();
+  const vw = 1000, vh = Math.round(1000 * H / W);
+  const col = { subject: "#f472b6", text: "#60a5fa", logo: "#a78bfa", bg: "#6b7280", obj: "#34d399" };
+  const rects = s.elements.filter(e => e.enabled !== false).map((e, i) => {
+    const [x1, y1, x2, y2] = e.bbox, h = highlight ? highlight(e, i) : "";
+    return `<rect x="${x1}" y="${y1 / COORD * vh}" width="${x2 - x1}" height="${(y2 - y1) / COORD * vh}" fill="${col[e.type] || "#34d399"}" fill-opacity="${h === "add" ? .35 : .12}" stroke="${h === "add" ? "#22c55e" : h === "chg" ? "#f59e0b" : col[e.type] || "#34d399"}" stroke-width="${h ? 10 : 5}"${e.locked ? ' stroke-dasharray="24 14"' : ""}/>`;
+  }).join("");
+  return `<svg viewBox="0 0 ${vw} ${vh}" preserveAspectRatio="xMidYMid meet" style="width:100%;max-height:260px;background:#0d1119;border-radius:6px;border:1px solid var(--border)">${rects}</svg>`;
+}
+let _reviewResolve = null, _reviewCand = null, _reviewIssues = [], _reviewLabel = "", _reviewHi = null;
+// The "After" preview shows the candidate with the currently ticked fixes applied.
+function renderReviewAfter() {
+  const shown = cloneState(_reviewCand);
+  _reviewIssues.filter(it => it.fix && it.on !== false).forEach(it => it.fix(shown));
+  $("reviewAfter").innerHTML = previewSvg(shown, _reviewHi);
+}
+function reviewCell(lines, pal) {
+  if (pal) return pal.length ? pal.map(c => `<i style="background:${c}" title="${c}"></i>`).join("") : '<span class="rv-none">(none)</span>';
+  if (!lines) return '<span class="rv-none">—</span>';
+  return lines.map(([k, v, ch]) => `<div class="rv-line${ch ? " ch" : ""}">${k ? `<b>${escapeHtml(k)}:</b> ` : ""}${escapeHtml(v)}</div>`).join("");
+}
+function openReview(label, before, after, detail) {
+  _reviewLabel = label; _reviewCand = after;
+  _reviewIssues = checkLayout(after);
+  const d = diffStates(before, after);
+  const changedIds = new Set(d.match.pairs.filter(([i, j]) => JSON.stringify(before.elements[i].bbox) !== JSON.stringify(after.elements[j].bbox) || before.elements[i].desc !== after.elements[j].desc || before.elements[i].type !== after.elements[j].type).map(([, j]) => after.elements[j]._id));
+  const addedIds = new Set(d.match.added.map(j => after.elements[j]._id));
+  $("reviewTitle").textContent = label.replace(/:.*$/, "");
+  $("reviewDetail").textContent = detail || "";
+  $("reviewDetail").style.display = detail ? "" : "none";
+  $("reviewBefore").innerHTML = previewSvg(before);
+  _reviewHi = e => addedIds.has(e._id) ? "add" : changedIds.has(e._id) ? "chg" : "";
+  const sym = { add: "＋", del: "－", chg: "✎" };
+  $("reviewChanges").innerHTML = d.rows.length
+    ? `<table class="rv-table"><thead><tr><th>Change</th><th>Before</th><th>After</th></tr></thead><tbody>` +
+      d.rows.map(r => `<tr class="rv-${r.k}"><th><span>${sym[r.k]}</span> ${escapeHtml(r.what)}</th><td>${reviewCell(r.before, r.beforePal)}</td><td>${reviewCell(r.after, r.afterPal)}</td></tr>`).join("") +
+      `</tbody></table>`
+    : `<div class="rv-none" style="padding:8px">No changes to the setup.</div>`;
+  renderReviewIssues();
+  renderReviewAfter();
+  $("reviewOverlay").classList.add("show");
+  return new Promise(res => { _reviewResolve = res; });
+}
+function renderReviewIssues() {
+  const box = $("reviewIssues");
+  $("reviewIssuesHead").style.display = _reviewIssues.length ? "" : "none";
+  box.innerHTML = "";
+  _reviewIssues.forEach((it, n) => {
+    const li = document.createElement("li");
+    if (it.fix) {
+      const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = it.on !== false;
+      cb.addEventListener("change", () => { it.on = cb.checked; renderReviewAfter(); });
+      li.append(cb);
+    } else { const s = document.createElement("span"); s.textContent = "ⓘ"; s.className = "rv-note"; li.append(s); }
+    const t = document.createElement("span");
+    t.innerHTML = escapeHtml(it.msg) + (it.fix ? ` <em>— fix: ${escapeHtml(it.fixLabel)}</em>` : "");
+    li.append(t); box.appendChild(li);
+  });
+}
+function closeReview(apply) {
+  $("reviewOverlay").classList.remove("show");
+  const res = _reviewResolve; _reviewResolve = null;
+  if (apply && _reviewCand) {
+    const cand = _reviewCand;
+    const fixes = _reviewIssues.filter(it => it.fix && it.on !== false);
+    fixes.forEach(it => it.fix(cand));
+    commitState(cand, _reviewLabel + (fixes.length ? ` (+${fixes.length} fix${fixes.length > 1 ? "es" : ""})` : ""));
+  }
+  _reviewCand = null;
+  if (res) res(!!apply);
+}
+
+// ---- 4. Layout check: problems that make Moss (and Ideogram) misplace things ----
+const POS_PHRASE_RE = /,?\s*\b(?:on|at|to|in|along|near|toward|towards) the (?:far |extreme )?((?:top|bottom|upper|lower|left|right)(?:[- ](?:left|right))?)(?:[- ](?:hand|side|edge|corner|third|half|area|portion))*(?: (?:of|in) the (?:frame|image|scene|composition|canvas|poster|picture))?\b/gi;
+function checkLayout(s) {
+  const issues = [], els = s.elements;
+  const live = els.map((e, i) => ({ e, i })).filter(({ e }) => e.enabled !== false);
+  const label = i => `#${i + 1} ${els[i].type} (“${els[i].desc || "no description"}”)`;
+  const at = i => st => st.elements[i];
+  live.forEach(({ e, i }) => {
+    if (e.locked) return;   // locked = leave exactly as the user set it
+    const [x1, y1, x2, y2] = e.bbox, cx = (x1 + x2) / 2 / COORD, cy = (y1 + y2) / 2 / COORD;
+    // People stored as plain objects: Moss can't count or keep them apart.
+    if (e.type === "obj" && looksLikeSubject(e.desc))
+      issues.push({ msg: `${label(i)} looks like a person or animal but is typed “obj”.`, fixLabel: "make it a subject", fix: st => { at(i)(st).type = "subject"; } });
+    // Position words that contradict the box.
+    const bad = [];
+    String(e.desc || "").replace(POS_PHRASE_RE, (m, dir) => {
+      const d = dir.toLowerCase();
+      if ((/left/.test(d) && cx > 0.55) || (/right/.test(d) && cx < 0.45) || (/top|upper/.test(d) && cy > 0.55) || (/bottom|lower/.test(d) && cy < 0.45)) bad.push(m.trim().replace(/^,\s*/, ""));
+      return m;
+    });
+    if (bad.length) issues.push({ msg: `${label(i)} says “${bad.join("”, “")}” but its box is elsewhere.`, fixLabel: "remove the contradicting words", fix: st => {
+      const el = at(i)(st);
+      el.desc = el.desc.replace(POS_PHRASE_RE, (m, dir) => bad.includes(m.trim().replace(/^,\s*/, "")) ? "" : m).replace(/\s{2,}/g, " ").replace(/\s+([,.;])/g, "$1").replace(/,\s*,/g, ",").trim();
+    } });
+    // Text with no literal words.
+    const textual = e.type === "text" || e.type === "logo";
+    if (textual && !(e.text || "").trim()) {
+      const w = mossTextFromDesc(e.desc);
+      if (w) issues.push({ msg: `${label(i)} has no literal text set.`, fixLabel: `use “${short(w, 30)}” from its description`, fix: st => { at(i)(st).text = w; } });
+      else if (e.type === "text") issues.push({ msg: `${label(i)} has no literal text — the model will invent the words.` });
+    }
+    // Boxes too small to render clearly.
+    const min = e.type === "subject" ? [80, 80] : e.type === "text" ? [40, 25] : [20, 20];
+    if (x2 - x1 < min[0] || y2 - y1 < min[1]) issues.push({ msg: `${label(i)} is very small (${x2 - x1}×${y2 - y1} of 1000) and may render badly or not at all.`, fixLabel: `enlarge to at least ${min[0]}×${min[1]}`, fix: st => {
+      const b = at(i)(st).bbox, grow = (lo, hi, mn) => { const c = (lo + hi) / 2, h = Math.max(mn, hi - lo) / 2; let a = Math.round(c - h), z = Math.round(c + h); if (a < 0) { z -= a; a = 0; } if (z > COORD) { a -= z - COORD; z = COORD; } return [Math.max(0, a), Math.min(COORD, z)]; };
+      [b[0], b[2]] = grow(b[0], b[2], min[0]); [b[1], b[3]] = grow(b[1], b[3], min[1]);
+    } });
+  });
+  // People overlapping heavily: the main cause of merged limbs and swapped identities.
+  // (people typed "obj" count too — the type fix above may not be ticked)
+  const subs = live.filter(({ e }) => e.type === "subject" || (e.type === "obj" && looksLikeSubject(e.desc)));
+  for (let p = 0; p < subs.length; p++) for (let q = p + 1; q < subs.length; q++) {
+    const A = subs[p], B = subs[q], a = A.e.bbox, b = B.e.bbox;
+    const ix = Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0])), iy = Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
+    const share = ix * iy / Math.min((a[2] - a[0]) * (a[3] - a[1]), (b[2] - b[0]) * (b[3] - b[1]));
+    if (share <= 0.35) continue;
+    const pct = Math.round(share * 100);
+    const canFix = !A.e.locked || !B.e.locked;
+    issues.push({ msg: `${label(A.i)} and ${label(B.i)} overlap by ${pct}% — overlapping people tend to merge or swap.`, ...(canFix ? { fixLabel: "spread them apart horizontally", fix: st => {
+      const L0 = st.elements[A.i], R0 = st.elements[B.i];
+      const [L, R] = (L0.bbox[0] + L0.bbox[2] <= R0.bbox[0] + R0.bbox[2]) ? [L0, R0] : [R0, L0];
+      const wL = L.bbox[2] - L.bbox[0], wR = R.bbox[2] - R.bbox[0];
+      const need = (L.bbox[2] - R.bbox[0]) - 0.15 * Math.min(wL, wR);   // leave ~15% overlap
+      if (need <= 0) return;
+      const movable = [L, R].filter(x => !x.locked), share = need / movable.length;
+      const shift = (el, dx) => { const w = el.bbox[2] - el.bbox[0]; let nx = clamp(Math.round(el.bbox[0] + dx), 0, COORD - w); el.bbox[0] = nx; el.bbox[2] = nx + w; };
+      if (!L.locked) shift(L, -share); if (!R.locked) shift(R, share);
+    } } : {}) });
+  }
+  return issues;
+}
+// Run the check on the current setup (no AI call) and review the fixes.
+async function checkCurrentLayout() {
+  if (!checkLayout(state).length) { toast("No layout issues found ✓", "ok"); return false; }
+  return proposeChange({ label: "Layout fixes", build: () => {} });
+}
+
+// ---- Scope: Refine "only the selected elements" ----
+// While set, every unselected element (and the style, background and description)
+// is treated as locked for that one AI call.
+let _aiScope = null;   // { only: Set<element _id> } | null
+function aiLocked(e) { return !!e.locked || (!!_aiScope && !_aiScope.only.has(e._id)); }
+function aiLocks(s) { return _aiScope ? { style: true, background: true } : locksOf(s); }
+
+// ---- Shared LLM helpers ----
+function llmSetup() {
+  const cfg = loadCfg();
+  if (!cfg.baseUrl) throw new Error("Set a Base URL in ⚙ Settings.");
+  if (!cfg.model) throw new Error("Set a Model name in ⚙ Settings.");
+  if (cfg.provider === "openrouter" && !cfg.apiKey) throw new Error("OpenRouter needs an API key (⚙ Settings).");
+  const headers = { "Content-Type": "application/json" };
+  if (cfg.apiKey) headers["Authorization"] = "Bearer " + cfg.apiKey;
+  if (cfg.provider === "openrouter") { headers["HTTP-Referer"] = location.origin; headers["X-Title"] = "Ideogrammar"; }
+  return { cfg, headers };
+}
+function netError(err, cfg) {
+  return err instanceof TypeError ? new Error("Network/CORS error reaching " + cfg.baseUrl + ". Check the URL, that the server is running, and that CORS is allowed.") : err;
+}
+async function llmText(system, user, { json = false } = {}) {
+  const { cfg, headers } = llmSetup();
+  const body = { model: cfg.model, messages: [{ role: "system", content: system }, { role: "user", content: user }], temperature: cfg.temperature };
+  if (json) body.response_format = { type: "json_object" };
+  try { return await chatCompletion(cfg, headers, body); } catch (err) { throw netError(err, cfg); }
+}
+// n replies to the same request (variations); each later one runs a little
+// warmer for variety. Failed or unparseable replies are skipped.
+async function llmLayouts(cfg, headers, body, n) {
+  const base = typeof body.temperature === "number" ? body.temperature : 0.7;
+  const runs = Array.from({ length: n }, (_, i) =>
+    chatCompletion(cfg, headers, i ? { ...body, temperature: Math.min(2, base + 0.15 * i) } : body).then(extractJSON));
+  const res = await Promise.allSettled(runs);
+  const ok = res.filter(r => r.status === "fulfilled" && r.value && typeof r.value === "object").map(r => r.value);
+  if (!ok.length) {
+    const bad = res.find(r => r.status === "rejected");
+    throw bad ? netError(bad.reason, cfg) : new Error("Could not parse JSON from the model's reply.");
+  }
+  return ok;
+}
+
+// ---- Variations ----
+let aiVariations = (() => { try { return Math.min(4, Math.max(1, +localStorage.getItem("ideogrammar.variations") || 1)); } catch (_) { return 1; } })();
+function setVariations(n) {
+  aiVariations = Math.min(4, Math.max(1, +n || 1));
+  try { localStorage.setItem("ideogrammar.variations", String(aiVariations)); } catch (_) {}
+  ["genVariations", "refineVariations"].forEach(id => { if ($(id)) $(id).value = String(aiVariations); });
+}
+let _pickResolve = null;
+function pickVariation(label, cands) {
+  $("variationsTitle").textContent = label.replace(/:.*$/, "") + " — pick a variation";
+  const grid = $("variationsGrid"); grid.innerHTML = "";
+  cands.forEach((c, i) => {
+    const card = document.createElement("div"); card.className = "var-card";
+    const live = c.elements.filter(e => e.enabled !== false);
+    const people = live.filter(e => e.type === "subject").length;
+    card.innerHTML = `<div class="var-head">Variation ${i + 1}</div>${previewSvg(c)}
+      <div class="var-meta">${live.length} element${live.length === 1 ? "" : "s"} · ${people} ${people === 1 ? "person" : "people"} · ${checkLayout(c).length} layout issue${checkLayout(c).length === 1 ? "" : "s"}</div>
+      <div class="var-desc">${escapeHtml(c.high_level_description || "")}</div>`;
+    const b = document.createElement("button"); b.className = "primary"; b.textContent = "Use this";
+    b.addEventListener("click", () => closePicker(i));
+    card.appendChild(b); grid.appendChild(card);
+  });
+  $("variationsOverlay").classList.add("show");
+  return new Promise(res => { _pickResolve = res; });
+}
+function closePicker(i) {
+  $("variationsOverlay").classList.remove("show");
+  const r = _pickResolve; _pickResolve = null;
+  if (r) r(i);
+}
+
+// ---- Refine: grouped quick changes, presets, combining ----
+const REFINE_GROUPS = [
+  { name: "Composition", chips: [
+    ["Lighter composition", "Make it a lighter, airier composition with more negative space."],
+    ["Simplify", "Simplify the scene — fewer elements, cleaner layout."],
+    ["Rule of thirds", "Rearrange the main elements along a rule-of-thirds grid."],
+    ["Centre the subject", "Centre the main subject in the frame."],
+    ["More breathing room", "Give the elements more space: reduce crowding and overlaps."],
+    ["Tighter crop", "Crop in tighter on the main subject so it fills more of the frame."],
+    ["Bigger subject", "Make the main subject larger and more central."]] },
+  { name: "People", chips: [
+    ["Add a person", "Add one more person who fits the scene, in a free area of the frame, visually distinct from the others."],
+    ["Remove a person", "Remove the least important person."],
+    ["Spread people apart", "Spread the people apart so their boxes barely overlap, and adjust poses so no limbs cross."],
+    ["Make people distinct", "Make every person clearly distinct: different clothing colours, hair, build and pose."],
+    ["Describe hands", "For every person, describe exactly what each hand is doing."]] },
+  { name: "Text", chips: [
+    ["Remove all text", "Remove all text and logo elements."],
+    ["Bigger title", "Make the title larger and bolder."],
+    ["Add a tagline", "Add a short tagline text element that fits the scene."]] },
+  { name: "Camera", chips: [
+    ["Wide angle", "Make it a wide-angle shot that shows more of the environment."],
+    ["Close-up", "Make it a close-up on the main subject."],
+    ["Low angle", "Use a low camera angle looking up at the subject."],
+    ["Overhead", "Use an overhead, top-down camera angle."],
+    ["Shallow depth of field", "Use a shallow depth of field with a softly blurred background."]] },
+  { name: "Lighting & colour", chips: [
+    ["Darker & moodier", "Make it darker and more dramatic with moodier lighting."],
+    ["Golden hour", "Relight it in warm, low golden-hour sunlight with long soft shadows."],
+    ["Studio lighting", "Relight it with clean, even studio lighting."],
+    ["Neon", "Relight it with saturated neon light and coloured reflections."],
+    ["Overcast", "Relight it with soft, diffuse overcast daylight."],
+    ["Warmer palette", "Make the color palette warmer."],
+    ["Cooler palette", "Make the color palette cooler."]] }
+];
+const REFINE_PRESETS_KEY = "ideogrammar.refinePresets";
+function loadRefinePresets() { try { const a = JSON.parse(localStorage.getItem(REFINE_PRESETS_KEY)); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
+function storeRefinePresets(a) { try { localStorage.setItem(REFINE_PRESETS_KEY, JSON.stringify(a)); } catch (_) {} }
+let refineSel = [];   // [{ label, text }] — the quick changes / presets added to this refine
+function refineInstruction() {
+  return [$("refinePrompt").value.trim(), ...refineSel.map(x => x.text)].filter(Boolean).join(" ");
+}
+function toggleRefineSel(label, text) {
+  const i = refineSel.findIndex(x => x.text === text);
+  if (i >= 0) refineSel.splice(i, 1); else refineSel.push({ label, text });
+  renderRefineGroups();
+}
+function renderRefineGroups() {
+  const box = $("refineGroups"); box.innerHTML = "";
+  const groups = REFINE_GROUPS.concat(loadRefinePresets().length ? [{ name: "My presets", mine: true, chips: loadRefinePresets().map(p => [p.name, p.text]) }] : []);
+  groups.forEach(g => {
+    const row = document.createElement("div"); row.className = "chip-group";
+    const h = document.createElement("span"); h.className = "chip-group-name"; h.textContent = g.name; row.appendChild(h);
+    g.chips.forEach(([label, text]) => {
+      const c = document.createElement("button"); c.type = "button"; c.className = "chip" + (refineSel.some(x => x.text === text) ? " on" : "");
+      c.textContent = label; c.title = text;
+      c.addEventListener("click", () => toggleRefineSel(label, text));
+      if (g.mine) c.addEventListener("contextmenu", e => {
+        e.preventDefault();
+        if (confirm(`Delete the preset “${label}”?`)) { storeRefinePresets(loadRefinePresets().filter(p => p.name !== label)); renderRefineGroups(); }
+      });
+      row.appendChild(c);
+    });
+    box.appendChild(row);
+  });
+  const sel = $("refineSelected");
+  sel.innerHTML = refineSel.length ? "" : '<span class="rv-none">None — click quick changes above, or add a style preset.</span>';
+  refineSel.forEach((x, i) => {
+    const t = document.createElement("span"); t.className = "token"; t.title = x.text;
+    t.textContent = x.label;
+    const del = document.createElement("button"); del.type = "button"; del.textContent = "×"; del.title = "Remove";
+    del.addEventListener("click", () => { refineSel.splice(i, 1); renderRefineGroups(); });
+    t.appendChild(del); sel.appendChild(t);
+  });
+}
+function addRefineStylePreset() {
+  const m = $("refineStyleMode").value; if (!m) return;
+  const sub = $("refineStyleSub").value, p = STYLE_PRESETS[m];
+  const label = m === "faithful" ? "Faithful" : `${p.label}: ${sub}`;
+  if (!refineSel.some(x => x.label === label)) refineSel.push({ label, text: styleGuidance(m, sub) });
+  renderRefineGroups();
+}
+function saveRefinePreset() {
+  const text = refineInstruction();
+  if (!text) { setRefineStatus("Type a change or pick quick changes first, then save them as a preset.", "err"); return; }
+  const name = (prompt("Name this preset:", refineSel.map(x => x.label).join(" + ") || text.slice(0, 30)) || "").trim();
+  if (!name) return;
+  storeRefinePresets(loadRefinePresets().filter(p => p.name !== name).concat([{ name, text }]));
+  renderRefineGroups();
+  setRefineStatus(`Saved preset “${name}” (right-click it to delete).`, "ok");
+}
+function syncRefineSelection() {
+  const n = state.elements.filter(e => selectedIds.has(e._id)).length;
+  $("refineOnlySelWrap").style.display = n ? "" : "none";
+  $("refineSelCount").textContent = n === 1 ? "selected element" : n + " selected elements";
+  if (!n) $("refineOnlySel").checked = false;
+}
+
+// ---- Generate: structured options, starting layouts, templates ----
+const GEN_LOOKS = { photo: "Photograph — realistic photo; fill style_description.photo (camera, lens) and leave art_style empty", illustration: "Illustration — non-photographic; fill art_style and leave photo empty", render3d: "3D render — fill art_style (e.g. 'polished 3D render') and leave photo empty", painting: "Painting — fill art_style with the painting style and leave photo empty", graphic: "Graphic design / poster — flat graphic design; fill art_style and leave photo empty" };
+const GEN_TEXT = { none: "No text or logos anywhere in the image.", title: "Exactly one text element: a title.", full: "A title plus supporting text (tagline, details or credits) as separate text elements." };
+const LAYOUT_TEMPLATES = {
+  poster: { label: "Poster — title top, subject, footer", guide: "Poster layout: a large title text element across the top ~20%, the main subject filling the middle, and a smaller footer text element (details, date, credits) along the bottom ~12%." },
+  group: { label: "Group portrait — people side by side", guide: "Group portrait: the people stand side by side across the frame at roughly equal size, each in their own box, boxes overlapping by no more than a fifth, heads at a similar height." },
+  portrait: { label: "Single portrait", guide: "Single portrait: one person, framed from roughly the waist up, centred or on a rule-of-thirds line, filling about half the frame width." },
+  product: { label: "Product shot", guide: "Product shot: one product as the hero object in the centre, filling about half the frame, on a simple surface; at most one short text element." },
+  banner: { label: "Wide banner", guide: "Wide banner: elements spread horizontally across the frame; the main subject to one side and the title on the other, nothing important near the top and bottom edges." },
+  comic: { label: "Comic panel", guide: "Comic panel: a single dramatic scene with the characters in action, one or two speech-bubble text elements near the speakers' heads, and a caption box text element in a top corner." },
+  scene: { label: "Scene with foreground subject", guide: "Scene: a detailed environment filling the frame, with the main subject in the foreground on the lower third and secondary objects in the mid-ground." }
+};
+const GEN_OPTS_KEY = "ideogrammar.genOptions", GEN_TEMPLATES_KEY = "ideogrammar.genTemplates";
+const GEN_OPT_IDS = { people: "genPeople", look: "genLook", text: "genText", palette: "genPalette", layout: "genLayout", aspect: "genAspect" };
+function readGenOptions() { const o = {}; Object.entries(GEN_OPT_IDS).forEach(([k, id]) => { o[k] = $(id).value; }); o.ask = $("genAsk").checked; return o; }
+function writeGenOptions(o) { o = o || {}; Object.entries(GEN_OPT_IDS).forEach(([k, id]) => { $(id).value = o[k] || ""; if ($(id).selectedIndex < 0) $(id).value = ""; }); $("genAsk").checked = !!o.ask; }
+function saveGenOptions() { try { localStorage.setItem(GEN_OPTS_KEY, JSON.stringify(readGenOptions())); } catch (_) {} }
+function genOptionsDirective() {
+  const o = readGenOptions(), req = [];
+  if (o.people !== "") req.push(o.people === "0" ? "No people or animals at all." : o.people === "6" ? "Six or more people, each as its own \"subject\" element." : `Exactly ${o.people} ${o.people === "1" ? "person" : "people"} — one "subject" element each, and no other people.`);
+  if (o.look) req.push("Look: " + GEN_LOOKS[o.look] + ".");
+  if (o.text) req.push(GEN_TEXT[o.text]);
+  if (o.palette !== "") { const p = PALETTE_PRESETS[+o.palette]; if (p) req.push(`Use this colour palette (style_description.color_palette and the elements): ${p.colors.join(", ")} (“${p.name}”).`); }
+  if (o.layout) req.push(LAYOUT_TEMPLATES[o.layout].guide);
+  if (typeof wcGenerateIngredients === "function") { const ing = wcGenerateIngredients(); if (ing) req.push(ing); }
+  return req.length ? "\n\nREQUIREMENTS (must be followed exactly):\n- " + req.join("\n- ") : "";
+}
+function loadGenTemplates() { try { const a = JSON.parse(localStorage.getItem(GEN_TEMPLATES_KEY)); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
+function renderGenTemplates() {
+  const sel = $("genTemplate");
+  sel.innerHTML = '<option value="">Templates…</option>' + loadGenTemplates().map((t, i) => `<option value="${i}">${escapeHtml(t.name)}</option>`).join("");
+  $("genTemplateDel").disabled = true;
+}
+function saveGenTemplate() {
+  const text = $("genPrompt").value.trim();
+  const name = (prompt("Name this template (it saves the description and the options):", text.slice(0, 30)) || "").trim();
+  if (!name) return;
+  const list = loadGenTemplates().filter(t => t.name !== name).concat([{ name, prompt: text, options: readGenOptions() }]);
+  try { localStorage.setItem(GEN_TEMPLATES_KEY, JSON.stringify(list)); } catch (_) {}
+  renderGenTemplates(); setGenStatus(`Saved template “${name}”.`, "ok");
+}
+function loadGenTemplate() {
+  const t = loadGenTemplates()[+$("genTemplate").value];
+  $("genTemplateDel").disabled = !t;
+  if (!t) return;
+  $("genPrompt").value = t.prompt || ""; writeGenOptions(t.options); saveGenOptions(); resetGenQuestions();
+  if (t.options && t.options.aspect !== undefined) $("genOptions").open = true;
+}
+function deleteGenTemplate() {
+  const t = loadGenTemplates()[+$("genTemplate").value];
+  if (!t || !confirm(`Delete the template “${t.name}”?`)) return;
+  try { localStorage.setItem(GEN_TEMPLATES_KEY, JSON.stringify(loadGenTemplates().filter(x => x.name !== t.name))); } catch (_) {}
+  renderGenTemplates();
+}
+
+// ---- Generate: improve my description ----
+let _genTextBeforeImprove = null;
+async function improveGenDescription() {
+  const text = $("genPrompt").value.trim();
+  if (!text) { setGenStatus("Type a rough idea first, then improve it.", "err"); return; }
+  $("genImprove").disabled = true;
+  setGenStatus('<span class="spinner"></span>Improving the description…', "");
+  try {
+    const sys = `You improve image descriptions for a layout designer that will turn them into an image-generation prompt for ${aiTarget() === "moss" ? "the Moss Image model" : "the Ideogram 4 model"}. Rewrite the user's rough idea as one rich, specific description of 3 to 6 sentences: the subject(s) — for people give a clearly distinct look for each (age range, clothing colours, hair, pose, what their hands are doing) and state how many there are — the setting, the composition (what is where in the frame), lighting, colour mood and style/medium, and any words the image must show, in double quotes. Keep everything the user specified; fill gaps with concrete choices. Return ONLY the description as plain text — no preamble, no headings, no lists, no quotes around it.` + genOptionsDirective();
+    const out = cleanRefinedText(await llmText(sys, text));
+    if (!out) throw new Error("The model returned an empty description.");
+    _genTextBeforeImprove = text;
+    $("genPrompt").value = out;
+    $("genImproveUndo").style.display = "";
+    resetGenQuestions();
+    setGenStatus("Description improved — edit it if you like, then Generate.", "ok");
+  } catch (err) { setGenStatus(err.message || String(err), "err"); }
+  finally { $("genImprove").disabled = false; }
+}
+function undoGenImprove() {
+  if (_genTextBeforeImprove == null) return;
+  $("genPrompt").value = _genTextBeforeImprove; _genTextBeforeImprove = null;
+  $("genImproveUndo").style.display = "none"; resetGenQuestions();
+}
+
+// ---- Generate: ask me first ----
+let genQA = null;   // null = not asked yet; [] or [{ question, options }] once asked
+function resetGenQuestions() { genQA = null; $("genQuestions").innerHTML = ""; $("genQuestions").style.display = "none"; }
+async function askGenQuestions() {
+  const text = $("genPrompt").value.trim();
+  const sys = `You help turn a short image idea into a precise layout. Read the idea and ask up to 3 short clarifying questions about the things that most change the picture and are still unclear (for example: how many people, who they are, setting, style/medium, any words to show, framing). Skip anything the idea or the stated requirements already settle. Return ONLY JSON: {"questions":[{"question":"…","options":["…","…","…"]}]} with 2 to 4 concrete options per question. Return {"questions":[]} if nothing important is unclear.` + genOptionsDirective();
+  const reply = extractJSON(await llmText(sys, text || "(no text — the user uploaded a reference image)", { json: true }));
+  const qs = (reply && Array.isArray(reply.questions) ? reply.questions : []).filter(q => q && q.question).slice(0, 3);
+  genQA = qs.map(q => ({ question: String(q.question), options: (Array.isArray(q.options) ? q.options : []).map(String).slice(0, 4) }));
+  const box = $("genQuestions"); box.innerHTML = "";
+  genQA.forEach((q, i) => {
+    const wrap = document.createElement("div"); wrap.className = "gen-q";
+    const lab = document.createElement("label"); lab.textContent = q.question; wrap.appendChild(lab);
+    const sel = document.createElement("select"); sel.id = "genQ" + i;
+    sel.innerHTML = q.options.map(o => `<option>${escapeHtml(o)}</option>`).join("") + '<option value="__other">Other…</option><option value="__skip">No preference</option>';
+    const other = document.createElement("input"); other.type = "text"; other.id = "genQo" + i; other.placeholder = "Your answer"; other.style.display = "none";
+    other.addEventListener("keydown", e => e.stopPropagation());
+    sel.addEventListener("change", () => { other.style.display = sel.value === "__other" ? "" : "none"; });
+    wrap.append(sel, other); box.appendChild(wrap);
+  });
+  box.style.display = genQA.length ? "" : "none";
+  return genQA.length;
+}
+function genAnswers() {
+  if (!genQA || !genQA.length) return "";
+  const lines = genQA.map((q, i) => {
+    const v = $("genQ" + i).value, a = v === "__other" ? $("genQo" + i).value.trim() : v === "__skip" ? "" : v;
+    return a ? `- ${q.question} → ${a}` : "";
+  }).filter(Boolean);
+  return lines.length ? "\n\nCLARIFICATIONS FROM THE USER:\n" + lines.join("\n") : "";
+}
 
 let generating = false;
 let genImageDataUrl = null;   // base64 data URL of an uploaded reference image, or null
@@ -2024,7 +3230,8 @@ async function generateSetup(opts = {}) {
   const cfg = loadCfg();
   const ctx = opts.context || null;
   const extract = opts.extract || null;   // "composition" | "style" | null
-  const userPrompt = (ctx ? (ctx.prompt || "") : $("genPrompt").value).trim();
+  let userPrompt = (ctx ? (ctx.prompt || "") : $("genPrompt").value).trim();
+  if (typeof wcResolveText === "function") userPrompt = wcResolveText(userPrompt);   // wildcards in the description: fresh picks on every Generate
   const image = ctx ? (ctx.image || null) : genImageDataUrl;
   const guide = (opts.guidance || "").trim();   // steers every regenerated prompt in a queue (e.g. "make it photorealistic")
   if (extract && !image) throw new Error("Upload an image to extract its " + (extract === "style" ? "style" : "composition") + ".");
@@ -2038,6 +3245,8 @@ async function generateSetup(opts = {}) {
   if (cfg.provider === "openrouter") { headers["HTTP-Referer"] = location.origin; headers["X-Title"] = "Ideogrammar"; }
 
   let systemContent, userContent;
+  const { layout: editableLayout, locked: lockedEls } = llmLayoutWithLocks();
+  const lockText = lockDirective(lockedEls);
   if (extract === "composition" || extract === "style") {
     // Transfer one aspect of the reference image onto the CURRENT setup: the model
     // sees the setup JSON + the image and returns the full setup with only the
@@ -2047,17 +3256,19 @@ async function generateSetup(opts = {}) {
       ? "Restyle the setup below to match the reference image's look and colors, keeping its composition and content. Reference image attached."
       : "Rearrange the setup below to match the reference image's composition, keeping its style, colors and content. Reference image attached.";
     userContent = [
-      { type: "text", text: ask + (guide ? " Extra guidance: " + guide : "") + "\n\nCurrent setup:\n" + JSON.stringify(buildLayoutJSON(), null, 2) },
+      { type: "text", text: ask + (guide ? " Extra guidance: " + guide : "") + "\n\nCurrent setup:\n" + JSON.stringify(editableLayout, null, 2) + lockText },
       { type: "image_url", image_url: { url: image } }
     ];
     // No detailDirective here — transfer must preserve the existing element set, not
     // re-impose an element count.
   } else if (image) {
-    systemContent = IMAGE_SYSTEM_PROMPT;
+    systemContent = IMAGE_SYSTEM_PROMPT + (extract === "subjects" ? SUBJECTS_ONLY_DIRECTIVE : "");
     const extra = [userPrompt, guide].filter(Boolean).join(" — ");
-    const text = extra
+    const text = (extract === "subjects"
+      ? "Keep ONLY the people/animals from the attached image (look, pose and position) and build everything else from this description: " + (extra || "(none — invent a fresh setting that suits the subjects)")
+      : extra
       ? "Build the structured layout JSON from the attached image. Extra guidance: " + extra
-      : "Build the structured layout JSON from the attached image.";
+      : "Build the structured layout JSON from the attached image.") + (ctx ? "" : genOptionsDirective() + genAnswers()) + lockText;
     userContent = [
       { type: "text", text },
       { type: "image_url", image_url: { url: image } }
@@ -2065,10 +3276,11 @@ async function generateSetup(opts = {}) {
     systemContent += detailDirective(cfg);   // honor the element-count / description-detail settings
   } else {
     systemContent = SYSTEM_PROMPT;
-    userContent = "Description:\n" + userPrompt + (guide ? "\n\nGuidance (apply to the whole composition): " + guide : "");
+    userContent = "Description:\n" + userPrompt + (guide ? "\n\nGuidance (apply to the whole composition): " + guide : "") + (ctx ? "" : genOptionsDirective() + genAnswers()) + lockText;
     systemContent += detailDirective(cfg);
   }
 
+  systemContent += targetDirective();
   const body = {
     model: cfg.model,
     messages: [{ role: "system", content: systemContent }, { role: "user", content: userContent }],
@@ -2076,31 +3288,24 @@ async function generateSetup(opts = {}) {
     response_format: { type: "json_object" }
   };
 
-  let content;
-  try { content = await chatCompletion(cfg, headers, body); }
-  catch (err) {
-    if (err instanceof TypeError) throw new Error("Network/CORS error reaching " + cfg.baseUrl + ". Check the URL, that the server is running, and that CORS is allowed.");
-    throw err;
-  }
-  const parsed = extractJSON(content);
-  if (!parsed) throw new Error("Could not parse JSON from the model's reply.");
+  // Interactive runs are reviewed (and may ask for several variations to pick
+  // from); the render queue (opts.context) takes one reply and applies it.
+  const review = !ctx;
+  const results = await llmLayouts(cfg, headers, body, review ? aiVariations : 1);
   // Transfer modes return a full setup that changed only one aspect; merge it like
   // a refine (carry per-element vectorize modes by position, keep disabled elements
   // the model never saw) and leave the queue genContext / compare reference alone.
+  // Locks are enforced either way.
   if (extract === "composition" || extract === "style") {
-    const prevVec = state.elements.filter(e => e.enabled !== false).map(e => e.vectorize || "auto");
-    const disabledEls = state.elements.filter(e => e.enabled === false);
-    loadFromJSON(parsed);
-    state.elements.forEach((e, i) => { if (prevVec[i]) e.vectorize = prevVec[i]; });
-    if (disabledEls.length) state.elements.push(...disabledEls);
-    render();
-    return;
+    return proposeChange({ label: extract === "style" ? "Style from image" : "Composition from image", detail: guide || userPrompt, review, builds: results.map(parsed => prev => applyLLMLayout(parsed, prev, true)) });
   }
-  loadFromJSON(parsed);
+  const applied = await proposeChange({ label: "Generate: " + short(userPrompt || "from image", 50), detail: userPrompt || "(from the reference image)", review, builds: results.map(parsed => prev => applyLLMLayout(parsed, prev, false)) });
+  if (!applied) return false;
   sourceImageDataUrl = image || null;   // remember it so renders can compare against the reference
   sourceImageRef = null;
   if (sourceImageDataUrl) uploadRefImage(sourceImageDataUrl).then(k => { sourceImageRef = k; });   // cache on the proxy for persistence
   genContext = { prompt: userPrompt, image: image || null };   // record what produced this setup, for queue regeneration
+  return true;
 }
 
 // The inputs to regenerate the CURRENT setup in the render queue: whatever last
@@ -2115,13 +3320,27 @@ function currentGenContext() {
 async function runGeneration(alsoRender) {
   if (generating) return;
   const extract = (genImageDataUrl && genExtractMode !== "full") ? genExtractMode : null;
+  saveGenOptions();
+  const gopt = readGenOptions();
+  // Ask me first: the first press fetches questions; the next press generates with the answers.
+  if (gopt.ask && genQA === null && extract !== "composition" && extract !== "style") {
+    $("genRun").disabled = $("genRunRender").disabled = true;
+    setGenStatus('<span class="spinner"></span>Thinking of questions…', "");
+    try {
+      const n = await askGenQuestions();
+      setGenStatus(n ? "Answer the questions below, then press Generate again." : "Nothing to clarify — press Generate again.", "ok");
+    } catch (err) { genQA = null; setGenStatus(err.message || String(err), "err"); }
+    finally { $("genRun").disabled = $("genRunRender").disabled = false; }
+    return;
+  }
+  if (gopt.aspect && gopt.aspect !== comfyCfg.aspect_ratio && extract !== "composition" && extract !== "style") onAspectChange(gopt.aspect);
   generating = true;
   $("genRun").disabled = $("genRunRender").disabled = true;
   const busy = extract === "composition" ? "Applying the image's composition…" : extract === "style" ? "Applying the image's style…" : (genImageDataUrl ? "Reading image…" : "Contacting model…");
   setGenStatus('<span class="spinner"></span>' + busy, "");
 
   try {
-    await generateSetup({ extract });
+    if (!(await generateSetup({ extract }))) { setGenStatus("Discarded — nothing changed.", ""); return; }
     const okMsg = extract === "composition" ? "Composition applied ✓ (style kept)" : extract === "style" ? "Style applied ✓ (composition kept)" : "Generated ✓";
     setGenStatus(okMsg, "ok");
     toast(okMsg, "ok");
@@ -2182,7 +3401,7 @@ function applyPresetPalette(clearElements) {
   toast(clearElements ? "Palette applied to the whole image ✓" : "Palette applied to the style ✓", "ok");
 }
 
-function openGenModal() { applyCfgToForm(); setGenStatus("", ""); $("genOverlay").classList.add("show"); $("genPrompt").focus(); }
+function openGenModal() { applyCfgToForm(); setGenStatus("", ""); renderGenTemplates(); resetGenQuestions(); $("genOverlay").classList.add("show"); $("genPrompt").focus(); }
 function closeGenModal() { $("genOverlay").classList.remove("show"); }
 
 const MAX_IMAGE_BYTES = 50 * 1024 * 1024;   // sanity guard on the raw upload
@@ -2203,7 +3422,7 @@ function setGenImage(file) {
     cv.getContext("2d").drawImage(img, 0, 0, w, h);
     genImageDataUrl = cv.toDataURL("image/jpeg", 0.9);
     // Match the output aspect ratio to the uploaded image (like LLMCam does).
-    comfyCfg.aspect_ratio = nearestAspect(img.naturalWidth / img.naturalHeight);
+    comfyCfg.aspect_ratio = nearestAspect(img.naturalWidth / img.naturalHeight, aiTarget() === "moss");
     saveComfyCfg();
     if ($("cf-aspect")) $("cf-aspect").value = comfyCfg.aspect_ratio;
     applyCanvasAspect();
@@ -2230,7 +3449,8 @@ function clearGenImage() {
 const GEN_EXTRACT_HINTS = {
   full: "Build a complete new setup from the image (style, composition and content).",
   composition: "Rearrange the current setup to match the image's layout — repositions your elements, keeps their descriptions, colors and style.",
-  style: "Restyle the current setup to match the image's look and colors — keeps your composition, elements and text."
+  style: "Restyle the current setup to match the image's look and colors — keeps your composition, elements and text.",
+  subjects: "Keep only the people/animals from the image (look, pose, position) and build a new scene around them from your description."
 };
 function setGenExtractMode(mode) {
   genExtractMode = mode;
@@ -2266,19 +3486,19 @@ function openRefineModal() {
   $("refineRenderRun").style.display = comfyCfg.mode === "comfy" ? "inline-flex" : "none";
   $("refineStyleMode").value = ""; $("refineStyleSub").style.display = "none";
   $("refinePrompt").value = "";   // start fresh — don't re-apply the previous refine's text/style
+  refineSel = []; renderRefineGroups(); syncRefineSelection();
+  $("refineOnlySel").checked = selectedIds.size > 0 && selectedIds.size < state.elements.length;
   $("refineOverlay").classList.add("show"); $("refinePrompt").focus();
 }
 // Style-preset picker: fills the change-request with the chosen preset's guidance.
 // Fill the textarea from the current mode + sub-option (no repopulation).
-function refineStyleSync() {
-  const m = $("refineStyleMode").value;
-  if (m) $("refinePrompt").value = styleGuidance(m, $("refineStyleSub").value);
-}
+// Style presets are added with "+ Add" (see addRefineStylePreset), not typed in.
+function refineStyleSync() {}
 // Mode changed: rebuild the sub-option list, then sync. (Rebuilding on every
 // change reset the sub back to the first option, so keep it to mode changes.)
 function refineModeChanged() {
   const m = $("refineStyleMode").value, subSel = $("refineStyleSub");
-  if (!m) { subSel.style.display = "none"; $("refinePrompt").value = ""; return; }  // back to "— choose —": drop the style text
+  if (!m) { subSel.style.display = "none"; return; }
   const p = STYLE_PRESETS[m];
   if (p && p.options) {
     subSel.innerHTML = p.options.map(o => `<option value="${o}">${o}</option>`).join("");
@@ -2292,8 +3512,8 @@ async function runRefine(opts) {
   if (refining) return;
   opts = opts || {};
   const cfg = loadCfg();
-  const instruction = $("refinePrompt").value.trim();
-  if (!instruction) { setRefineStatus("Describe the change first.", "err"); return; }
+  const instruction = refineInstruction();
+  if (!instruction) { setRefineStatus("Describe the change, or pick quick changes, first.", "err"); return; }
   if (!cfg.baseUrl) { setRefineStatus("Set a Base URL in ⚙ Settings.", "err"); openSettings(); return; }
   if (!cfg.model) { setRefineStatus("Set a Model name in ⚙ Settings.", "err"); openSettings(); return; }
   if (cfg.provider === "openrouter" && !cfg.apiKey) { setRefineStatus("OpenRouter needs an API key (⚙ Settings).", "err"); openSettings(); return; }
@@ -2306,28 +3526,21 @@ async function runRefine(opts) {
   if (cfg.apiKey) headers["Authorization"] = "Bearer " + cfg.apiKey;
   if (cfg.provider === "openrouter") { headers["HTTP-Referer"] = location.origin; headers["X-Title"] = "Ideogrammar"; }
 
-  const current = buildLayoutJSON(); // normalized 0..1000 space, matches SYSTEM_PROMPT
-  const userMsg = "Current setup:\n" + JSON.stringify(current, null, 2) + "\n\nChange request:\n" + instruction;
+  _aiScope = $("refineOnlySel").checked && selectedIds.size ? { only: new Set(selectedIds) } : null;
+  const { layout: current, locked: lockedEls } = llmLayoutWithLocks();   // normalized 0..1000 space, matches SYSTEM_PROMPT
+  const userMsg = "Current setup:\n" + JSON.stringify(current, null, 2) + lockDirective(lockedEls) + "\n\nChange request:\n" + instruction;
   const body = {
     model: cfg.model,
-    messages: [{ role: "system", content: REFINE_SYSTEM_PROMPT }, { role: "user", content: userMsg }],
+    messages: [{ role: "system", content: REFINE_SYSTEM_PROMPT + targetDirective() }, { role: "user", content: userMsg }],
     temperature: cfg.temperature,
     response_format: { type: "json_object" }
   };
 
   try {
-    const content = await chatCompletion(cfg, headers, body);
-    const parsed = extractJSON(content);
-    if (!parsed) throw new Error("Could not parse JSON from the model's reply.");
-    // Only enabled elements were sent, so align vectorize modes to those and
-    // keep the disabled ones aside to re-append (the model never saw them).
-    const prevVec = state.elements.filter(e => e.enabled !== false).map(e => e.vectorize || "auto");
-    const disabledEls = state.elements.filter(e => e.enabled === false);
-    loadFromJSON(parsed);
-    // best-effort: carry over per-element vectorize modes by position
-    state.elements.forEach((e, i) => { if (prevVec[i]) e.vectorize = prevVec[i]; });
-    if (disabledEls.length) state.elements.push(...disabledEls);   // restore disabled, still off
-    render();
+    const results = await llmLayouts(cfg, headers, body, aiVariations);
+    setRefineStatus(results.length > 1 ? "Pick a variation…" : "Review the change…", "");
+    const applied = await proposeChange({ label: "Refine: " + short(instruction, 50), detail: instruction + (_aiScope ? "\n(only the selected elements)" : ""), builds: results.map(parsed => prev => applyLLMLayout(parsed, prev, true)) });
+    if (!applied) { setRefineStatus("Discarded — nothing changed.", ""); return; }
     setRefineStatus("Refined ✓", "ok");
     toast("Setup refined ✓", "ok");
     if (opts.thenRender && comfyCfg.mode === "comfy") { closeRefineModal(); comfyRender(); }
@@ -2337,6 +3550,7 @@ async function runRefine(opts) {
     if (err instanceof TypeError) msg = "Network/CORS error reaching " + cfg.baseUrl + ". Check the URL, that the server is running, and that CORS is allowed.";
     setRefineStatus(msg, "err");
   } finally {
+    _aiScope = null;
     refining = false;
     $("refineRun").disabled = $("refineRenderRun").disabled = false;
   }
@@ -2412,13 +3626,66 @@ $("st-aesthetics").addEventListener("input", e => { state.style_description.aest
 $("st-lighting").addEventListener("input", e => { state.style_description.lighting = e.target.value; renderJSON(); });
 $("st-photo").addEventListener("input", e => { state.style_description.photo = e.target.value; renderJSON(); });
 $("st-medium").addEventListener("input", e => { state.style_description.medium = e.target.value; renderJSON(); });
+$("st-artstyle").addEventListener("input", e => { state.style_description.art_style = e.target.value; renderJSON(); });
 $("bg").addEventListener("input", e => { state.background = e.target.value; renderJSON(); });
 
 $("addEl").addEventListener("click", addElement);
-$("copyBtn").addEventListener("click", doCopy);
-$("copyBtn2").addEventListener("click", doCopy);
+$("copyBtn").addEventListener("click", () => doCopy());
+$("copyBtn2").addEventListener("click", () => doCopy("ideogram"));
+$("copyMossBtn").addEventListener("click", () => doCopy("moss"));
+$("jsonFormat").value = jsonFormat;
+$("mossFrame").checked = mossFramePanel;
+$("mossFrame").addEventListener("change", () => {
+  mossFramePanel = $("mossFrame").checked;
+  try { localStorage.setItem("ideogrammar.mossFrame", mossFramePanel ? "1" : "0"); } catch (_) {}
+  renderJSON();
+});
+$("indentedCopy").checked = indentedCopy;
+$("indentedCopy").addEventListener("change", () => {
+  indentedCopy = $("indentedCopy").checked;
+  try { localStorage.setItem("ideogrammar.indentedCopy", indentedCopy ? "1" : "0"); } catch (_) {}
+});
+$("undoAiBtn").addEventListener("click", undoAiChange);
+$("variationsClose").addEventListener("click", () => closePicker(-1));
+$("variationsCancel").addEventListener("click", () => closePicker(-1));
+document.addEventListener("keydown", e => { if (e.key === "Escape" && $("variationsOverlay").classList.contains("show")) closePicker(-1); });
+["genVariations", "refineVariations"].forEach(id => { $(id).value = String(aiVariations); $(id).addEventListener("change", () => setVariations($(id).value)); });
+PALETTE_PRESETS.forEach((p, i) => { const o = document.createElement("option"); o.value = String(i); o.textContent = p.name; $("genPalette").appendChild(o); });
+Object.entries(LAYOUT_TEMPLATES).forEach(([k, t]) => { const o = document.createElement("option"); o.value = k; o.textContent = t.label; $("genLayout").appendChild(o); });
+Array.from($("cf-aspect").options).forEach(opt => { const o = document.createElement("option"); o.value = opt.value; o.textContent = opt.value; $("genAspect").appendChild(o); });
+try { writeGenOptions(JSON.parse(localStorage.getItem(GEN_OPTS_KEY) || "null")); } catch (_) {}
+Object.values(GEN_OPT_IDS).concat(["genAsk"]).forEach(id => $(id).addEventListener("change", () => { saveGenOptions(); resetGenQuestions(); }));
+$("genPrompt").addEventListener("input", () => { if (genQA !== null) resetGenQuestions(); });
+$("genTemplate").addEventListener("change", loadGenTemplate);
+$("genTemplateSave").addEventListener("click", saveGenTemplate);
+$("genTemplateDel").addEventListener("click", deleteGenTemplate);
+$("genImprove").addEventListener("click", improveGenDescription);
+$("genImproveUndo").addEventListener("click", undoGenImprove);
+$("reviewApply").addEventListener("click", () => closeReview(true));
+$("reviewDiscard").addEventListener("click", () => closeReview(false));
+$("reviewClose").addEventListener("click", () => closeReview(false));
+document.addEventListener("keydown", e => { if (e.key === "Escape" && $("reviewOverlay").classList.contains("show")) closeReview(false); });
+$("checkLayoutBtn").addEventListener("click", checkCurrentLayout);
+$("refineCheck").addEventListener("click", async () => { if (await checkCurrentLayout()) closeRefineModal(); });
+[["lockStyle", "style"], ["lockBackground", "background"]].forEach(([id, k]) => $(id).addEventListener("click", e => {
+  e.stopPropagation();
+  state.locks = { ...locksOf(state), [k]: !locksOf(state)[k] };
+  renderForm(); scheduleSaveState();
+}));
+["genTarget", "refineTarget"].forEach(id => {
+  $(id).value = jsonFormat;
+  $(id).addEventListener("change", () => setJSONFormat($(id).value));
+});
+$("mossHints").checked = mossLayoutHints;
+$("mossHints").addEventListener("change", () => {
+  mossLayoutHints = $("mossHints").checked;
+  try { localStorage.setItem("ideogrammar.mossHints", mossLayoutHints ? "1" : "0"); } catch (_) {}
+  renderJSON();
+});
+$("jsonFormat").addEventListener("change", () => setJSONFormat($("jsonFormat").value));
 $("downloadBtn").addEventListener("click", doDownload);
 $("downloadBtn2").addEventListener("click", doDownload);
+$("downloadMossBtn").addEventListener("click", doDownloadMoss);
 $("resetBtn").addEventListener("click", () => { if (confirm("Reset to the default example? Current work will be lost.")) { state = defaultState(); selectedId = null; selectedIds.clear(); sourceImageDataUrl = null; sourceImageRef = null; showRenderInPreview(null); render(); } });
 $("importBtn").addEventListener("click", () => $("fileInput").click());
 $("fileInput").addEventListener("change", e => { if (e.target.files[0]) doImport(e.target.files[0]); e.target.value = ""; });
@@ -2545,7 +3812,8 @@ let refinePressedSelf = false;
 $("refineOverlay").addEventListener("mousedown", e => { refinePressedSelf = (e.target === $("refineOverlay")); });
 $("refineOverlay").addEventListener("click", e => { if (e.target === $("refineOverlay") && refinePressedSelf) closeRefineModal(); });
 $("refinePrompt").addEventListener("keydown", e => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") runRefine(); });
-$("refineChips").addEventListener("click", e => { const b = e.target.closest("[data-refine]"); if (!b) return; const t = $("refinePrompt"); t.value = (t.value.trim() ? t.value.trim() + " " : "") + b.dataset.refine; t.focus(); });
+$("refineStyleAdd").addEventListener("click", addRefineStylePreset);
+$("refineSavePreset").addEventListener("click", saveRefinePreset);
 document.addEventListener("keydown", e => { if (e.key === "Escape" && $("refineOverlay").classList.contains("show")) closeRefineModal(); });
 document.querySelectorAll("#providerSeg button").forEach(btn => {
   btn.addEventListener("click", () => {
@@ -2746,7 +4014,7 @@ function initCanvasAspect() {
   Array.from(src.options).forEach(opt => {
     const o = document.createElement("option");
     o.value = opt.value;
-    o.textContent = (opt.value.match(/^[^\s(]+/) || [opt.value])[0];   // "16:9 (Widescreen)" -> "16:9"
+    o.textContent = (opt.value.match(/^[^\s(]+/) || [opt.value])[0] + (isMossOnlyAspect(opt.value) ? " (Moss)" : "");   // "16:9 (Widescreen)" -> "16:9"
     o.title = opt.value;
     sel.appendChild(o);
   });
@@ -2858,6 +4126,7 @@ function applyComfyForm() {
   $("cf-aspect").value = comfyCfg.aspect_ratio;
   if ($("cf-aspect").selectedIndex < 0) { comfyCfg.aspect_ratio = "1:1 (Square)"; $("cf-aspect").value = comfyCfg.aspect_ratio; saveComfyCfg(); }
   $("cf-megapixels").value = comfyCfg.megapixels;
+  if ($("canvasMegapixels")) $("canvasMegapixels").value = comfyCfg.megapixels;
   $("cf-workflow").value = comfyCfg.workflow;
   $("cf-preset").value = comfyCfg.preset;
   $("cf-seed").value = comfyCfg.seed;
@@ -2885,6 +4154,7 @@ function applyComfyForm() {
   $("cf-queue-count").value = comfyCfg.queue_count;
   $("cf-queue-reseed").checked = comfyCfg.queue_reseed;
   $("cf-queue-regen").checked = comfyCfg.queue_regen;
+  $("cf-queue-rewild").checked = !!comfyCfg.queue_rewild;
   $("cf-queue-guidance").value = comfyCfg.queue_guidance || "";
 }
 function readComfyForm() {
@@ -2917,10 +4187,12 @@ function readComfyForm() {
   comfyCfg.queue_count = parseInt($("cf-queue-count").value, 10);
   comfyCfg.queue_reseed = $("cf-queue-reseed").checked;
   comfyCfg.queue_regen = $("cf-queue-regen").checked;
+  comfyCfg.queue_rewild = $("cf-queue-rewild").checked;
   comfyCfg.queue_guidance = $("cf-queue-guidance").value.trim();
   sanitizeComfyCfg();
   // reflect any corrected numeric values back into the fields
   $("cf-megapixels").value = comfyCfg.megapixels;
+  if ($("canvasMegapixels")) $("canvasMegapixels").value = comfyCfg.megapixels;
   $("cf-cfg").value = comfyCfg.cfg;
   $("cf-cfgo").value = comfyCfg.cfg_override;
   $("cf-start").value = comfyCfg.start_percent;
@@ -2971,6 +4243,7 @@ async function cancelRender() {
 async function comfyRender() {
   if (rendering) { settleRender(false); return; }
   readComfyForm();
+  if (typeof wcEnsureRolled === "function") wcEnsureRolled();
   lastRenderSetup = captureSetup();
   const base = comfyBase();
   if (!base) { setRenderStatus("Set your ComfyUI server URL first.", "err"); settleRender(false); return; }
@@ -3026,6 +4299,7 @@ function onRenderClick() {
   if (rendering || queueActive) return;
   readComfyForm();
   if (comfyCfg.queue_count > 1 || comfyCfg.queue_regen) runRenderQueue();
+  else if (comfyCfg.queue_rewild && typeof wcRollForQueue === "function") { wcRollForQueue(); comfyRender(); }
   else comfyRender();
 }
 
@@ -3057,6 +4331,7 @@ async function runRenderQueue() {
       catch (err) { setRenderStatus("Prompt regen failed: " + (err.message || err), "err"); break; }
       if (queueStop) break;
     }
+    if (comfyCfg.queue_rewild && typeof wcRollForQueue === "function") wcRollForQueue();
     if (reseed) { comfyCfg.seed = randomSeed(); $("cf-seed").value = comfyCfg.seed; saveComfyCfg(); }
     setRenderStatus('<span class="spinner"></span>Rendering…', "");
     const ok = await comfyRenderAwait();   // resolves when this render finishes
@@ -3707,7 +4982,9 @@ function captureSetup() {
     high_level_description: state.high_level_description,
     style_description: JSON.parse(JSON.stringify(state.style_description)),
     background: state.background,
-    elements: state.elements.map(e => ({ type: e.type, bbox: e.bbox.slice(), desc: e.desc, font: e.font || "", color_palette: e.color_palette.slice(), vectorize: e.vectorize || "auto", enabled: e.enabled !== false })),
+    elements: state.elements.map(e => ({ type: e.type, bbox: e.bbox.slice(), desc: e.desc, font: e.font || "", text: e.text || "", tags: (e.tags || []).slice(), color_palette: e.color_palette.slice(), vectorize: e.vectorize || "auto", enabled: e.enabled !== false, locked: !!e.locked, style: { ...(e.style || {}) }, wild: elWildOut(e) })),
+    locks: { ...locksOf(state) },
+    wild: JSON.parse(JSON.stringify(state.wild || {})),
     comfy,
     gen_prompt: ($("genPrompt").value || "").trim(),   // the free-text Generate description, so a loaded setup can regenerate its prompt in the render queue
     render: lastRenderImage ? { ...lastRenderImage } : null
@@ -3759,15 +5036,17 @@ function applySetup(s, beforeImage, beforeRef) {
   state = {
     high_level_description: s.high_level_description || "",
     style_description: {
-      aesthetics: sd.aesthetics || "", lighting: sd.lighting || "", photo: sd.photo || "", medium: sd.medium || "",
+      aesthetics: sd.aesthetics || "", lighting: sd.lighting || "", photo: sd.photo || "", medium: sd.medium || "", art_style: sd.art_style || "",
       color_palette: Array.isArray(sd.color_palette) ? sd.color_palette.map(normalizeUpper) : []
     },
     background: s.background || "",
     elements: Array.isArray(s.elements) ? s.elements.map(e => emptyElement({
       type: e.type || "obj",
       bbox: Array.isArray(e.bbox) && e.bbox.length === 4 ? e.bbox.map(n => clamp(Math.round(+n || 0), 0, COORD)) : [100, 100, 500, 500],
-      desc: e.desc || "", font: e.font || "", color_palette: Array.isArray(e.color_palette) ? e.color_palette.map(normalizeUpper) : [], vectorize: e.vectorize || "auto", enabled: e.enabled
-    })) : []
+      desc: e.desc || "", font: e.font || "", text: typeof e.text === "string" ? e.text : "", tags: normalizeTags(e.tags), color_palette: Array.isArray(e.color_palette) ? e.color_palette.map(normalizeUpper) : [], vectorize: e.vectorize || "auto", enabled: e.enabled, locked: e.locked, style: e.style, wild: e.wild
+    })) : [],
+    locks: { style: !!(s.locks && s.locks.style), background: !!(s.locks && s.locks.background) },
+    wild: normWild(s.wild)
   };
   if (s.comfy) SETUP_COMFY_KEYS.forEach(k => { if (k in s.comfy) comfyCfg[k] = s.comfy[k]; });
   selectedId = null; selectedIds.clear();
@@ -4401,6 +5680,17 @@ $("cf-rerollSeed").addEventListener("click", () => { comfyCfg.seed = randomSeed(
 ["cf-url", "cf-save", "cf-megapixels", "cf-preset", "cf-seed", "cf-randomize", "cf-cfg", "cf-sampler", "cf-cfgo", "cf-start", "cf-end", "cf-diff", "cf-uncond", "cf-lora-name", "cf-lora-strength", "cf-rtxsr-quality", "cf-rtxsr-scale", "cf-vae", "cf-clip", "cf-cliptype", "cf-batch", "cf-queue-count", "cf-queue-reseed", "cf-queue-regen", "cf-queue-guidance"].forEach(id => {
   const e = $(id); if (e) e.addEventListener("change", readComfyForm);
 });
+// Canvas-header megapixels mirrors cf-megapixels both ways (manual mode needs it
+// for the Moss export's pixel-space bboxes, where the ComfyUI panel is hidden).
+$("cf-megapixels").addEventListener("change", () => { $("canvasMegapixels").value = comfyCfg.megapixels; renderJSON(); });
+$("canvasMegapixels").addEventListener("change", () => {
+  const v = parseFloat($("canvasMegapixels").value);
+  if (!(v > 0)) { $("canvasMegapixels").value = comfyCfg.megapixels; return; }
+  comfyCfg.megapixels = v; $("cf-megapixels").value = v;
+  saveComfyCfg(); renderJSON();
+});
+$("canvasMegapixels").addEventListener("keydown", e => e.stopPropagation());
+$("canvasMegapixels").value = comfyCfg.megapixels;
 $("cf-lora-enabled").addEventListener("change", () => { readComfyForm(); syncLoraFields(); });
 $("cf-rtxsr-enabled").addEventListener("change", () => { readComfyForm(); syncRtxsrFields(); });
 
@@ -4419,5 +5709,7 @@ render();
 applyCanvasAspect();
 if (comfyCfg.mode === "comfy" && comfyBase()) populateLoraList();
 </script>
+<script src="wildcards-ui.js"></script>
+<script src="wildcards-wizard.js"></script>
 </body>
 </html>

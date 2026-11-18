@@ -86,6 +86,7 @@ Output ONLY a single JSON object (no markdown, no commentary) with EXACTLY this 
     "lighting": "lighting description",
     "photo": "camera / lens / film / rendering notes",
     "medium": "the medium, e.g. 'digital illustration', 'oil painting', '35mm photography'",
+    "art_style": "for NON-photographic images only: the art style (e.g. 'vintage poster design, textured paper'); leave \\"\\" for photos, and leave \\"photo\\" as \\"\\" when you use this",
     "color_palette": ["#RRGGBB", "..."]
   },
   "compositional_deconstruction": {
@@ -96,7 +97,10 @@ Output ONLY a single JSON object (no markdown, no commentary) with EXACTLY this 
         "bbox": [x1, y1, x2, y2],
         "desc": "what this element is and where it sits",
         "color_palette": ["#RRGGBB", "..."],
-        "font": "OPTIONAL — typography style for text/logo elements only (e.g. 'bold geometric sans-serif lettering'); omit for non-text elements"
+        "font": "OPTIONAL — typography style for text/logo elements only (e.g. 'bold geometric sans-serif lettering'); omit for non-text elements",
+        "text": "OPTIONAL — text/logo elements only: the exact literal words to render, \\n between lines; omit for non-text elements",
+        "tags": ["OPTIONAL", "2-5 short keywords for this element"],
+        "style": "OPTIONAL object with any of lighting, camera, lens, wardrobe, pose, environment, mood, extra: per-element style notes; keep any you are given unless asked to change them"
       }
     ]
   }
@@ -105,7 +109,8 @@ Output ONLY a single JSON object (no markdown, no commentary) with EXACTLY this 
 Rules:
 - The image canvas is a 1000 x 1000 coordinate space. Origin (0,0) is the TOP-LEFT. x grows right, y grows down. Every bbox is [x1, y1, x2, y2] with 0 <= x1 < x2 <= 1000 and 0 <= y1 < y2 <= 1000.
 - Place elements sensibly: titles near the top, taglines/credits near the bottom, the main subject roughly centered. Boxes may overlap when layered (e.g. text over a subject).
-- Use 3 to 6 elements unless the description clearly calls for more. Any text the image should literally show goes in a "text" element with the exact words in its desc (e.g. reading 'NEON TIDE').
+- Use 3 to 6 elements unless the description clearly calls for more. Any text the image should literally show goes in a "text" element with the exact words in its desc (e.g. reading 'NEON TIDE'), and the same words verbatim in its "text" field.
+- Every person, animal or main character gets its own "subject" element (one per individual, never one box for a group), with a box that covers that individual's whole visible body.
 - All colors are uppercase 6-digit hex like "#1A2B3C". Give each element a small palette (1-4 colors) that matches it.
 - For "text" and "logo" elements you MAY add a "font" describing the typography (weight, serif/sans/script/display, era or mood) — e.g. "elegant high-contrast serif lettering". Omit "font" entirely for non-text elements.
 - Be concrete and specific. Return valid JSON only.`;
@@ -294,9 +299,15 @@ function parseAspectRatio(s) {
   return 1;
 }
 const ASPECT_OPTIONS = ["1:1 (Square)", "3:2 (Photo)", "4:3 (Standard)", "16:9 (Widescreen)", "21:9 (Ultrawide)", "2:3 (Portrait Photo)", "3:4 (Portrait Standard)", "9:16 (Portrait Widescreen)"];
-function nearestAspect(ar) {
-  let best = ASPECT_OPTIONS[0], bestD = Infinity;
-  for (const opt of ASPECT_OPTIONS) { const d = Math.abs(Math.log(parseAspectRatio(opt) / ar)); if (d < bestD) { bestD = d; best = opt; } }
+// Extra-wide/tall frames for Moss Image layouts (e.g. its 4:1 panoramas). The
+// Ideogram workflow's ResolutionSelector only knows ASPECT_OPTIONS, so these
+// shape the canvas and the Moss export but can't be rendered in ComfyUI.
+const MOSS_ASPECT_OPTIONS = ["2:1 (Panorama, Moss only)", "3:1 (Wide Panorama, Moss only)", "4:1 (Banner, Moss only)", "1:2 (Tall, Moss only)", "1:3 (Tall Panorama, Moss only)", "1:4 (Tall Banner, Moss only)"];
+function isMossOnlyAspect(label) { return MOSS_ASPECT_OPTIONS.includes(label); }
+function nearestAspect(ar, includeMoss = false) {
+  const opts = includeMoss ? ASPECT_OPTIONS.concat(MOSS_ASPECT_OPTIONS) : ASPECT_OPTIONS;
+  let best = opts[0], bestD = Infinity;
+  for (const opt of opts) { const d = Math.abs(Math.log(parseAspectRatio(opt) / ar)); if (d < bestD) { bestD = d; best = opt; } }
   return best;
 }
 function aspectInfo(label) {
@@ -318,44 +329,94 @@ function computeDims() {
   const lat = x => Math.max(256, Math.floor((x + 15) / 16) * 16);
   return { width: lat(rs8(Math.sqrt(area * ar))), height: lat(rs8(Math.sqrt(area / ar))) };
 }
-// Turn an X-first 0..1000 layout into the diffusion-facing prompt object:
-// Ideogram 4 was trained on a 0..1000 normalized grid in Gemini-style
-// [ymin,xmin,ymax,xmax] order, so the only transform is transposing X/Y (the
-// range stays 0..1000). canvas comes first so the model reads the frame up front.
-function buildPromptObj(layout) {
-  const info = aspectInfo(), d = computeDims();
+// Pull the quoted words out of a description (the LLM writes e.g. "a title
+// reading 'NEON TIDE'"), for text elements whose literal text field is empty.
+function mossTextFromDesc(desc) {
+  const m = String(desc || "").match(/(?:reading|reads|saying|says|spelling|text|words?)\s*:?\s*["'“‘]([^"“”‘’]+?)["'”’](?=[\s,.;)]|$)/i)
+         || String(desc || "").match(/["“]([^"“”]+)["”]/);
+  return m ? m[1].trim() : "";
+}
+// Turn an X-first 0..1000 layout into the Ideogram 4 caption, shaped exactly
+// like the official ComfyUI node (KJNodes Ideogram4PromptBuilderKJ):
+//   • high_level_description only when non-blank
+//   • style_description: one of the two official key sets, every key present
+//     in order — photo: {aesthetics, lighting, photo, medium} or art:
+//     {aesthetics, lighting, medium, art_style} — plus color_palette only when
+//     non-empty; omitted entirely when every style field is blank
+//   • elements: type is "obj" or "text" only; keys in order type, bbox,
+//     text (text elements, always present), desc, color_palette (non-empty, max 5)
+//   • bbox [ymin,xmin,ymax,xmax] on the 0..1000 grid (a transpose of our X-first boxes)
+// The editor's extra element types map onto obj/text and its font descriptor
+// folds into desc, since the official format has no field for either.
+// opts.canvas prepends this app's canvas block — used only for ComfyUI renders
+// (with buildPromptText's orientation lead), never in copied/downloaded prompts.
+// Per-element style fields (set by style templates / wildcards). The official
+// formats have no field for them, so exports append them to the element's
+// desc (Ideogram) or caption (Moss) as labelled sentences after Typography,
+// in this order; imports split them back out (splitDescExtras in index.html).
+const ELEMENT_STYLE_FIELDS = [["lighting", "Lighting"], ["camera", "Camera"], ["lens", "Lens"], ["wardrobe", "Wardrobe"],
+  ["pose", "Pose"], ["environment", "Environment"], ["mood", "Mood"], ["extra", "Details"]];
+function joinDescExtras(desc, font, style) {
+  let d = String(desc || "").trim();
+  const add = t => { d = d ? (/[.!?]$/.test(d) ? d + " " : d + ". ") + t : t; };
+  if (font) add("Typography: " + font);
+  for (const [k, label] of ELEMENT_STYLE_FIELDS) {
+    const v = style ? String(style[k] || "").trim().replace(/\.$/, "") : "";
+    if (v) add(label + ": " + v);
+  }
+  return d;
+}
+function buildPromptObj(layout, opts = {}) {
   const sd = layout.style_description || {};
   const cd = layout.compositional_deconstruction || {};
   const elements = (Array.isArray(cd.elements) ? cd.elements : []).map(e => {
     const b = (Array.isArray(e.bbox) && e.bbox.length === 4) ? e.bbox.map(n => Math.round(+n || 0)) : [100, 100, 500, 500];
     const [x1, y1, x2, y2] = b;
-    const out = { type: e.type || "obj", bbox: [y1, x1, y2, x2], desc: e.desc || "", color_palette: Array.isArray(e.color_palette) ? e.color_palette : [] };
-    if (e.font) out.font = e.font;
+    const textual = e.type === "text" || e.type === "logo";
+    const text = textual ? (e.text || mossTextFromDesc(e.desc)) : "";
+    const isText = e.type === "text" || (e.type === "logo" && !!text);
+    const out = { type: isText ? "text" : "obj", bbox: [Math.min(y1, y2), Math.min(x1, x2), Math.max(y1, y2), Math.max(x1, x2)] };
+    if (isText) out.text = text;
+    out.desc = joinDescExtras(e.desc, e.font, e.style);
+    const pal = (Array.isArray(e.color_palette) ? e.color_palette : []).filter(Boolean).map(c => String(c).toUpperCase());
+    if (pal.length) out.color_palette = pal.slice(0, 5);
     return out;
   });
-  return {
-    canvas: { width: d.width, height: d.height, aspect_ratio: info.ratio, orientation: info.orientation },
-    high_level_description: layout.high_level_description || "",
-    style_description: { aesthetics: sd.aesthetics || "", lighting: sd.lighting || "", photo: sd.photo || "", medium: sd.medium || "", color_palette: Array.isArray(sd.color_palette) ? sd.color_palette : [] },
-    compositional_deconstruction: { background: cd.background || "", elements }
-  };
+  const caption = {};
+  if (opts.canvas) {
+    const info = aspectInfo(), d = computeDims();
+    caption.canvas = { width: d.width, height: d.height, aspect_ratio: info.ratio, orientation: info.orientation };
+  }
+  if (String(layout.high_level_description || "").trim()) caption.high_level_description = layout.high_level_description;
+  const pal = (Array.isArray(sd.color_palette) ? sd.color_palette : []).filter(Boolean).map(c => String(c).toUpperCase());
+  if (sd.aesthetics || sd.lighting || sd.photo || sd.medium || sd.art_style || pal.length) {
+    const style = { aesthetics: sd.aesthetics || "", lighting: sd.lighting || "" };
+    if (!sd.photo && sd.art_style) { style.medium = sd.medium || ""; style.art_style = sd.art_style; }
+    else { style.photo = sd.photo || ""; style.medium = sd.medium || ""; }
+    if (pal.length) style.color_palette = pal;
+    caption.style_description = style;
+  }
+  caption.compositional_deconstruction = { background: cd.background || "", elements };
+  return caption;
 }
 // The diffusion model's only prompt is this text (CLIPTextEncode, NOT parsed as
 // JSON). Lead with a strong, plain orientation + exact-dimension statement so
 // the model doesn't guess orientation per-seed and rotate the result.
 function buildPromptText(layout) {
-  const obj = buildPromptObj(layout), info = aspectInfo(), d = obj.canvas;
+  const obj = buildPromptObj(layout, { canvas: true }), info = aspectInfo(), d = obj.canvas;
   const coord = ` Element bboxes are [ymin,xmin,ymax,xmax] on a 0-1000 normalized grid (each axis 0-1000 independent of the ${d.width}x${d.height} pixel size), origin top-left, x right, y down; place each element exactly there, do not rotate or mirror the layout.`;
   let lead;
   if (info.orientation === "landscape") lead = `LANDSCAPE orientation: a wide horizontal ${info.ratio} image, ${d.width}x${d.height} pixels (wider than tall).` + coord;
   else if (info.orientation === "portrait") lead = `PORTRAIT orientation: a tall vertical ${info.ratio} image, ${d.width}x${d.height} pixels (taller than wide).` + coord;
   else lead = `SQUARE ${info.ratio} image, ${d.width}x${d.height} pixels.` + coord;
-  return lead + "\n\n" + JSON.stringify(obj, null, 2);
+  return lead + "\n\n" + JSON.stringify(obj);   // compact, like the official node
 }
 function buildWorkflow(layout) {
   const base = comfyCfg.workflow === "v2" ? WORKFLOW_TEMPLATE_V2 : WORKFLOW_TEMPLATE;
   const wf = (typeof structuredClone === "function") ? structuredClone(base) : JSON.parse(JSON.stringify(base));
   wf[NODE.prompt].inputs.text = buildPromptText(layout);
+  if (isMossOnlyAspect(comfyCfg.aspect_ratio))
+    throw new Error(`${comfyCfg.aspect_ratio.replace(/\s*\(.*/, "")} is a Moss Image-only aspect ratio — pick 21:9 or narrower to render with Ideogram in ComfyUI.`);
   wf[NODE.resolution].inputs.aspect_ratio = comfyCfg.aspect_ratio;
   wf[NODE.resolution].inputs.megapixels = comfyCfg.megapixels;
   wf[NODE.seed].inputs.noise_seed = comfyCfg.seed;

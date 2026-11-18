@@ -25,3 +25,6 @@ models/
 # python bytecode
 __pycache__/
 *.pyc
+
+# wildcard lists + style templates synced by the proxy (your own data)
+wildcards/

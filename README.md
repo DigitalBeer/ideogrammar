@@ -16,6 +16,7 @@ Everything lives in [`index.html`](index.html) (HTML + CSS + vanilla JS, no depe
 - **Preset color palettes** — a **🎨 Preset palettes** picker in the Style block opens ~30 curated, colorhunt-style 4-colour sets. Pick one and choose where it lands — just the image's style palette, or the whole image (which also clears per-element colours). Individual swatches stay editable afterwards.
 - **Font-style picker** — `text` and `logo` elements get a typography picker: choose a preset style (each previewed in a matching, self-hosted web font — works fully offline) or type your own descriptor. The chosen style is injected into that element's prompt as a `font` field and round-trips through save/load and LLM refine.
 - **Live JSON output** — syntax-highlighted, copy or download with one click.
+- **Style templates & wildcards** — 🎭 menu-driven templates (magazine cover, sports video game, cinematic, film noir, product hero…) fill lighting, camera, lens, medium, background and per-element wardrobe/pose/mood, for the whole image or chosen elements. Any field takes Dynamic-Prompts wildcards (`__colours__`, `{a|b}`, `{2$$…}`, weights, variables) with rules, guards, locks and seeds; 🎲 Roll gives a new variation, optionally polished by your AI model. See [Style templates & wildcards](#style-templates--wildcards).
 - **Generate prompt** — describe the image in plain language, **or upload/drop a reference image** (with a vision-capable model), and an OpenAI-compatible LLM (OpenRouter or a local `llama.cpp` server) fills in the whole schema. Settings are stored in `localStorage`.
 - **Composition / style transfer** — use an uploaded image to **rearrange the current setup to the image's layout** (keeping its style) or **restyle it to the image's look** (keeping its composition), instead of a full rebuild — so you can mix a layout from one image with a look from another.
 - **Refine** — ask the LLM to adjust the current setup with a plain-language change (e.g. "make it a lighter composition"); it rewrites the whole setup while keeping everything the request doesn't touch.
@@ -40,25 +41,75 @@ A toggle in the header switches between:
 
 ## Prompt JSON shape
 
+Copied and downloaded prompts match the official ComfyUI prompt-builder nodes (KJNodes `Ideogram4PromptBuilderKJ` and `MossImagePromptBuilderKJ`) field for field, in compact JSON — the nodes' default (the tile shows it indented for reading). Tick **Indented copy** in the JSON tile bar to copy/download the nodes' "pretty" form instead (4-space indent, plain arrays on one line); it's off by default.
+
+### Ideogram 4 (Copy / Download for Ideogram)
+
 ```json
 {
-  "high_level_description": "one vivid sentence describing the whole image",
+  "high_level_description": "omitted when blank",
   "style_description": {
     "aesthetics": "...", "lighting": "...", "photo": "...", "medium": "...",
-    "color_palette": ["#RRGGBB", "..."]
+    "color_palette": ["#RRGGBB"]
   },
   "compositional_deconstruction": {
     "background": "...",
     "elements": [
-      { "type": "obj|subject|text|logo|bg", "bbox": [x1, y1, x2, y2], "desc": "...", "color_palette": ["#RRGGBB"], "font": "optional — text/logo only" }
+      { "type": "obj", "bbox": [ymin, xmin, ymax, xmax], "desc": "...", "color_palette": ["#RRGGBB"] },
+      { "type": "text", "bbox": [ymin, xmin, ymax, xmax], "text": "EXACT WORDS", "desc": "...", "color_palette": ["#RRGGBB"] }
     ]
   }
 }
 ```
 
-Coordinates are a 1000×1000 space, origin top-left, `bbox = [x1, y1, x2, y2]`. `font` is optional and only carried for `text`/`logo` elements (a typography descriptor like *"bold geometric sans-serif lettering"*); it's omitted everywhere else.
+- Boxes are on the 0–1000 grid, `[ymin, xmin, ymax, xmax]`.
+- `style_description` uses one of the two official key sets, every key present in order: **photo** `{aesthetics, lighting, photo, medium}` or, when Photo is empty and **Art style** is filled, **art** `{aesthetics, lighting, medium, art_style}`. `color_palette` is included only when it has colours, and the whole block is left out when every style field is blank.
+- Element `type` is `obj` or `text` only. The editor's extra types map onto them: `subject`/`bg` → `obj`, `logo` → `text` when it has literal text (else `obj`). The font-style picker's descriptor is appended to `desc` (`Typography: …`), since the format has no font field. Element palettes are capped at 5 colours and omitted when empty.
+- The editor still works in its own X-first `[x1, y1, x2, y2]` space and richer types; that's what the LLM produces and what setups store.
 
-A **downloaded** file additionally carries a `canvas` block (output pixel size / aspect, used to restore the frame on import) and an optional `_editor` block (the reference/compare image and backdrop render). Both are editor round-trip metadata — they're ignored by the model and never appear in the copied prompt or the prompt text sent to ComfyUI.
+A **downloaded** file also carries an `_editor` block (the canvas frame plus the reference/compare image and backdrop render) so re-importing restores them; it's never in the copied prompt. ComfyUI renders send the same caption prefixed by an orientation statement and a `canvas` block, which keep the model from rotating the layout.
+
+### Moss Image (Copy / Download for Moss Image)
+
+```json
+{
+  "summary": { "meta": ["photograph"], "caption": "scene, background and style", "palette": ["#RRGGBB"] },
+  "items": [
+    { "label": "character", "caption": "...", "tags": ["..."], "palette": ["#RRGGBB"], "bbox": [ymin, xmin, ymax, xmax] },
+    { "label": "text", "caption": "...", "text": "EXACT WORDS", "bbox": [ymin, xmin, ymax, xmax] }
+  ],
+  "bbox_coord_space": "abs_centralized",
+  "bbox_format": "yxyx"
+}
+```
+
+- Boxes are **output pixels with the origin at the image centre**, Y-first, rounded outward like the official node (a 2:3 portrait at 1 MP spans `[-632, -424, 632, 424]`). Set **AR** and **MP** in the layout header to match your workflow's generation size.
+- **Moss frame panel** (JSON tile bar, **on by default**): the layout starts with a full-frame `panel` item whose caption is the background, as mossimage.org's builder does. The boxes carry no image size, so Moss works out the frame from how far they reach — without a box spanning the whole canvas it composes into a smaller, often differently shaped area and fills the rest with borders or black bars. Turn it off only for the bare official-node output (then the background goes into `summary.caption` instead).
+- Labels are `object`, `character` (from `subject` elements) and `text` (always with a `text` field). The high-level description and style fold into `summary.caption`; the style palette is `summary.palette`; `meta` is inferred from the medium; `summary.canvas` is left out. With no boxes at all, the plain caption is output instead of a layout, as the node does.
+- Element cards have optional **Literal text** and **Tags** fields for `text` and `tags`; a text element with no literal text uses the quoted words from its description.
+- **Moss layout hints** (checkbox in the JSON tile bar, off by default) adds non-official wording: each caption gets its position in words, and the summary states how many `subject` elements there are, left to right. It can reduce swapped or extra people; leave it off for exactly the official output.
+
+### Converting between Ideogram and Moss without losing detail
+
+The editor holds more than either official format, so exports fold the extras into prose with fixed labels and imports split them back out:
+
+- **Moss → editor:** `summary.caption` is written as `<high-level description> Background: … Medium: … Style: … Art style: … Lighting: … Camera: …`, and import puts each labelled part back in its field. `Typography: …` at the end of a caption returns to the element's font, and layout-hint wording (position sentences, subject count) is stripped since it's regenerated from the boxes. `character` items become subjects. Box edges map back to the centre of the grid cell they came from, so re-exporting gives identical pixels; at 2 MP and above the round trip is exact, below that (fewer pixels than the 1000-unit grid) a box can move by ±1 unit.
+- **Moss frame size:** a Moss file has no width/height. Files with a full-canvas panel (mossimage.org) use the extent of the boxes; others use the current **AR/MP** canvas when every box fits in it — the same as the official node, which is given width/height — and say so in the import toast.
+- **Ideogram downloads → editor:** the official caption only has `obj`/`text`, so a download's `_editor.elements` keeps each element's editor type (subject/logo/bg), tags, font and vectorize mode, and re-importing restores them exactly.
+- **Copied or external Ideogram captions → editor:** with no `_editor`, `obj` elements whose description starts with a person or animal ("a trainer…", "the client…", "a dog…") are imported as subjects (the toast says how many), and `Typography: …` returns to the font field.
+
+- **Logo / background elements in Moss:** Moss has no labels for these, so the export adds a `logo` or `background` tag (a real Moss field the model reads); import turns the tag back into the element type and removes it from the tag list.
+
+A copied Ideogram caption has nowhere to keep tags (the official format has no tags field, and Ideogram doesn't use them) — use **Download for Ideogram** to keep them.
+
+**Moss-only aspect ratios.** Both aspect-ratio pickers have an extra group — 2:1, 3:1, 4:1 and their tall counterparts 1:2, 1:3, 1:4 — for Moss's panoramas and banners. They shape the canvas and the Moss export; the Ideogram ComfyUI workflow can't render them, so rendering with one selected stops with a message asking for 21:9 or narrower.
+
+### Importing
+
+The import button accepts:
+- **This app's downloads** (current and older).
+- **Official Ideogram captions** (e.g. from the KJNodes builder) with no canvas info: read `[ymin, xmin, ymax, xmax]`, unless the text boxes only make sense X-first (the toast says when that happens). `art_style` fills the Art style field.
+- **Moss Image files** — the official `summary`/`items` shape and mossimage.org's older `scene_type`/`gen_brief`/`elements` shape. The frame is taken from the extent of the boxes and snapped to the nearest aspect ratio (Moss-only ratios included). `character` becomes `subject`; a full-canvas `panel` (mossimage.org files) becomes the background and other panels become `bg` elements; `summary.caption` (or `gen_brief`) becomes the high-level description, `summary.palette` the style palette, `meta` the medium, and `salience` a `salience:<level>` tag.
 
 ## Settings (⚙)
 
@@ -89,6 +140,80 @@ Then click **✨ Generate prompt**, describe the image, and the model returns th
 - **Style only** — keep the **current setup's composition** (the same elements in the same places, same text), and only **restyle it** to match the reference image's look — aesthetics, lighting, medium and color palette are rewritten to the image's, while what each element depicts and where it sits stay put.
 
 Each mode sends the model your current setup *plus* the image and asks it to change only that one aspect (the same round-trip Refine uses, with an image attached), so the other half of your setup is preserved. Run the two in turn to mix a composition from one image with a style from another. Both need a vision-capable model.
+
+## AI changes: target model, locks, review & undo, layout check
+
+These apply to ✨ Generate, 🪄 Refine and the image composition/style transfers.
+
+- **Optimise for** (in both dialogs, mirrors the JSON panel's *Showing*): adds model-specific guidance to the AI's instructions. **Moss Image** asks for one subject per person, visually distinct people, the exact head-count in the description, subjects that don't overlap much (or explicitly described contact), detailed 1–3 sentence descriptions, and no position words that contradict the boxes. **Ideogram 4** keeps descriptions concise and literal text in `text`.
+- **Locks (🔒):** lock any element (card header), the Style section or the Background (panel headers). Locked elements are sent to the AI as fixed context only — not as editable elements — and are put back afterwards, so they survive even if the model ignores the instruction. Locks are saved with setups.
+- **Review before applying:** results open a review with before/after layout previews (green = added, amber = changed, dashed = locked), a list of every change (description, style fields, palette, background; elements added, removed, moved, resized, reworded), and the layout check. **Apply** or **Discard**; nothing changes until you apply. The render queue's *Regenerate prompt* skips the review but still respects locks.
+- **Undo (↶ in the header):** reverts the last applied AI change or layout fix (up to 15 steps).
+- **🩺 Check layout** (Elements panel, and in the Refine dialog) — also run automatically in every review — flags, and offers ticked-by-default fixes for: people typed `obj` (→ subject), subjects overlapping by more than ~35% (spread apart horizontally to ~15%), position words in a description that contradict its box (removed), text/logo elements without literal text (filled from quoted words in the description), and boxes too small to render well (enlarged). The *After* preview updates as you tick fixes. Locked elements are never changed.
+
+### More Generate & Refine tools
+
+- **Review table:** the review lists every change in a *Change / Before / After* table with the full text (nothing cut off); changed fields inside an element are highlighted, and the request you sent is shown at the top.
+- **Variations (1–4)** in both dialogs: ask for several results at once (each a little more adventurous than the last), pick one from side-by-side layout previews — with element, people and layout-issue counts — then review it as usual.
+- **Refine — only the selected elements:** with boxes selected on the canvas, tick *Only change the selected elements*; everything else (other elements, style, background, description) is kept.
+- **Refine — quick changes, combined:** grouped toggles (Composition, People, Text, Camera, Lighting & colour) and style presets (*+ Add*, any number) collect under *Selected changes* and are sent together with your text — e.g. *Film noir* + *Low angle* + *Make people distinct*. **★ Save as preset** stores the combination under *My presets* (right-click a preset to delete it).
+- **Generate — Options:** requirements the model must follow — number of people, look (photo / illustration / 3D / painting / graphic design), text in the image, a colour palette, a **starting layout** (poster, group portrait, single portrait, product shot, wide banner, comic panel, scene with foreground subject) and the aspect ratio (applied before generating). Options are remembered.
+- **Generate — ✍ Improve description:** rewrites a rough idea into a detailed description in the text box for you to edit (↶ restores your text).
+- **Generate — Ask me clarifying questions first:** the first press asks up to three questions with suggested answers (or your own); the next press generates with your answers.
+- **Generate — templates:** **★ Save template** stores the description and options; pick one from *Templates…* to reload it.
+- **Generate from an image — Subjects only:** keeps just the people/animals (look, pose, position) from the image and builds a new scene around them from your description. The output aspect follows the image, including the Moss-only ratios when targeting Moss.
+
+## Style templates & wildcards
+
+Give a setup a *look* from a menu, and let wildcards vary it every time you roll.
+
+**? Help** (header) opens a built-in guide ([`help.html`](help.html)): generating an image step by step, templates, how wildcard lists feed templates, the syntax and logic with live "🎲 Try it" examples, rolling, and how it all lands in Ideogram vs Moss output.
+
+**🎭 Templates** (header) opens the template picker. Each template fills the image style (aesthetics, lighting, camera / lens, medium, art style), the background, an addition to the high-level description, and a per-element style (lighting, camera, lens, wardrobe, pose, environment, mood, details). Values can contain wildcards, so the same template gives a different sports cover, magazine shoot or film still on every roll.
+- **Apply to image** styles the whole image plus the element types the template targets (people by default). **Apply to selected** styles just the selected elements. Both open the Before/After review, and undo works.
+- **🧭 Template wizard:** builds a template step by step (start → shared choices → image style → people & objects → name & preview). Under every field it suggests the wildcard lists that fit it (lighting lists for Lighting, clothes lists for Wardrobe…), so you click lists in instead of typing their names, with a live sample roll under each box.
+- **Preview images:** 🖼 on a template card sets its picture (upload one, or use the current render); templates without one show a coloured placeholder. Each card also lists the wildcard lists it **rolls from** (click to open one), and the list editor shows which templates use a list.
+- **Edit / Duplicate / ＋ New template:** a form with every field, template **variables** (e.g. `sport = __sports__`, used as `${sport}` anywhere in the template), template-only **rules**, notes for the AI, and optional per-format overrides (`{"moss": {"global": {…}}}`) for wording that suits Moss or Ideogram better. **🎲 Sample** shows three rolls before you save.
+- Each element card has a **🎭 Style & wildcards** section: a template picker for that element alone, the eight style fields, **🎲 Roll** for just that element, and **+ wildcard** to insert a list token at the cursor.
+- The ✨ Generate options have a **Style template** picker: the template is rolled and sent as requirements, so the model builds the layout in that style.
+
+**Wildcards** work in any text field: high-level description, style fields, background, element description / text / font / style fields, and the Generate description.
+
+| Syntax | Meaning |
+|---|---|
+| `{a\|b\|c}` | one of the options |
+| `{2$$a\|b\|c}`, `{1-3$$…}`, `{2$$ and $$…}` | several different ones, a range, a custom separator |
+| `{3::a\|1::b}` | weights |
+| `{40%? wearing a cap}` | a 40% chance, otherwise nothing |
+| `__colours__`, `__clothes/hats__`, `__hats__`, `__clothes/*__` | a random line from a list, a list in a folder, any list in a folder |
+| `{2$$__colours__}` | two different items from a list |
+| `${c=!__colours__}` … `${c}` | pick once, reuse (`${v=…}` without `!` re-rolls on every use; `${v:default}`) |
+| `{[time=night] neon\|[time!=night] sun}` | guards: an option (or a list line) is only possible when a variable or an earlier list pick matches (`=` `!=` `~` contains, `a=x,y`, `&`) |
+| `\{ \} \| \_` | literal characters |
+
+This is the [Dynamic Prompts](https://github.com/adieyal/sd-dynamic-prompts) syntax; guards, chance and rules are additions. **Rules** (📚 Wildcard lists → Rules, or inside a template) say things like "when a pick from `time-of-day` is *night*, never pick *golden hour sunlight* from `lighting/natural`" (*never pick* / *only pick* / *always pick*; values match whole words, case-insensitive, `*` for contains). A list can be marked **unique** so it never repeats within a roll.
+
+**Rolling** (🎲 **Roll** in the header, and its ▾ menu):
+- **Roll all** uses a new seed for every wildcard field. **Roll selected elements** re-rolls only those. **Roll ×N and pick** shows N rolls side by side.
+- A rolled field shows a **🎲** badge. Click it to see the wildcard source (editable), every pick, and the template variables. 🔒 **lock** a pick so it survives rolls, ↻ re-roll just that pick or variable, or **Detach** to keep the text and drop the wildcard. An amber **🎲 roll** badge means the field has wildcards that haven't been rolled yet.
+- **Roll + polish with AI** / **Polish current with AI** sends the rolled setup and the list of picks to your model, which merges them into one coherent prompt for the target format (Ideogram or Moss), keeping boxes, element count and text. The result goes through the usual review and undo.
+- **Download batch (ZIP)** writes N rolled prompts in the format the JSON tile shows. Each Ideogram file carries its seed in `_editor`, so re-importing it reproduces that roll.
+- **Seed:** the same seed with the same locks always gives the same picks. **Auto-roll** (on by default) rolls any unrolled wildcards before Copy, Download or Render, so raw `__…__` never reaches a prompt. In ComfyUI mode the render queue has **Re-roll wildcards each iteration**.
+
+**How it lands in the two formats:** image-level fields go where they always do (Ideogram `style_description`, Moss `summary.caption`). Element style fields are added to the element's Ideogram `desc` and Moss `caption` as labelled sentences (`… Lighting: hard rim light. Camera: low angle. Wardrobe: tennis whites.`), after `Typography:`. Imports split them back into the Style fields. The wildcard sources, seed and locks are saved with the working state, setups and the Ideogram download's `_editor` block (never in the prompt itself).
+
+**📚 Wildcard lists & rules** (▾ menu or the Templates window) edits the lists: one item per line, `2::item` weights, `# comments`, items may contain wildcards. It has search, **🎲 Sample 10**, Restore built-in, a Rules tab and a Syntax tab. About 50 starter lists ship built in (colours, materials, lighting, cameras, lenses, film stocks, shots, angles, times of day, weather, places, people, clothes, art styles, eras, moods, sports, magazine genres…). Your edits are stored on top of them.
+- **Import:** `.txt` lists (the file name is the list name), `.yaml` / `.json` packs, or a `.zip` of a Dynamic Prompts `wildcards/` folder. **Export:** one JSON bundle (lists, rules, templates) or a ZIP in the same folder layout.
+- **⇅ Sync with folder** (needs `comfy_proxy.py`): keeps the lists in `wildcards/` next to the proxy (`--wildcards-dir`) as `.txt` files you can edit in any text editor or share with other Dynamic-Prompts tools, and templates as JSON in `wildcards/_templates/` (`--templates-dir`). After the first sync it also syncs whenever the editor loads. Changes on either side are merged; if the same list changed in both places since the last sync, you choose which side wins. `.yaml` / `.json` packs in the folder are read but never rewritten.
+
+### Testing it
+
+1. Open the editor, click **🎭 Templates → Sports video game cover → Apply to image**, check the review and **Apply**. The style, background and the subject's Style section fill in, each with a 🎲 badge.
+2. Click **🎲 Roll** a few times. The sport, venue and kit change together (the venue and sportswear lists follow `${sport}`). Click the 🎲 badge under Aesthetics, 🔒 lock `${sport}`, and roll again: the sport stays.
+3. **Copy for Ideogram** and **Copy for Moss Image** and check the subject's `desc` / `caption` ends with `Lighting: … Camera: … Wardrobe: …`, and that there is no `__` anywhere. **Download**, change things, **Import** the file: the Style fields, sources, seed and locks come back.
+4. In an element's description, type `a __colours__ {cat|dog}` and press **Copy**: it is rolled first.
+5. **▾ → Roll + polish with AI** (needs your model in ⚙ Settings) and check the review. Then **▾ → Roll ×N and pick**.
+6. With the proxy running: **📚 Wildcard lists → ⇅ Sync with folder**, edit `wildcards/colours.txt` in a text editor, sync again, and check the list in the editor.
 
 ## Refine (LLM)
 
@@ -316,9 +441,14 @@ This means the installed ComfyUI has a node that requires an input the bundled w
 | File | Purpose |
 |------|---------|
 | [`index.html`](index.html) | The main app — editor, canvas, LLM generation, ComfyUI mode. |
+| [`wildcards.js`](wildcards.js) | The wildcard engine (no DOM): Dynamic-Prompts parser and resolver with seeds, weights, pick-N, variables, guards, rules and a small YAML reader. Tests: `node --test tests/*.test.mjs`. |
+| [`wildcards-data.js`](wildcards-data.js) | Built-in starter wildcard lists, rules and style templates. |
+| [`wildcards-wizard.js`](wildcards-wizard.js) | Template preview images, list ↔ template links, the Template wizard and the Help window. |
+| [`help.html`](help.html) | The built-in help page (also opens on its own), with live examples that use your lists. |
+| [`wildcards-ui.js`](wildcards-ui.js) | Style templates, wildcard manager, rolling, AI polish, batch ZIP and folder sync in the editor. |
 | [`llmcore.js`](llmcore.js) | Shared engine for both pages: ComfyUI workflow template, resolution/prompt building, the LLM call, config, and the render plumbing. Loaded by `index.html` and `llmcam.html`. |
 | [`llmcam.html`](llmcam.html) | Phone-first camera app — take a photo, transform it (time travel / art style / genre / faithful), render through Ideogram, with a gallery and save/share. Served by the proxy at `/llmcam.html`. |
-| [`comfy_proxy.py`](comfy_proxy.py) | Stdlib proxy: serves the page + local asset files (e.g. `vendor/`), forwards HTTP and the WebSocket to ComfyUI (same-origin, no CORS flags), and hosts the `/vectorize` endpoint (optional `vtracer`/`pillow` deps), `/ideogrammar/outputs` (gallery recovery; needs `--output-dir`), and `/ideogrammar/refimg` (content-addressed cache of reference images for the compare slider; under `--ref-dir`). |
+| [`comfy_proxy.py`](comfy_proxy.py) | Stdlib proxy: serves the page + local asset files (e.g. `vendor/`), forwards HTTP and the WebSocket to ComfyUI (same-origin, no CORS flags), and hosts the `/vectorize` endpoint (optional `vtracer`/`pillow` deps), `/ideogrammar/outputs` (gallery recovery; needs `--output-dir`), and `/ideogrammar/refimg` (content-addressed cache of reference images for the compare slider; under `--ref-dir`), and `/ideogrammar/wildcards` + `/ideogrammar/templates` (wildcard lists and style templates as files; `--wildcards-dir`, `--templates-dir`). |
 | [`comfy_proxy.sh`](comfy_proxy.sh) | start/stop/status/restart/logs helper, plus `install-service`/`uninstall-service` to run it as a background systemd service. |
 | [`comfy_proxy.env.example`](comfy_proxy.env.example) | Template for `comfy_proxy.env` (untracked) — set your ComfyUI address/host/port there instead of in the tracked code. |
 | [`workflow.json`](workflow.json) | The Ideogram 4 ComfyUI workflow (API format) the render mode is built around; also embedded in `index.html`. |
