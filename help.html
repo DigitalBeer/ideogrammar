@@ -81,6 +81,7 @@
   <a class="sub" href="#rules">Rules</a>
   <a href="#rolling">Rolling, locks and seeds</a>
   <a href="#comfyui">Rendering with ComfyUI</a>
+  <a class="sub" href="#own-workflow">Your own workflow (Moss)</a>
   <a href="#formats">Ideogram vs Moss output</a>
   <a href="#recipes">Recipes</a>
   <a href="#faq">Questions</a>
@@ -263,9 +264,26 @@ then from  lighting/natural  never pick  golden hour sunlight, harsh midday sun<
   <li><b>Start the proxy</b> in the project folder, pointing it at ComfyUI: <pre><code>python comfy_proxy.py --comfy http://127.0.0.1:8188</code></pre> Use your ComfyUI's address if it runs on another machine. Alternatively, copy <code>comfy_proxy.env.example</code> to <code>comfy_proxy.env</code>, set <code>COMFY_URL</code> there, and run <code>python comfy_proxy.py</code>.</li>
   <li><b>Open the editor through the proxy:</b> <code>http://localhost:8189/</code>. Not the HTML file directly, and not another web server, or ComfyUI can't be reached.</li>
   <li><b>Switch to ComfyUI mode</b> (top right), leave <span class="ui">Connect directly to ComfyUI</span> unticked, and press <span class="ui">Test connection</span>.</li>
+  <li><b>Pick the workflow</b> in the ComfyUI render panel (below).</li>
   <li><b>Render.</b> The image appears in <span class="ui">Rendered output</span> and in the History gallery.</li>
   <li><b>Make it a template picture:</b> <span class="ui">🎭 Templates → 🖼 → Use the current render</span>.</li>
 </ol>
+<h3 id="own-workflow">Render with your own ComfyUI workflow (e.g. Moss Image)</h3>
+<p>Ideogrammar can render with any workflow you already use in ComfyUI. The models, sampler, steps and LoRAs stay set <b>in ComfyUI</b>, so there's nothing to re-enter here.</p>
+<ol class="steps">
+  <li><b>In ComfyUI</b>, open your workflow (e.g. Moss Image text-to-image) and check it renders there.</li>
+  <li>Use <b>Workflow → Export (API)</b>. It saves a <code>.json</code> file. (The normal <i>Save</i> file won't work; it has to be the API export.)</li>
+  <li><b>In Ideogrammar</b>, open the ComfyUI render panel, choose <span class="ui">Workflow → ＋ Add a workflow from ComfyUI…</span>, and pick the file. You can also drop it on the panel.</li>
+</ol>
+<p>Ideogrammar then fills in only four things:</p>
+<table>
+  <tr><th>What</th><th>From</th></tr>
+  <tr><td>The prompt</td><td>Your layout, as Moss Image JSON or Ideogram JSON (detected from the workflow; you can change it). It goes into the text encoder that feeds the sampler. If the workflow has a prompt-builder node, Ideogrammar's finished prompt replaces its output.</td></tr>
+  <tr><td>The size</td><td><span class="ui">Aspect ratio</span> + <span class="ui">Megapixels</span>, written into every node with a width and height. Moss-only ratios like 2:1 work here.</td></tr>
+  <tr><td>The seed</td><td><span class="ui">Seed</span> / <span class="ui">random</span></td></tr>
+  <tr><td>How many images</td><td><span class="ui">Queue multiple renders → Iterations</span></td></tr>
+</table>
+<p>The panel shows where each one goes. If it picked the wrong text box, choose the right one under <span class="ui">Prompt goes into</span>. Add as many workflows as you like and switch with the <span class="ui">Workflow</span> menu. After changing a workflow in ComfyUI, export it again and use <span class="ui">↻ Replace file</span>.</p>
 <p>The proxy also turns on <span class="ui">⇅ Sync with folder</span> for your lists and templates (the <code>wildcards/</code> folder next to it).</p>
 
 <!-- ============================================================ -->

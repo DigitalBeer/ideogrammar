@@ -416,7 +416,7 @@ function buildWorkflow(layout) {
   const wf = (typeof structuredClone === "function") ? structuredClone(base) : JSON.parse(JSON.stringify(base));
   wf[NODE.prompt].inputs.text = buildPromptText(layout);
   if (isMossOnlyAspect(comfyCfg.aspect_ratio))
-    throw new Error(`${comfyCfg.aspect_ratio.replace(/\s*\(.*/, "")} is a Moss Image-only aspect ratio — pick 21:9 or narrower to render with Ideogram in ComfyUI.`);
+    throw new Error(`${comfyCfg.aspect_ratio.replace(/\s*\(.*/, "")} is a Moss Image-only aspect ratio — pick 21:9 or narrower for the built-in Ideogram workflow, or choose your Moss workflow under ComfyUI render → Workflow.`);
   wf[NODE.resolution].inputs.aspect_ratio = comfyCfg.aspect_ratio;
   wf[NODE.resolution].inputs.megapixels = comfyCfg.megapixels;
   wf[NODE.seed].inputs.noise_seed = comfyCfg.seed;
