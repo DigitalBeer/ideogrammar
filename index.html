@@ -621,7 +621,7 @@
               <option value="2:3 (Portrait Photo)">2:3 (Portrait Photo)</option>
               <option value="3:4 (Portrait Standard)">3:4 (Portrait Standard)</option>
               <option value="9:16 (Portrait Widescreen)">9:16 (Portrait Widescreen)</option>
-              <optgroup label="Moss Image only (no ComfyUI render)">
+              <optgroup label="Moss Image only (needs your Moss workflow to render)">
                 <option value="2:1 (Panorama, Moss only)">2:1 (Panorama)</option>
                 <option value="3:1 (Wide Panorama, Moss only)">3:1 (Wide Panorama)</option>
                 <option value="4:1 (Banner, Moss only)">4:1 (Banner)</option>
@@ -636,13 +636,13 @@
             <input type="number" id="cf-megapixels" min="0.1" step="0.1">
           </div>
         </div>
-        <label>Scheduler workflow</label>
-        <select id="cf-workflow">
+        <label class="cf-builtin">Scheduler workflow</label>
+        <select id="cf-workflow" class="cf-builtin">
           <option value="v1">Ideogram 4 default (Ideogram4Scheduler)</option>
           <option value="v2">Simple scheduler (BasicScheduler + AuraFlow shift, euler)</option>
         </select>
-        <label>Quality preset <span style="color:var(--faint)">(sets step count)</span></label>
-        <select id="cf-preset">
+        <label class="cf-builtin">Quality preset <span style="color:var(--faint)">(sets step count)</span></label>
+        <select id="cf-preset" class="cf-builtin">
           <option value="Quality">Quality (48 steps)</option>
           <option value="Default">Default (20 steps)</option>
           <option value="Turbo">Turbo (12 steps)</option>
@@ -653,13 +653,13 @@
           <button type="button" id="cf-rerollSeed" title="Random seed">🎲</button>
           <label class="toggle" style="white-space:nowrap;"><input type="checkbox" id="cf-randomize"> random</label>
         </div>
-        <label>Guidance (CFG)</label>
-        <input type="number" id="cf-cfg" min="0" step="0.1" title="Classifier-free guidance scale. How strongly the image follows the prompt.">
-        <div class="hint">How strongly the image follows the prompt. Higher = tighter adherence but can over-saturate / harden contrast; lower = softer and more natural. Default 7.</div>
+        <label class="cf-builtin">Guidance (CFG)</label>
+        <input type="number" id="cf-cfg" class="cf-builtin" min="0" step="0.1" title="Classifier-free guidance scale. How strongly the image follows the prompt.">
+        <div class="hint cf-builtin">How strongly the image follows the prompt. Higher = tighter adherence but can over-saturate / harden contrast; lower = softer and more natural. Default 7.</div>
 
         <label class="toggle" style="margin-top:12px;"><input type="checkbox" id="cf-save"> Save renders permanently <span style="color:var(--faint)">(ComfyUI output/, kept in gallery across reloads)</span></label>
 
-        <details class="cfg" style="margin-top:12px;">
+        <details class="cfg cf-builtin" style="margin-top:12px;">
           <summary>Advanced parameters</summary>
           <div class="cfg-inner">
             <label>Sampler</label>
@@ -712,9 +712,10 @@
             </div>
             <div class="hint"><b>CFG override</b> applies a different guidance value during only part of the run. <b>Start/End %</b> are points on the denoising timeline (0 = first step, 1 = last); the override CFG is used only inside that window. The default (3 over 0.90–1.00) lowers guidance for the final 10% of steps to reduce over-sharpening and color burn. Set override = Guidance, or start ≥ end, to disable. The % is a fraction of the step count, so it covers fewer steps in Turbo (12) than Quality (48). <b>Batch size</b> = how many images per render (more = more VRAM and time).</div>
             <label>Diffusion model (unet)</label>
-            <input type="text" id="cf-diff">
+            <input type="text" id="cf-diff" list="cf-unet-list" autocomplete="off">
+            <datalist id="cf-unet-list"></datalist>
             <label>Unconditional model (unet)</label>
-            <input type="text" id="cf-uncond">
+            <input type="text" id="cf-uncond" list="cf-unet-list" autocomplete="off">
             <label class="toggle" style="margin-top:12px;"><input type="checkbox" id="cf-lora-enabled"> Apply LoRA <span style="color:var(--faint)">(patches the diffusion model only)</span></label>
             <div class="row2" id="cf-lora-row" style="grid-template-columns:1fr auto;">
               <div>
@@ -740,9 +741,11 @@
             </div>
             <div class="hint">Runs NVIDIA's <code>RTXVideoSuperResolution</code> node on the decoded image before preview/save, scaling it up by the chosen factor. Requires the <code>comfyui_nvidia_rtx_nodes</code> pack and an RTX GPU on the ComfyUI server. Leave unchecked to output at the rendered resolution.</div>
             <label>VAE</label>
-            <input type="text" id="cf-vae">
+            <input type="text" id="cf-vae" list="cf-vae-list" autocomplete="off">
+            <datalist id="cf-vae-list"></datalist>
             <label>CLIP</label>
-            <input type="text" id="cf-clip">
+            <input type="text" id="cf-clip" list="cf-clip-list" autocomplete="off">
+            <datalist id="cf-clip-list"></datalist>
             <label>CLIP type</label>
             <input type="text" id="cf-cliptype">
           </div>
@@ -4112,7 +4115,10 @@ function syncRtxsrFields() {
 async function populateLoraList() {
   const base = comfyBase();
   if (!base) return;
-  const info = await getObjectInfo(base, ["LoraLoaderModelOnly"]);
+  const info = await getObjectInfo(base, ["LoraLoaderModelOnly", "UNETLoader", "VAELoader", "CLIPLoader"]);
+  // Model pickers for the built-in workflow, from the files this ComfyUI has.
+  const fill = (listId, cls, key) => { const sp = info && info[cls]?.input?.required?.[key]; if (Array.isArray(sp) && Array.isArray(sp[0])) $(listId).innerHTML = sp[0].map(n => `<option value="${escapeHtml(n)}"></option>`).join(""); };
+  fill("cf-unet-list", "UNETLoader", "unet_name"); fill("cf-vae-list", "VAELoader", "vae_name"); fill("cf-clip-list", "CLIPLoader", "clip_name");
   const spec = info && info.LoraLoaderModelOnly?.input?.required?.lora_name;
   const names = Array.isArray(spec) && Array.isArray(spec[0]) ? spec[0] : null;
   if (!names) return;
@@ -4258,7 +4264,7 @@ async function comfyRender() {
 
   let promptId;
   try {
-    const wf = buildWorkflow(buildLayoutJSON());
+    const wf = typeof cwBuildRenderWorkflow === "function" ? cwBuildRenderWorkflow() : buildWorkflow(buildLayoutJSON());   // your own ComfyUI workflow, or the built-in one
     fillMissingRequiredInputs(wf, await getObjectInfo(base, workflowClasses(wf)));   // reconcile with the installed ComfyUI's node defs
     const res = await fetch(base + "/prompt", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: wf, client_id: getClientId() }) });
     if (!res.ok) {
@@ -4974,7 +4980,7 @@ function updateSetupUI() {
     quick.classList.toggle("active", !!loaded);
   }
 }
-const SETUP_COMFY_KEYS = ["workflow", "aspect_ratio", "megapixels", "preset", "cfg", "sampler_name", "cfg_override", "start_percent", "end_percent", "batch_size", "diff_model", "uncond_model", "lora_enabled", "lora_name", "lora_strength", "rtxsr_enabled", "rtxsr_quality", "rtxsr_scale", "vae_name", "clip_name", "clip_type", "save"];
+const SETUP_COMFY_KEYS = ["source", "workflow", "aspect_ratio", "megapixels", "preset", "cfg", "sampler_name", "cfg_override", "start_percent", "end_percent", "batch_size", "diff_model", "uncond_model", "lora_enabled", "lora_name", "lora_strength", "rtxsr_enabled", "rtxsr_quality", "rtxsr_scale", "vae_name", "clip_name", "clip_type", "save"];
 function captureSetup() {
   const comfy = {};
   SETUP_COMFY_KEYS.forEach(k => comfy[k] = comfyCfg[k]);
@@ -5711,5 +5717,6 @@ if (comfyCfg.mode === "comfy" && comfyBase()) populateLoraList();
 </script>
 <script src="wildcards-ui.js"></script>
 <script src="wildcards-wizard.js"></script>
+<script src="comfy-workflows.js"></script>
 </body>
 </html>
