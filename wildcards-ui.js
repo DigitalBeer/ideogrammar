@@ -259,12 +259,14 @@ function wcApplyRolledPalettes(st, r, written) {
     if (!written.some(p => p.startsWith(pre))) continue;
     const hex = collect(f => f.startsWith(pre));
     if (hex.length) el.color_palette = hex.slice(0, 4);
+    else if (WC_DEMO_PALETTES.includes(JSON.stringify(el.color_palette))) el.color_palette = [];   // the example's leftover palette would tint it
   }
   const globalWritten = written.filter(p => !p.startsWith("e:"));
   const tpl = wcGetTemplate(st.wild && st.wild.templateId);
   if (globalWritten.length && !(tpl && tpl.global && Array.isArray(tpl.global.color_palette) && tpl.global.color_palette.length)) {
     const hex = collect(f => !f.startsWith("e:"));
     if (hex.length) st.style_description.color_palette = hex.slice(0, 5);
+    else if (WC_DEMO_PALETTES.includes(JSON.stringify(st.style_description.color_palette))) st.style_description.color_palette = [];
   }
 }
 // Deterministic re-run without writing: the trace of the current state's picks.
