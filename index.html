@@ -440,13 +440,26 @@
 
   /* ---------- image viewer modal ---------- */
   .img-modal { position: relative; display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 10px; max-width: 96vw; }
-  #imgFull { max-width: 84vw; max-height: 78vh; object-fit: contain; border-radius: var(--r); box-shadow: var(--shadow), 0 0 0 1px var(--border); display: block; }
+  #imgFull { max-width: 84vw; max-height: calc(100vh - 170px); object-fit: contain; border-radius: var(--r); box-shadow: var(--shadow), 0 0 0 1px var(--border); display: block; }
+  .img-cmp.zoomed { overflow: hidden; cursor: grab; border-radius: var(--r); }
+  .img-cmp.zoomed.panning { cursor: grabbing; }
+  .img-cmp img { transition: transform .08s ease-out; transform-origin: 50% 50%; }
+  .img-cmp.panning img { transition: none; }
   .img-arrow { width: 40px; height: 64px; font-size: 26px; line-height: 1; color: var(--text); background: rgba(20,26,36,.6); border: 1px solid var(--border-strong); border-radius: var(--r); }
   .img-arrow:hover { background: var(--elevated); transform: none; }
-  .img-bar { position: absolute; left: 0; right: 0; bottom: -44px; grid-column: 2; display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 12px; }
-  .img-bar .spacer { flex: 1; }
-  .img-bar a, .img-bar button { color: var(--text); text-decoration: none; background: var(--elevated); border: 1px solid var(--border-strong); border-radius: var(--r-sm); padding: 6px 12px; font-size: 12px; font-weight: 500; cursor: pointer; }
-  .img-bar a:hover, .img-bar button:hover { background: #222c3c; }
+  .img-bar { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; color: var(--muted); font-size: 12px; min-width: 0; }
+  .img-info { text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .img-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
+  .img-tools .spacer { flex: 1; min-width: 0; }
+  .img-grp { display: inline-flex; }
+  .img-grp > * + * { margin-left: -1px; }
+  .img-grp > :not(:first-child) { border-top-left-radius: 0 !important; border-bottom-left-radius: 0 !important; }
+  .img-grp > :not(:last-child) { border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; }
+  .img-bar a, .img-bar button, .img-bar select { height: 32px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 32px; white-space: nowrap;
+    color: var(--text); text-decoration: none; background: var(--elevated); border: 1px solid var(--border-strong); border-radius: var(--r-sm); padding: 0 12px; font-size: 12px; font-weight: 500; line-height: 1; cursor: pointer; }
+  .img-bar select { width: auto; padding: 0 6px; }
+  .img-bar a:hover, .img-bar button:hover { background: #222c3c; transform: none; }
+  #imgPlay.on { background: var(--accent); border-color: var(--accent); color: #fff; }
   /* before/after compare in the viewer (only for renders made from a reference image) */
   .img-cmp { position: relative; line-height: 0; justify-self: center; touch-action: none; user-select: none; -webkit-user-select: none; }
   .img-cmp.cmp-on img { -webkit-user-drag: none; user-drag: none; }
@@ -1201,15 +1214,33 @@
     </div>
     <button class="img-arrow next" id="imgNext" title="Next (→)">›</button>
     <div class="img-bar">
-      <span id="imgInfo"></span>
-      <span class="spacer"></span>
-      <button id="imgRotL" title="Rotate 90° counter-clockwise">⟲</button>
-      <button id="imgRotR" title="Rotate 90° clockwise">⟳</button>
-      <button id="imgLoadSetup" title="Restore the prompt + settings that produced this render">⤵ Load setup</button>
-      <button id="imgRefine" title="Load this render's setup and ask the model to adjust it">🪄 Refine</button>
-      <button id="imgVectorize">⬡ Vectorize</button>
-      <a id="imgDownload" download>⤓ Download</a>
-      <button id="imgClose">Close</button>
+      <div class="img-info" id="imgInfo"></div>
+      <div class="img-tools">
+        <div class="img-grp">
+          <button id="imgPlay" title="Autoplay through the renders (Space)">▶ Play</button>
+          <select id="imgPlaySpeed" title="Seconds per image"><option value="2">2 s</option><option value="3">3 s</option><option value="5">5 s</option><option value="8">8 s</option></select>
+        </div>
+        <div class="img-grp">
+          <button id="imgZoomOut" title="Zoom out (−)">−</button>
+          <button id="imgZoomFit" title="Fit to the window / actual pixels (0, or double-click the image)">Fit</button>
+          <button id="imgZoomIn" title="Zoom in (+, or the mouse wheel)">+</button>
+        </div>
+        <div class="img-grp">
+          <button id="imgRotL" title="Rotate 90° counter-clockwise">⟲</button>
+          <button id="imgRotR" title="Rotate 90° clockwise">⟳</button>
+        </div>
+        <div class="img-grp">
+          <button id="imgLoadSetup" title="Restore the prompt + settings that produced this render">⤵ Load setup</button>
+          <button id="imgRefine" title="Load this render's setup and ask the model to adjust it">🪄 Refine</button>
+          <button id="imgVectorize" title="Convert to a hybrid SVG">⬡ Vectorize</button>
+        </div>
+        <div class="img-grp">
+          <a id="imgDownload" download title="Download this image">⤓ Download</a>
+          <button id="imgReveal" title="Open the folder that holds this image (needs comfy_proxy.py running on this computer)">📂 Show in folder</button>
+        </div>
+        <span class="spacer"></span>
+        <button id="imgClose" title="Close (Esc)">✕ Close</button>
+      </div>
     </div>
   </div>
 </div>
@@ -4303,7 +4334,10 @@ let queueStop = false;       // user asked to stop the queue
 let _renderResolve = null;   // resolver for comfyRenderAwait(); only set while the queue drives a render
 let _renderOk = false;       // did the in-flight render complete successfully (vs. fail/cancel)
 let queueLabel = "";   // e.g. "1/2" — shown as a badge while a render queue runs, so the counter survives the per-render status updates
-function setRenderStatus(html, cls) { const s = $("renderStatus"); s.innerHTML = (queueLabel ? '<span class="qbadge" title="Render queue progress">' + queueLabel + '</span> ' : '') + html; s.className = "status" + (cls ? " " + cls : ""); }
+let lastRenderError = "";   // the latest render failure, so a queue can report it instead of overwriting it
+function setRenderStatus(html, cls) {
+  if (cls === "err") { lastRenderError = String(html).replace(/<[^>]+>/g, ""); console.error("[render]", lastRenderError); }
+  const s = $("renderStatus"); s.innerHTML = (queueLabel ? '<span class="qbadge" title="Render queue progress">' + queueLabel + '</span> ' : '') + html; s.className = "status" + (cls ? " " + cls : ""); }
 function setBar(frac) { $("renderBar").style.width = Math.max(0, Math.min(1, frac)) * 100 + "%"; }
 function showCancel(on) { const b = $("renderCancel"); if (b) b.style.display = on ? "inline-block" : "none"; }
 // Resolve a pending comfyRenderAwait() promise. No-op for plain single renders.
@@ -4412,7 +4446,8 @@ async function runRenderQueue() {
   queueActive = true; queueStop = false;
   $("renderBtn").disabled = $("renderBtn2").disabled = true;
 
-  let okCount = 0;
+  let okCount = 0, failCount = 0, sameErr = 0, prevErr = "";
+  lastRenderError = "";
   for (let i = 0; i < count && !queueStop; i++) {
     queueLabel = (i + 1) + "/" + count;    // badge prefix; persists through the per-render status updates
     if (regen) {
@@ -4427,12 +4462,22 @@ async function runRenderQueue() {
     const ok = await comfyRenderAwait();   // resolves when this render finishes
     if (ok) okCount++;
     else if (queueStop) break;             // a cancel (not a transient error) stops the run
+    else {
+      failCount++;
+      sameErr = lastRenderError && lastRenderError === prevErr ? sameErr + 1 : 1;
+      prevErr = lastRenderError;
+      // The same error twice in a row won't fix itself (bad workflow, missing model…): stop and say why.
+      if (sameErr >= 2 && okCount === 0) { queueLabel = ""; setRenderStatus(`Queue stopped after ${i + 1} failed renders — ${escapeHtml(lastRenderError)}`, "err"); toast("Render failed: " + lastRenderError, "bad"); queueActive = false; $("renderBtn").disabled = $("renderBtn2").disabled = false; return; }
+    }
   }
 
   queueLabel = "";
   queueActive = false;
   $("renderBtn").disabled = $("renderBtn2").disabled = false;
-  if (!queueStop) { setRenderStatus(`Queue done ✓ · ${okCount}/${count} rendered`, "ok"); toast(`Queue done ✓ (${okCount}/${count})`, "ok"); }
+  if (!queueStop) {
+    if (failCount) { setRenderStatus(`Queue done · ${okCount}/${count} rendered, ${failCount} failed — last error: ${escapeHtml(lastRenderError || "unknown")}`, okCount ? "" : "err"); toast(`Queue done (${okCount}/${count}); ${failCount} failed`, okCount ? "ok" : "bad"); }
+    else { setRenderStatus(`Queue done ✓ · ${okCount}/${count} rendered`, "ok"); toast(`Queue done ✓ (${okCount}/${count})`, "ok"); }
+  }
 }
 
 function trackRender(base, promptId) {
@@ -5094,6 +5139,7 @@ function imgCmpUpdate(e) {
   if (r.width) setImgCmp((e.clientX - r.left) / r.width * 100);
 }
 async function refreshViewerImage(it) {
+  viewerZoom(1);
   const deg = it.rotation || 0;
   const pos = sortedIndices().indexOf(viewerIndex);
   const before = it._before || refImgUrl(it._beforeRef);   // in-memory data URL, or the proxy-cached reference
@@ -5134,7 +5180,60 @@ function openImgModal(index) {
   if (historyIndexOf(previewRenderRef) !== viewerIndex) showRenderInPreview(it);   // stepping through the viewer moves the Rendered output tile along
   renderGallery();
 }
-function closeImgModal() { $("imgOverlay").classList.remove("show"); }
+function closeImgModal() { $("imgOverlay").classList.remove("show"); viewerPlay(false); }
+
+/* ---- viewer: zoom & pan, autoplay, show in folder ---- */
+let vZoom = 1, vTx = 0, vTy = 0;
+function viewerApplyZoom() {
+  const t = `translate(${vTx}px, ${vTy}px) scale(${vZoom})`;
+  $("imgFull").style.transform = $("imgFullBefore").style.transform = vZoom === 1 ? "" : t;
+  $("imgCmp").classList.toggle("zoomed", vZoom > 1);
+  $("imgZoomFit").textContent = vZoom === 1 ? "Fit" : Math.round(vZoom * 100) + "%";
+}
+// z = absolute zoom (1 = fit). cx/cy: the point (relative to the image centre) that stays put.
+function viewerZoom(z, cx = 0, cy = 0) {
+  z = Math.max(1, Math.min(8, z));
+  if (z === 1) { vTx = vTy = 0; }
+  else { const k = z / vZoom; vTx = cx - (cx - vTx) * k; vTy = cy - (cy - vTy) * k; }
+  vZoom = z;
+  if (z > 1 && imgCmpOn) { imgCmpOn = false; $("imgCmp").classList.remove("cmp-on"); }   // no compare slider while zoomed
+  viewerClampPan(); viewerApplyZoom();
+}
+function viewerClampPan() {
+  const r = $("imgFull"), w = r.clientWidth, h = r.clientHeight;
+  const mx = Math.max(0, (w * vZoom - w) / 2), my = Math.max(0, (h * vZoom - h) / 2);
+  vTx = Math.max(-mx, Math.min(mx, vTx)); vTy = Math.max(-my, Math.min(my, vTy));
+}
+function viewerActualZoom() { const im = $("imgFull"); return im.naturalWidth && im.clientWidth ? im.naturalWidth / im.clientWidth : 2; }
+function viewerPointRel(e) { const r = $("imgFull").getBoundingClientRect(); return [e.clientX - (r.left + r.width / 2) + vTx, e.clientY - (r.top + r.height / 2) + vTy]; }
+let vPlayT = null;
+const VIEW_SPEED_KEY = "ideogrammar.viewerSpeed";
+function viewerPlay(on) {
+  if (vPlayT) { clearInterval(vPlayT); vPlayT = null; }
+  if (on && renderHistory.length > 1) {
+    const secs = +$("imgPlaySpeed").value || 3;
+    vPlayT = setInterval(() => {
+      if (!$("imgOverlay").classList.contains("show")) return viewerPlay(false);
+      const order = sortedIndices(), pos = order.indexOf(viewerIndex);
+      openImgModal(order[pos + 1 < order.length ? pos + 1 : 0]);   // loop back to the first
+    }, secs * 1000);
+  }
+  $("imgPlay").classList.toggle("on", !!vPlayT);
+  $("imgPlay").textContent = vPlayT ? "⏸ Pause" : "▶ Play";
+}
+async function viewerReveal() {
+  const it = renderHistory[viewerIndex]; if (!it) return;
+  const base = dbBase();
+  try {
+    const r = await fetch(base + "/ideogrammar/reveal", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: it.filename, subfolder: it.subfolder || "", type: it.type || "output" }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || j.error) throw new Error(j.error || ("HTTP " + r.status));
+    toast("Opened " + (j.folder || "the folder") + " ✓", "ok");
+  } catch (err) {
+    toast("Couldn't open the folder: " + (err instanceof TypeError ? "open the editor through comfy_proxy.py (it does the opening)" : err.message), "bad");
+  }
+}
 function stepImg(d) {
   const order = sortedIndices(), pos = order.indexOf(viewerIndex) + d;
   if (pos < 0 || pos >= order.length) return;
@@ -5900,6 +5999,26 @@ $("imgCmp").addEventListener("pointermove", e => { if (imgCmpDragging) imgCmpUpd
 $("imgCmp").addEventListener("pointerup", () => { imgCmpDragging = false; });
 $("imgCmp").addEventListener("pointercancel", () => { imgCmpDragging = false; });
 $("imgClose").addEventListener("click", closeImgModal);
+$("imgPlay").addEventListener("click", () => viewerPlay(!vPlayT));
+try { $("imgPlaySpeed").value = localStorage.getItem(VIEW_SPEED_KEY) || "3"; } catch (_) { $("imgPlaySpeed").value = "3"; }
+$("imgPlaySpeed").addEventListener("change", () => { try { localStorage.setItem(VIEW_SPEED_KEY, $("imgPlaySpeed").value); } catch (_) {} if (vPlayT) viewerPlay(true); });
+$("imgZoomIn").addEventListener("click", () => viewerZoom(vZoom * 1.5));
+$("imgZoomOut").addEventListener("click", () => viewerZoom(vZoom / 1.5));
+$("imgZoomFit").addEventListener("click", () => viewerZoom(vZoom === 1 ? viewerActualZoom() : 1));
+$("imgReveal").addEventListener("click", viewerReveal);
+$("imgCmp").addEventListener("wheel", e => { e.preventDefault(); const [cx, cy] = viewerPointRel(e); viewerZoom(vZoom * (e.deltaY < 0 ? 1.2 : 1 / 1.2), cx, cy); }, { passive: false });
+$("imgCmp").addEventListener("dblclick", e => { const [cx, cy] = viewerPointRel(e); viewerZoom(vZoom === 1 ? Math.max(2, viewerActualZoom()) : 1, cx, cy); });
+// Pan while zoomed (runs before the compare-slider handler and takes the gesture).
+$("imgCmp").addEventListener("pointerdown", e => {
+  if (vZoom === 1) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  const sx = e.clientX - vTx, sy = e.clientY - vTy, el = $("imgCmp");
+  el.classList.add("panning");
+  try { el.setPointerCapture(e.pointerId); } catch (_) {}
+  const move = ev => { vTx = ev.clientX - sx; vTy = ev.clientY - sy; viewerClampPan(); viewerApplyZoom(); };
+  const up = () => { el.classList.remove("panning"); el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up); el.removeEventListener("pointercancel", up); };
+  el.addEventListener("pointermove", move); el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+}, true);
 $("imgVectorize").addEventListener("click", () => vectorizeEntry(viewerIndex));
 $("imgRotL").addEventListener("click", () => rotateViewer(-90));
 $("imgRotR").addEventListener("click", () => rotateViewer(90));
@@ -5949,6 +6068,10 @@ document.addEventListener("keydown", e => {
   if (e.key === "Escape") closeImgModal();
   else if (e.key === "ArrowLeft") stepImg(-1);
   else if (e.key === "ArrowRight") stepImg(1);
+  else if (e.key === " " && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) { e.preventDefault(); viewerPlay(!vPlayT); }
+  else if (e.key === "+" || e.key === "=") viewerZoom(vZoom * 1.25);
+  else if (e.key === "-" || e.key === "_") viewerZoom(vZoom / 1.25);
+  else if (e.key === "0") viewerZoom(1);
 });
 document.querySelectorAll("#modeSeg button").forEach(btn => {
   btn.addEventListener("click", () => { comfyCfg.mode = btn.dataset.mode; saveComfyCfg(); applyMode(); });

@@ -769,8 +769,32 @@ function wcElementStyleSection(el, refs) {
     card.querySelectorAll("input[type=text], textarea").forEach(f => { if (!det.contains(f)) f.addEventListener("focus", () => { wcLastFocus = f; }); });
     const b = wcBadgeFor(wcElPath(el, "desc"));
     if (b) refs.desc.insertAdjacentElement("afterend", b);
+    const note = wcExampleDescNote(el, refs, card);
+    if (note) refs.desc.insertAdjacentElement("beforebegin", note);
   }, 0);
   return det;
+}
+
+// The starting example's subject text ("The main product…") is easy to miss and
+// then ends up in every prompt. Flag it and offer to replace it.
+const WC_EXAMPLE_DESCS = ["The main product, centered in the frame and sharply in focus."];
+function wcExampleDescNote(el, refs, card) {
+  if (!WC_EXAMPLE_DESCS.includes(String(el.desc || "").trim())) return null;
+  const hld = String(state.high_level_description || "").trim();
+  const setDesc = v => { el.desc = v; refs.desc.value = v; if (refs.title) refs.title.textContent = v; renderCanvas(); renderJSON(); note.remove(); };
+  const ai = () => {
+    const ui = { desc: refs.desc, title: refs.title, btn: card.querySelector(".refine-row button"), input: card.querySelector(".refine-row input"), status: card.querySelector(".refine-status") };
+    if (!ui.btn || !ui.input || !ui.status) { toast("Use ✨ Refine in this element's card", "bad"); return; }
+    note.remove();
+    refineElement(el, `Replace this placeholder with a description of the ${el.type === "subject" ? "main subject (person or animal)" : "main object"} of the overall scene, as it appears in this box: who or what it is, appearance and pose, in one or two sentences. Do not mention the box or its position.`, ui);
+  };
+  const note = wcEl("div", { class: "wc-example-note" },
+    wcEl("span", {}, "⚠ This is still the example text, so every prompt says “the main product”. Describe this element instead:"),
+    wcEl("div", { class: "wc-row", style: { marginTop: "6px" } },
+      hld ? wcEl("button", { title: "Copy the high-level description into this element", onclick: () => setDesc(hld.charAt(0).toUpperCase() + hld.slice(1).replace(/[.\s]*$/, ".")) }, "Use “" + wcShort(hld, 40) + "”") : null,
+      wcEl("button", { title: "Have your AI model write it from the high-level description", onclick: ai }, "✨ Write it with AI"),
+      wcEl("button", { class: "ghost", onclick: () => { setDesc(""); refs.desc.focus(); } }, "Clear it")));
+  return note;
 }
 
 /* ------------------------------------------------------------------ */
@@ -1451,6 +1475,8 @@ function wcInstallGenerateOption() {
 function wcInstallCSS() {
   if (document.getElementById("wcCSS")) return;
   document.head.append(wcEl("style", { id: "wcCSS" }, `
+  .wc-example-note { border: 1px solid #f59e0b; background: rgba(245,158,11,.1); border-radius: 6px; padding: 7px 9px; margin: 4px 0 6px; font-size: 12px; color: #fbbf24; }
+  .wc-example-note button { padding: 4px 9px; font-size: 11.5px; }
   .wc-badge { margin: 4px 0 0; padding: 2px 8px; font-size: 11px; line-height: 1.4; border-radius: 999px; background: rgba(99,102,241,.14); border: 1px solid rgba(99,102,241,.55); color: var(--text); }
   .wc-badge.unresolved { background: rgba(245,158,11,.16); border-color: #f59e0b; }
   .wc-badge:hover { transform: none; }

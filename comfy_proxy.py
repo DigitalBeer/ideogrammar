@@ -247,6 +247,72 @@ class Handler(BaseHTTPRequestHandler):
             pass
         return None, None
 
+    # ---- "Show in folder": open the OS file manager at a render ----------
+    # Only for requests from this computer (the window opens on the machine the
+    # proxy runs on), and only for files inside ComfyUI's output/temp/input.
+    _comfy_out_cache = None
+
+    def _comfy_output_dir(self):
+        if ARGS.output_dir and os.path.isdir(ARGS.output_dir):
+            return ARGS.output_dir
+        if Handler._comfy_out_cache and os.path.isdir(Handler._comfy_out_cache):
+            return Handler._comfy_out_cache
+        # Not configured: ComfyUI's startup log names its output folder.
+        try:
+            host, port = comfy_host_port()
+            conn = http.client.HTTPConnection(host, port, timeout=5)
+            conn.request("GET", "/internal/logs/raw")
+            data = json.loads(conn.getresponse().read().decode("utf-8", "replace"))
+            text = "".join(e.get("m", "") for e in data.get("entries", []))
+            m = re.search(r"\[output\] directories: \['(.+?)'\]", text)
+            if m:
+                d = m.group(1).replace("\\\\", "\\")
+                if os.path.isdir(d):
+                    Handler._comfy_out_cache = d
+                    return d
+        except Exception:
+            pass
+        return None
+
+    def _reveal(self):
+        if self.client_address[0] not in ("127.0.0.1", "::1", "::ffff:127.0.0.1"):
+            self._json_error(403, "Show in folder only works on the computer running the proxy")
+            return
+        try:
+            length = int(self.headers.get("Content-Length", 0) or 0)
+            req = json.loads(self.rfile.read(length).decode("utf-8") if length else "{}")
+        except (ValueError, UnicodeDecodeError):
+            self._json_error(400, "Bad request")
+            return
+        out = self._comfy_output_dir()
+        if not out:
+            self._json_error(404, "The proxy doesn't know ComfyUI's output folder. Restart it with "
+                                  "--output-dir <ComfyUI>/output (or set COMFY_OUTPUT_DIR in comfy_proxy.env).")
+            return
+        kind = req.get("type") or "output"
+        root = out if kind == "output" else os.path.join(os.path.dirname(os.path.normpath(out)), kind if kind in ("temp", "input") else "output")
+        name, sub = str(req.get("filename") or ""), str(req.get("subfolder") or "")
+        parts = [x for x in (sub + "/" + name).replace("\\", "/").split("/") if x]
+        if not name or any(x in ("..", ".") or ":" in x for x in parts):
+            self._json_error(400, "Bad file name")
+            return
+        path = os.path.join(root, *parts)
+        if not self._inside(root, path) or not os.path.isfile(path):
+            self._json_error(404, "File not found in %s" % root)
+            return
+        import subprocess
+        try:
+            if os.name == "nt":
+                subprocess.Popen('explorer /select,"%s"' % os.path.normpath(path))
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", "-R", path])
+            else:
+                subprocess.Popen(["xdg-open", os.path.dirname(path)])
+        except OSError as e:
+            self._json_error(500, "Couldn't open the file manager: %s" % e)
+            return
+        self._send_json({"ok": True, "folder": os.path.dirname(path)})
+
     def _list_outputs(self):
         root = ARGS.output_dir
         if not root or not os.path.isdir(root):
@@ -756,6 +822,9 @@ class Handler(BaseHTTPRequestHandler):
         p = self.path.split("?", 1)[0]
         if p == "/vectorize":
             self._vectorize()
+            return
+        if p == "/ideogrammar/reveal":
+            self._reveal()
             return
         if p == "/ideogrammar/refimg":
             self._store_refimg()
@@ -1668,7 +1737,7 @@ def main():
     p.add_argument("--host", default=os.environ.get("PROXY_HOST", "127.0.0.1"), help="address to bind (use 0.0.0.0 to expose on LAN; env: PROXY_HOST)")
     p.add_argument("--port", type=int, default=int(os.environ.get("PROXY_PORT", "8189")), help="port to serve on (env: PROXY_PORT)")
     p.add_argument("--html", default=os.path.join(here, "index.html"), help="path to index.html")
-    p.add_argument("--output-dir", default="", help="ComfyUI output/ folder (readable by this proxy) — enables gallery recovery via the editor's Rescan button, surviving ComfyUI restarts")
+    p.add_argument("--output-dir", default=os.environ.get("COMFY_OUTPUT_DIR", ""), help="ComfyUI output/ folder (readable by this proxy) — enables gallery recovery via the editor's Rescan button, surviving ComfyUI restarts, and 'Show in folder' (env: COMFY_OUTPUT_DIR; if unset, read from ComfyUI's log)")
     p.add_argument("--ref-dir", default=os.environ.get("IDEOGRAMMAR_REF_DIR", os.path.join(here, ".ideogrammar_refimg")), help="where to cache reference images for the before/after compare slider (env: IDEOGRAMMAR_REF_DIR)")
     p.add_argument("--db-path", default=os.environ.get("IDEOGRAMMAR_DB", os.path.join(here, ".ideogrammar.db")), help="SQLite file for the render gallery + saved setups (env: IDEOGRAMMAR_DB)")
     p.add_argument("--wildcards-dir", default=os.environ.get("IDEOGRAMMAR_WILDCARDS", os.path.join(here, "wildcards")), help="folder of wildcard lists in Dynamic Prompts layout (colours.txt, clothes/hats.txt, *.yaml); created on first write (env: IDEOGRAMMAR_WILDCARDS)")
