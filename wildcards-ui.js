@@ -60,6 +60,10 @@ let wcListOverlay = wcLoad(WCS_LISTS_KEY, {});
 let wcTplOverlay = wcLoad(WCS_TPL_KEY, {});
 let wcRulesStore = wcLoad(WCS_RULES_KEY, null);
 let wcAutoRoll = wcLoad(WCS_AUTOROLL_KEY, true) !== false;
+const WCS_PALFOLLOW_KEY = "ideogrammar.wcPaletteFollow";
+let wcPaletteFollow = wcLoad(WCS_PALFOLLOW_KEY, true) !== false;
+// The palette of the starting example: replaced when a template is applied, so it can't tint every render.
+const WC_DEMO_PALETTES = ['["#F5F5F5","#1A1A1A","#6366F1"]', '["#6366F1","#FFFFFF"]', '["#1A1A1A"]'];
 let _wcEngineLists = null;
 
 function wcAllLists() {
@@ -222,9 +226,46 @@ function wcRollInto(st, opt = {}) {
     seed: st.wild.seed, locks: st.wild.locks, salts: st.wild.salts
   });
   for (const [p, w] of Object.entries(writers)) w(r.values[p]);
+  if (wcPaletteFollow) wcApplyRolledPalettes(st, r, Object.keys(writers));
   r.written = Object.keys(writers);
   r.fieldCount = fields.length;
   return r;
+}
+// Colours picked from a colour list become the palette of the element (or the
+// image) they were picked for. Without this, an element's old palette (sent as
+// hex codes, which Moss and Ideogram follow closely) overrides the rolled words —
+// "scarlet tee" comes out in the palette's lavender.
+function wcColourHex(name) {
+  const n = String(name || "").trim().toLowerCase();
+  if (typeof WC_COLOUR_HEX === "object" && WC_COLOUR_HEX[n]) return WC_COLOUR_HEX[n];
+  try {   // other colour words the browser knows (CSS names like "navy", "darkgreen")
+    const c = document.createElement("canvas").getContext("2d");
+    c.fillStyle = "#010203"; c.fillStyle = n.replace(/\s+/g, "");
+    return c.fillStyle !== "#010203" && /^#[0-9a-f]{6}$/i.test(c.fillStyle) ? c.fillStyle.toUpperCase() : null;
+  } catch (_) { return null; }
+}
+function wcApplyRolledPalettes(st, r, written) {
+  const hexBy = {};
+  for (const t of r.trace) {
+    if (!t.list || !/(^|\/)colou?rs$/.test(t.list)) continue;
+    const hex = wcColourHex(t.value);
+    if (!hex) continue;
+    const f = wcFieldOfSlot(t.id, st);
+    (hexBy[f] = hexBy[f] || []).push(hex);
+  }
+  const collect = test => Array.from(new Set(Object.entries(hexBy).filter(([f]) => test(f)).flatMap(([, h]) => h)));
+  for (const el of st.elements) {
+    const pre = "e:" + (el.wild && el.wild.key) + ".";
+    if (!written.some(p => p.startsWith(pre))) continue;
+    const hex = collect(f => f.startsWith(pre));
+    if (hex.length) el.color_palette = hex.slice(0, 4);
+  }
+  const globalWritten = written.filter(p => !p.startsWith("e:"));
+  const tpl = wcGetTemplate(st.wild && st.wild.templateId);
+  if (globalWritten.length && !(tpl && tpl.global && Array.isArray(tpl.global.color_palette) && tpl.global.color_palette.length)) {
+    const hex = collect(f => !f.startsWith("e:"));
+    if (hex.length) st.style_description.color_palette = hex.slice(0, 5);
+  }
 }
 // Deterministic re-run without writing: the trace of the current state's picks.
 function wcCurrentTrace() {
@@ -432,6 +473,7 @@ function wcApplyTemplateTo(st, tpl, { image = true, elementKeys = null } = {}) {
     for (const k of WC_TPL_GLOBAL_KEYS) if (G[k] !== undefined) setGlobal("style." + k, () => { st.style_description[k] = G[k]; });
     if (G.background !== undefined) setGlobal("background", () => { st.background = G.background; });
     if (Array.isArray(G.color_palette) && G.color_palette.length) st.style_description.color_palette = G.color_palette.map(c => String(c).toUpperCase());
+    else if (WC_DEMO_PALETTES.includes(JSON.stringify(st.style_description.color_palette))) st.style_description.color_palette = [];   // drop the example's palette
     if (G.hld_suffix || typeof st.wild.hldBase === "string") {
       const baseText = typeof st.wild.hldBase === "string" ? st.wild.hldBase : st.high_level_description;
       delete st.wild.src.hld;
@@ -455,6 +497,7 @@ function wcApplyTemplateTo(st, tpl, { image = true, elementKeys = null } = {}) {
     const prevT = el.wild.templateId && el.wild.templateId !== tpl.id ? wcGetTemplate(el.wild.templateId) : null;
     if (prevT) for (const k of ELEMENT_STYLE_KEYS) if (prevT.element && prevT.element[k]) { delete el.style[k]; delete el.wild.src["style." + k]; }
     el.wild.templateId = tpl.id;
+    if (WC_DEMO_PALETTES.includes(JSON.stringify(el.color_palette))) el.color_palette = [];   // drop the example's palette
     for (const k of ELEMENT_STYLE_KEYS) {
       if (E[k] == null || E[k] === "") continue;
       el.style[k] = E[k];
@@ -758,6 +801,9 @@ function wcBuildMenu() {
     wcEl("div", { class: "wc-mi" }, wcEl("span", { class: "wc-ml" }, "Seed"), seed,
       wcEl("button", { class: "ghost", title: "New random seed and roll", onclick: () => { wcCloseMenu(); wcRollAll(); } }, "🎲")),
     wcEl("label", { class: "toggle wc-mi" }, auto, " Auto-roll before copy / download / render"),
+    wcEl("label", { class: "toggle wc-mi", title: "When a roll picks a colour (e.g. __colours__ in the clothes), that element's palette becomes those colours, so an old palette can't override the words" },
+      (() => { const c = wcEl("input", { type: "checkbox", checked: wcPaletteFollow, onchange: () => { wcPaletteFollow = c.checked; wcSave(WCS_PALFOLLOW_KEY, wcPaletteFollow); } }); return c; })(),
+      " Palettes follow rolled colours"),
     item("🔓 Clear locked picks", "Unlock every locked pick", wcClearLocks),
     wcEl("hr"),
     item("📚 Wildcard lists & rules…", "Edit, import, export and sync wildcard lists", () => wcOpenManager()),
