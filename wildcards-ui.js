@@ -562,22 +562,20 @@ function wcTemplateSummary(t) {
 }
 // Generate modal: the chosen template, rolled, as extra requirements.
 function wcGenerateIngredients() {
-  const sel = document.getElementById("genStyleTpl");
-  const v = sel ? sel.value : "";
-  const id = v === "@current" ? (state.wild && state.wild.templateId) : v;
-  const tpl = id && wcGetTemplate(id);
+  // The new setup gets linked to this template and rolled after the model
+  // answers (wcLinkGenerated), so the model must leave the template's parts
+  // out of its text — otherwise "wearing jeans" in a description fights the
+  // rolled "maxi skirt" and the picture gets both.
+  const tpl = wcGenTemplate();
   if (!tpl) return "";
-  const T = wcTemplateFor(tpl, aiTarget()), G = T.global || {}, E = T.element || {};
+  const T = wcTemplateFor(tpl, aiTarget()), G = T.global || {};
   const fields = [];
-  for (const k of [...WC_TPL_GLOBAL_KEYS, "background", "hld_suffix"]) if (G[k]) fields.push({ path: "g." + k, text: G[k] });
-  for (const k of ELEMENT_STYLE_KEYS) if (E[k]) fields.push({ path: "e." + k, text: E[k] });
+  for (const k of ["aesthetics", "medium", "art_style", "hld_suffix"]) if (G[k]) fields.push({ path: "g." + k, text: G[k] });
   const r = WC.resolveFields(fields, { lists: wcEngineLists(), rules: [...wcGlobalRules(), ...(tpl.rules || [])], varDefs: tpl.vars || {}, seed: WC.newSeed() });
-  wcReport(r);
-  const names = { aesthetics: "aesthetics", lighting: "lighting", photo: "camera / lens", medium: "medium", art_style: "art style", background: "background", hld_suffix: "the image is" };
-  const g = Object.keys(names).filter(k => r.values["g." + k]).map(k => `${names[k]}: ${r.values["g." + k]}`);
-  const e = ELEMENT_STYLE_KEYS.filter(k => r.values["e." + k]).map(k => `${k}: ${r.values["e." + k]}`);
-  let s = `Follow the “${tpl.name}” style template. ` + g.join("; ") + ".";
-  if (e.length) s += ` For each person/subject, add a "style" object with ${e.join("; ")}.`;
+  const feel = ["aesthetics", "medium", "art_style", "hld_suffix"].map(k => r.values["g." + k]).filter(Boolean);
+  const aspects = wcTemplateAspects(tpl);
+  let s = `Follow the “${tpl.name}” style template` + (feel.length ? ` (${feel.join("; ")})` : "") + ".";
+  if (aspects.length) s += ` The template fills in ${aspects.join(", ")} by itself on every render. Do NOT describe any of those anywhere — not in high_level_description, not in background, not in any element's desc, and leave the elements' "style" objects out. In particular never say what anyone is wearing. Each element's desc says only who or what it is, what it is doing, and what it holds.`;
   if (tpl.llmNotes) s += " " + tpl.llmNotes;
   return s;
 }
@@ -620,10 +618,23 @@ function wcImproveDirective() {
 // Generate: link the new setup to the chosen template, so 🎲 Roll and queue
 // re-rolls keep varying it. The template's fields replace the model's fixed
 // wording of them and are rolled right away.
+// Safety net for models that describe clothes anyway: drop "wearing ..." /
+// "dressed in ..." phrases when the template supplies the outfit.
+function wcStripWearing(text) {
+  if (!text) return text;
+  const verbs = "is|are|was|were|who|while|as|stands?|sits?|captured|holding|holds|punch\\w*|kick\\w*|ride\\w*|riding|skat\\w*|look\\w*|with\\s+(?:a|an|her|his|their)\\b";
+  const re = new RegExp(",?\\s*\\b(?:wearing|dressed in|clad in|clothed in)\\b[^.;]*?(?=(?:,\\s*|\\s+)(?:" + verbs + ")\\b|[.;]|$)", "gi");
+  return String(text).replace(re, "").replace(/\s+,/g, ",").replace(/,\s*,/g, ",").replace(/,(\s*(?:is|are|was|were)\b)/gi, "$1").replace(/\s{2,}/g, " ").trim();
+}
 function wcLinkGenerated(st) {
   if (st.wild) { delete st.wild.hldBase; if (st.wild.src) delete st.wild.src.hld; }   // the old setup's description text isn't the new one's
   const tpl = wcGenTemplate();
   if (!tpl) return false;
+  const E = wcTemplateFor(tpl, aiTarget()).element || {};
+  if (E.wardrobe) {
+    st.high_level_description = wcStripWearing(st.high_level_description);
+    for (const el of st.elements) if (el.type === "subject" && el.desc) el.desc = wcStripWearing(el.desc);
+  }
   wcApplyTemplateTo(st, tpl);
   wcRollInto(st, { newSeed: true, onlyUnresolved: true });
   return true;
