@@ -993,8 +993,10 @@ function wcInstallHeader() {
   const roll = wcEl("button", { class: "has-label", id: "wcRollBtn", title: "Roll wildcards: new picks for every 🎲 field (locked picks stay)", "aria-label": "Roll wildcards", onclick: wcRollAll }, wcEl("span", { class: "bico" }, "🎲"), wcEl("span", {}, "Roll"));
   const menu = wcEl("button", { id: "wcMenuBtn", title: "Wildcard options: roll selected, roll ×N, AI polish, batch, seed, lists", "aria-label": "Wildcard menu", onclick: e => wcToggleMenu(e.currentTarget) }, "▾");
   const tpl = wcEl("button", { class: "has-label", id: "wcTplBtn", title: "Style templates (magazine, sports game, cinematic…)", "aria-label": "Style templates", onclick: () => wcOpenTemplates() }, wcEl("span", { class: "bico" }, "🎭"), wcEl("span", {}, "Templates"));
+  const lists = wcEl("button", { class: "has-label", id: "wcListsBtn", title: "Wildcard lists & rules: edit, add lists and categories, import, sync", "aria-label": "Wildcard lists", onclick: () => wcOpenManager("lists") }, wcEl("span", { class: "bico" }, "📚"), wcEl("span", {}, "Lists"));
   const help = wcEl("button", { id: "wcHelpBtn", title: "Help: step-by-step guide, templates, wildcards and rolling", "aria-label": "Help", onclick: () => wcOpenHelp() }, "?");
   after.insertAdjacentElement("afterend", help);
+  after.insertAdjacentElement("afterend", lists);
   after.insertAdjacentElement("afterend", tpl);
   after.insertAdjacentElement("afterend", menu);
   after.insertAdjacentElement("afterend", roll);
@@ -1230,15 +1232,22 @@ function wcRenderManager() {
   const search = wcEl("input", { type: "text", placeholder: "Filter lists…", onkeydown: wcStop });
   search.value = m._q || "";
   const tree = wcEl("div", { class: "wc-tree" });
+  const groupOf = n => n.includes("/") ? n.slice(0, n.lastIndexOf("/")) : "";
+  const cats = wcListCategories(lists, m._extraCats);
   const drawTree = () => {
     m._q = search.value;
     const q = search.value.trim().toLowerCase();
-    const names = Object.keys(lists).sort().filter(n => !q || n.includes(q) || lists[n].text.toLowerCase().includes(q));
+    const names = Object.keys(lists).filter(n => !q || n.includes(q) || lists[n].text.toLowerCase().includes(q))
+      .sort((a, b) => groupOf(a).localeCompare(groupOf(b)) || a.localeCompare(b));
     let lastGroup = null;
     tree.replaceChildren();
     for (const n of names) {
-      const g = n.includes("/") ? n.slice(0, n.lastIndexOf("/")) : "";
-      if (g !== lastGroup) { if (g) tree.append(wcEl("div", { class: "wc-tree-g" }, g + "/")); lastGroup = g; }
+      const g = groupOf(n);
+      if (g !== lastGroup) {
+        tree.append(wcEl("div", { class: "wc-tree-g" }, wcEl("span", {}, g ? g + "/" : "No category"),
+          wcEl("button", { class: "wc-tree-add", title: g ? `New list in ${g}/` : "New list without a category", onclick: () => wcMgrNew(g) }, "＋")));
+        lastGroup = g;
+      }
       const count = WC.parseList(lists[n].text).length;
       tree.append(wcEl("button", { class: "wc-tree-i" + (n === wcMgrSel ? " on" : "") + (g ? " in" : ""), onclick: () => { wcMgrSel = n; wcRenderManager(); } },
         wcEl("span", {}, g ? n.slice(g.length + 1) : n), wcEl("em", {}, String(count) + (lists[n].modified ? (lists[n].builtin ? " ✎" : " ★") : ""))));
@@ -1249,17 +1258,39 @@ function wcRenderManager() {
   drawTree();
   if (wcMgrSel && !lists[wcMgrSel]) wcMgrSel = null;
   const editor = wcEl("div", { class: "wc-editor" });
-  if (!wcMgrSel) {
+  if (!wcMgrSel && m._new !== undefined) {
+    // New list form: pick (or make) a category, name it.
+    const catSel = wcCatSelect(cats, m._new, m);
+    const nameIn = wcEl("input", { type: "text", placeholder: "e.g. hairstyles", onkeydown: e => { wcStop(e); if (e.key === "Enter") create(); } });
+    const create = () => {
+      const leaf = WC.normName(nameIn.value).replace(/\//g, "-");
+      if (!leaf) { wcMgrStatus("Give the list a name.", "err"); nameIn.focus(); return; }
+      const full = (catSel.value ? catSel.value + "/" : "") + leaf;
+      if (lists[full]) { wcMgrStatus(`“${full}” already exists — opened it.`, ""); }
+      else wcSetList(full, "");
+      delete m._new; wcMgrSel = full; wcRenderManager();
+      if (!lists[full]) wcMgrStatus(`Created __${full}__ — add one item per line, then Save.`, "ok");
+    };
+    editor.append(wcEl("h3", { style: { margin: "0 0 10px" } }, "New list"),
+      wcEl("div", { class: "wc-row" }, wcEl("span", { class: "wc-ml" }, "Category"), catSel),
+      wcEl("div", { class: "wc-row" }, wcEl("span", { class: "wc-ml" }, "Name"), nameIn),
+      wcEl("div", { class: "hint" }, "A category is a folder of lists, used as ", wcEl("code", {}, "__category/name__"), ". It appears once it has a list in it."),
+      wcEl("div", { class: "wc-row" }, wcEl("button", { class: "primary", onclick: create }, "Create list"), wcEl("button", { class: "ghost", onclick: () => { delete m._new; wcRenderManager(); } }, "Cancel")));
+    setTimeout(() => nameIn.focus(), 30);
+  } else if (!wcMgrSel) {
     editor.append(wcEl("div", { class: "hint", style: { marginTop: 0 } },
       "Pick a list to edit, or make a new one. A list is one item per line; ", wcEl("code", {}, "2::item"), " doubles its chance; ", wcEl("code", {}, "# comment"), " lines are skipped; items can contain wildcards themselves. ",
       "Use a list anywhere as ", wcEl("code", {}, "__name__"), " (folders: ", wcEl("code", {}, "__clothes/hats__"), ", or just ", wcEl("code", {}, "__hats__"), ")."));
   } else {
     const L = lists[wcMgrSel];
-    const nameIn = wcEl("input", { type: "text", onkeydown: wcStop }); nameIn.value = wcMgrSel;
+    const selGroup = groupOf(wcMgrSel);
+    const catSel = wcCatSelect(cats, selGroup, m);
+    const nameIn = wcEl("input", { type: "text", onkeydown: wcStop }); nameIn.value = selGroup ? wcMgrSel.slice(selGroup.length + 1) : wcMgrSel;
     const ta = wcEl("textarea", { rows: 18, spellcheck: false, onkeydown: wcStop, class: "wc-mono" }); ta.value = L.text;
     const uniq = wcEl("input", { type: "checkbox", checked: !!(L.opts && L.opts.unique) });
     const out = wcEl("pre", { class: "wc-pre", style: { display: "none" } });
     editor.append(
+      wcEl("div", { class: "wc-row" }, wcEl("span", { class: "wc-ml" }, "Category"), catSel),
       wcEl("div", { class: "wc-row" }, wcEl("span", { class: "wc-ml" }, "Name"), nameIn, wcEl("code", { class: "wc-token", title: "Click to copy", onclick: () => copyText("__" + wcMgrSel + "__").then(() => toast("Copied __" + wcMgrSel + "__", "ok")) }, "__" + wcMgrSel + "__")),
       ta,
       wcUsedBy(wcMgrSel),
@@ -1268,7 +1299,8 @@ function wcRenderManager() {
         (L.pack || (L.opts && L.opts.from)) ? wcEl("span", { class: "hint", style: { margin: 0 } }, L.pack ? "read from " + L.pack + " in the folder (sync never writes it back)" : "imported from " + L.opts.from) : null),
       wcEl("div", { class: "wc-row" },
         wcEl("button", { class: "primary", onclick: () => {
-          const newName = WC.normName(nameIn.value);
+          const leaf = WC.normName(nameIn.value).replace(/\//g, "-");
+          const newName = leaf ? (catSel.value ? catSel.value + "/" : "") + leaf : "";
           if (!newName) { wcMgrStatus("Give the list a name.", "err"); return; }
           if (newName !== wcMgrSel && lists[newName] && !confirm(`A list called “${newName}” exists. Replace it?`)) return;
           if (newName !== wcMgrSel) wcDeleteList(wcMgrSel);
@@ -1286,14 +1318,52 @@ function wcRenderManager() {
       out);
   }
   m.content.replaceChildren(wcEl("div", { class: "wc-mgr" },
-    wcEl("div", { class: "wc-side" }, wcEl("div", { class: "wc-row" }, search,
-      wcEl("button", { class: "ghost", title: "New list", onclick: () => {
-        const n = WC.normName(prompt("Name for the new list (use / for folders, e.g. props/handheld):", "my-list") || "");
-        if (!n) return;
-        if (!lists[n]) wcSetList(n, "");
-        wcMgrSel = n; wcRenderManager();
-      } }, "＋")), tree),
+    wcEl("div", { class: "wc-side" }, wcEl("div", { class: "wc-row" }, search),
+      wcEl("div", { class: "wc-row" },
+        wcEl("button", { title: "New list (in the selected list's category)", onclick: () => wcMgrNew(wcMgrSel ? groupOf(wcMgrSel) : "") }, "＋ List"),
+        wcEl("button", { title: "New category (a folder of lists)", onclick: () => { const c = wcAskCategory(m); if (c !== null) wcMgrNew(c); } }, "＋ Category")),
+      tree),
     editor));
+}
+// Every category (folder) that has a list, including parents of nested ones.
+function wcListCategories(lists, extra) {
+  const out = new Set(extra || []);
+  for (const n of Object.keys(lists)) {
+    const parts = n.split("/");
+    for (let i = 1; i < parts.length; i++) out.add(parts.slice(0, i).join("/"));
+  }
+  return Array.from(out).sort();
+}
+function wcAskCategory(m) {
+  const raw = prompt("Name of the new category (a folder of lists, e.g. hair or props/handheld):", "");
+  if (raw === null) return null;
+  const c = WC.normName(raw).replace(/\s+/g, "-");
+  if (!c) return null;
+  m._extraCats = Array.from(new Set([...(m._extraCats || []), c]));
+  return c;
+}
+function wcCatSelect(cats, value, m) {
+  const sel = wcEl("select", { onkeydown: wcStop });
+  const fill = v => {
+    const all = Array.from(new Set([...cats, ...(m._extraCats || []), ...(v ? [v] : [])])).sort();
+    sel.replaceChildren(wcEl("option", { value: "" }, "(no category)"), ...all.map(c => wcEl("option", { value: c }, c + "/")), wcEl("option", { value: "@new" }, "＋ New category…"));
+    sel.value = v || "";
+  };
+  fill(value);
+  let prev = sel.value;
+  sel.addEventListener("change", () => {
+    if (sel.value !== "@new") { prev = sel.value; return; }
+    const c = wcAskCategory(m);
+    fill(c === null ? prev : c); prev = sel.value;
+  });
+  return sel;
+}
+function wcMgrNew(cat) {
+  const o = document.getElementById("wcMgrOverlay");
+  if (!o) return;
+  o._wc._new = cat || "";
+  wcMgrSel = null; wcMgrTab = "lists";
+  wcRenderManager();
 }
 function wcEngineListsRaw() { const m = {}; for (const [n, o] of Object.entries(wcAllLists())) m[n] = { text: o.text, opts: o.opts }; return m; }
 function wcRenderRulesTab(box) {
@@ -1652,7 +1722,9 @@ function wcInstallCSS() {
   .wc-mgr { display: grid; grid-template-columns: 280px 1fr; gap: 14px; min-height: 420px; }
   .wc-side { display: flex; flex-direction: column; min-height: 0; }
   .wc-tree { flex: 1; overflow: auto; max-height: 56vh; border: 1px solid var(--border); border-radius: 6px; margin-top: 8px; padding: 4px; }
-  .wc-tree-g { font-size: 11px; color: var(--faint); padding: 6px 6px 2px; }
+  .wc-tree-g { font-size: 11px; color: var(--faint); padding: 6px 6px 2px; display: flex; justify-content: space-between; align-items: center; }
+  .wc-tree-add { border: 0; background: transparent; color: var(--faint); padding: 0 6px; font-size: 13px; line-height: 1.2; }
+  .wc-tree-add:hover { color: var(--text, #e5e7eb); transform: none; }
   .wc-tree-i { display: flex; width: 100%; justify-content: space-between; gap: 8px; border: 0; background: transparent; padding: 4px 8px; font-size: 12.5px; text-align: left; }
   .wc-tree-i.in { padding-left: 18px; } .wc-tree-i.on { background: rgba(243,36,70,.16); } .wc-tree-i em { color: var(--faint); font-style: normal; font-size: 11px; }
   .wc-tree-i:hover { transform: none; }
