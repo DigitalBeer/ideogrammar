@@ -97,6 +97,9 @@ def _db():
     _DB.execute("CREATE TABLE IF NOT EXISTS setups (name TEXT PRIMARY KEY, ts TEXT, data TEXT)")
     # renders: full gallery entry as JSON, ts (ms) drives chronological order.
     _DB.execute("CREATE TABLE IF NOT EXISTS renders (id INTEGER PRIMARY KEY, ts INTEGER, data TEXT)")
+    # prefs: the editor's settings (localStorage keys) backed up, so a browser
+    # that forgets its storage gets them back. key -> raw localStorage string.
+    _DB.execute("CREATE TABLE IF NOT EXISTS prefs (key TEXT PRIMARY KEY, data TEXT)")
     _DB.commit()
     return _DB
 
@@ -519,6 +522,44 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._send_json({"ok": True, "count": len(items)})
 
+    def _prefs_get(self):
+        with _DB_LOCK:
+            db = _db()
+            rows = db.execute("SELECT key, data FROM prefs").fetchall() if db is not None else None
+        if rows is None:
+            self._json_error(503, "Settings database unavailable (sqlite3 not built into this Python)")
+            return
+        self._send_json({"items": {k: v for k, v in rows}})
+
+    def _prefs_put(self):
+        # {"items": {key: "value" | null}} — upsert each key; null deletes it.
+        try:
+            body = self._read_json_body()
+        except Exception:
+            self._json_error(400, "Invalid JSON body")
+            return
+        items = body.get("items")
+        if not isinstance(items, dict):
+            self._json_error(400, "Expected an 'items' object")
+            return
+        try:
+            with _DB_LOCK:
+                db = _db()
+                if db is None:
+                    raise RuntimeError("sqlite3 not built into this Python")
+                for k, v in items.items():
+                    if not isinstance(k, str) or len(k) > 200:
+                        continue
+                    if v is None:
+                        db.execute("DELETE FROM prefs WHERE key=?", (k,))
+                    elif isinstance(v, str):
+                        db.execute("INSERT OR REPLACE INTO prefs(key, data) VALUES (?,?)", (k, v))
+                db.commit()
+        except Exception as e:
+            self._json_error(503, "Database write failed: %s" % e)
+            return
+        self._send_json({"ok": True})
+
     def _db_put_setups(self):
         def rows(items):
             for it in items:
@@ -806,6 +847,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/ideogrammar/renders":
             self._db_get("renders", "ts, id")
             return
+        if path == "/ideogrammar/prefs":
+            self._prefs_get()
+            return
         if path.startswith("/ideogrammar/refimg/"):
             self._serve_refimg(path[len("/ideogrammar/refimg/"):])
             return
@@ -839,6 +883,9 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/ideogrammar/renders":
             self._db_put_renders()
             return
+        if p == "/ideogrammar/prefs":
+            self._prefs_put()
+            return
         self._proxy()
 
     def do_PUT(self):
@@ -850,6 +897,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if p == "/ideogrammar/renders":
             self._db_put_renders()
+            return
+        if p == "/ideogrammar/prefs":
+            self._prefs_put()
             return
         self._proxy()
 
