@@ -55,6 +55,9 @@ const WCS_RULES_KEY = "ideogrammar.wcRules";          // { rules: [...], updated
 const WCS_SYNC_KEY = "ideogrammar.wcSync";            // { auto, lastSync, known: { path: mtime } }
 const WCS_AUTOROLL_KEY = "ideogrammar.wcAutoRoll";
 const WCS_GENTPL_KEY = "ideogrammar.genStyleTpl";
+const WCS_LISTCATS_KEY = "ideogrammar.listCategories";   // list categories made by hand (kept even while empty)
+const WCS_LISTCOLLAPSE_KEY = "ideogrammar.listCollapsed"; // folded categories in the list manager
+const WCS_TPLCATS_KEY = "ideogrammar.tplCategories";      // template categories made by hand (kept even while empty)
 
 let wcListOverlay = wcLoad(WCS_LISTS_KEY, {});
 let wcTplOverlay = wcLoad(WCS_TPL_KEY, {});
@@ -730,8 +733,8 @@ function wcModal(id, title, maxWidth) {
   ov._wc = { ov, modal, body, foot, status, h2, setStatus: (msg, cls) => { status.innerHTML = msg || ""; status.className = "status " + (cls || ""); } };
   return ov._wc;
 }
-function wcOpenModal(id) { document.getElementById(id).classList.add("show"); }
-function wcCloseModal(id) { const o = document.getElementById(id); if (o) o.classList.remove("show"); }
+function wcOpenModal(id) { document.getElementById(id).classList.add("show"); if (typeof wcSyncSplit === "function") wcSyncSplit(); }
+function wcCloseModal(id) { const o = document.getElementById(id); if (o) o.classList.remove("show"); if (typeof wcSyncSplit === "function") wcSyncSplit(); }
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
   if (wcPopEl && wcPopEl.style.display !== "none") { wcClosePop(); e.stopPropagation(); return; }
@@ -1028,20 +1031,59 @@ function wcOpenTemplates() {
   wcOpenModal("wcTplOverlay");
   setTimeout(() => m.search.focus(), 30);
 }
+// Template categories: the ones templates use plus empty ones made by hand.
+function wcTemplateCategories() {
+  return Array.from(new Set([...wcLoad(WCS_TPLCATS_KEY, []), ...wcAllTemplates().map(t => t.category || "").filter(Boolean)])).sort((a, b) => a.localeCompare(b));
+}
+function wcAskTplCategory() {
+  const c = (prompt("Name of the new template category:", "") || "").trim();
+  if (!c) return null;
+  wcSave(WCS_TPLCATS_KEY, Array.from(new Set([...wcLoad(WCS_TPLCATS_KEY, []), c])));
+  return c;
+}
+// Category picker for a template: existing categories, none, or a new one.
+function wcTplCatSelect(value, onPick) {
+  const sel = wcEl("select", { class: "wc-tplcat", onkeydown: wcStop, title: "Category" });
+  const fill = v => {
+    const all = Array.from(new Set([...wcTemplateCategories(), ...(v ? [v] : [])])).sort((a, b) => a.localeCompare(b));
+    sel.replaceChildren(wcEl("option", { value: "" }, "(no category)"), ...all.map(c => wcEl("option", { value: c }, c)), wcEl("option", { value: "@new" }, "＋ New category…"));
+    sel.value = v || "";
+  };
+  fill(value);
+  let prev = sel.value;
+  sel.addEventListener("change", () => {
+    if (sel.value === "@new") { const c = wcAskTplCategory(); fill(c === null ? prev : c); }
+    prev = sel.value;
+    if (onPick) onPick(sel.value);
+  });
+  return sel;
+}
+function wcSetTemplateCategory(t, cat) {
+  const c = JSON.parse(JSON.stringify(t));
+  delete c.builtin; delete c.modified;
+  c.category = cat;
+  wcSaveTemplate(c);
+}
 function wcRenderTemplates() {
   const m = document.getElementById("wcTplOverlay")._wc;
   const all = wcAllTemplates();
-  const cats = ["All", ...Array.from(new Set(all.map(t => t.category || "Other")))];
+  const used = new Set(all.map(t => t.category || ""));
+  const cats = ["All", ...wcTemplateCategories(), ...(used.has("") ? [""] : [])];
   if (!cats.includes(wcTplCat)) wcTplCat = "All";
-  m.cats.replaceChildren(...cats.map(c => wcEl("button", { class: "chip" + (c === wcTplCat ? " on" : ""), onclick: () => { wcTplCat = c; wcRenderTemplates(); } }, c)));
+  const own = new Set(wcLoad(WCS_TPLCATS_KEY, []));
+  m.cats.replaceChildren(...cats.map(c => wcEl("button", { class: "chip" + (c === wcTplCat ? " on" : ""), onclick: () => { wcTplCat = c; wcRenderTemplates(); } },
+      c === "" ? "No category" : c,
+      c && c !== "All" && own.has(c) && !used.has(c) ? wcEl("span", { class: "wc-chip-x", title: "Remove this empty category", onclick: e => { e.stopPropagation(); wcSave(WCS_TPLCATS_KEY, wcLoad(WCS_TPLCATS_KEY, []).filter(x => x !== c)); if (wcTplCat === c) wcTplCat = "All"; wcRenderTemplates(); } }, " ✕") : null)),
+    wcEl("button", { class: "chip", title: "Make a new template category", onclick: () => { const c = wcAskTplCategory(); if (c) { wcTplCat = c; wcRenderTemplates(); } } }, "＋ Category"));
   const q = m.search.value.trim().toLowerCase();
-  const list = all.filter(t => (wcTplCat === "All" || (t.category || "Other") === wcTplCat) && (!q || JSON.stringify(t).toLowerCase().includes(q)));
+  const list = all.filter(t => (wcTplCat === "All" || (t.category || "") === wcTplCat) && (!q || JSON.stringify(t).toLowerCase().includes(q)));
   const hasSel = wcSelectedKeys().size > 0;
   const active = state.wild && state.wild.templateId;
   m.grid.replaceChildren(...list.map(t => wcEl("div", { class: "var-card" + (t.id === active ? " wc-active" : "") },
     wcTemplateThumb(t),
     wcEl("div", { class: "var-head" }, t.name, t.id === active ? wcEl("span", { class: "wc-tag" }, "in use") : null, t.modified ? wcEl("span", { class: "wc-tag" }, t.builtin ? "edited" : "yours") : null),
-    wcEl("div", { class: "var-meta" }, (t.category || "Other") + " · " + ({ global: "image only", element: "elements only", both: "image + elements" }[t.scope || "both"])),
+    wcEl("div", { class: "var-meta wc-row", style: { margin: "2px 0" } }, wcTplCatSelect(t.category || "", c => { wcSetTemplateCategory(t, c); wcRenderTemplates(); }),
+      wcEl("span", {}, ({ global: "image only", element: "elements only", both: "image + elements" }[t.scope || "both"]))),
     wcEl("div", { class: "var-desc" }, wcShort((t.global && (t.global.aesthetics || t.global.lighting)) || Object.values(t.element || {})[0] || "", 150)),
     wcListChips(t),
     wcEl("div", { class: "wc-row" },
@@ -1055,7 +1097,7 @@ function wcRenderTemplates() {
       t.builtin ? (t.modified ? wcEl("button", { class: "ghost", onclick: () => { if (confirm(`Reset “${t.name}” to the built-in version?`)) { wcRestoreTemplate(t.id); wcRenderTemplates(); } } }, "Reset") : null)
         : wcEl("button", { class: "ghost", onclick: () => { if (confirm(`Delete the template “${t.name}”?`)) { wcDeleteTemplate(t.id); wcRenderTemplates(); } } }, "Delete"))
   )));
-  if (!list.length) m.grid.append(wcEl("div", { class: "hint" }, "No templates match."));
+  if (!list.length) m.grid.append(wcEl("div", { class: "hint" }, wcTplCat !== "All" && !q ? "No templates in this category yet. Pick it in a template's category menu (on its card, or in Edit) to add one." : "No templates match."));
 }
 function wcNewId(name) { return String(name || "template").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) + "-" + Math.random().toString(36).slice(2, 6); }
 function wcSampleTemplate(t, outEl) {
@@ -1082,12 +1124,13 @@ function wcSampleTemplate(t, outEl) {
 /* ------------------------------------------------------------------ */
 function wcOpenTemplateEditor(t) {
   const isNew = !t;
-  t = t ? JSON.parse(JSON.stringify(t)) : { id: "", name: "", category: "Mine", scope: "both", appliesTo: ["subject"], global: {}, element: {}, vars: {}, rules: [], llmNotes: "" };
+  t = t ? JSON.parse(JSON.stringify(t)) : { id: "", name: "", category: (typeof wcTplCat === "string" && wcTplCat !== "All") ? wcTplCat : "", scope: "both", appliesTo: ["subject"], global: {}, element: {}, vars: {}, rules: [], llmNotes: "" };
   const m = wcModal("wcTplEditOverlay", "", "860px");
+  m.draft = true;
   m.h2.textContent = isNew ? "＋ New style template" : "Edit template · " + t.name;
   const ta = (v, rows = 2, ph = "") => { const x = wcEl("textarea", { rows, placeholder: ph, onkeydown: wcStop, spellcheck: false }); x.value = v || ""; return x; };
   const inp = (v, ph = "") => { const x = wcEl("input", { type: "text", placeholder: ph, onkeydown: wcStop }); x.value = v || ""; return x; };
-  const name = inp(t.name, "e.g. Retro tennis poster"), cat = inp(t.category, "e.g. Sports");
+  const name = inp(t.name, "e.g. Retro tennis poster"), cat = wcTplCatSelect(t.category || "");
   const scope = wcEl("select", {}, wcEl("option", { value: "both" }, "Image + elements"), wcEl("option", { value: "global" }, "Image only"), wcEl("option", { value: "element" }, "Elements only"));
   scope.value = t.scope || "both";
   const types = ["subject", "obj", "text", "logo", "bg"];
@@ -1127,7 +1170,7 @@ function wcOpenTemplateEditor(t) {
     sampleOut);
   m.body.querySelectorAll("textarea").forEach(x => x.addEventListener("focus", () => { lastTa = x; }));
   const collect = () => {
-    const out = { ...t, name: name.value.trim() || "Untitled", category: cat.value.trim() || "Mine", scope: scope.value,
+    const out = { ...t, name: name.value.trim() || "Untitled", category: cat.value === "@new" ? "" : cat.value, scope: scope.value,
       appliesTo: applies.filter(c => c.checked).map(c => c.dataset.t), global: {}, element: {}, vars: {}, rules, llmNotes: notes.value.trim() };
     for (const [k] of gDefs) if (gInputs[k].value.trim()) out.global[k] = gInputs[k].value.trim();
     if (G.photo === "" && !gInputs.photo.value.trim()) out.global.photo = "";   // keep "no camera" for art templates
@@ -1142,9 +1185,10 @@ function wcOpenTemplateEditor(t) {
   };
   m.foot.replaceChildren(m.status,
     wcEl("button", { onclick: () => { try { wcSampleTemplate(collect(), sampleOut); m.setStatus(""); } catch (err) { m.setStatus(err.message, "err"); } } }, "🎲 Sample"),
-    wcEl("button", { onclick: () => wcCloseModal("wcTplEditOverlay") }, "Cancel"),
+    typeof wcSplitButton === "function" ? wcSplitButton("lists") : null,
+    wcEl("button", { onclick: () => { m.draft = false; wcCloseModal("wcTplEditOverlay"); } }, "Cancel"),
     wcEl("button", { class: "primary", onclick: () => {
-      try { const out = collect(); wcSaveTemplate(out); wcCloseModal("wcTplEditOverlay"); if (document.getElementById("wcTplOverlay")) wcRenderTemplates(); toast("Template saved ✓", "ok"); render(); }
+      try { const out = collect(); wcSaveTemplate(out); m.draft = false; wcCloseModal("wcTplEditOverlay"); if (document.getElementById("wcTplOverlay")) wcRenderTemplates(); toast("Template saved ✓", "ok"); render(); }
       catch (err) { m.setStatus(err.message, "err"); }
     } }, "Save template"));
   m.setStatus("");
@@ -1214,6 +1258,7 @@ function wcOpenManager(tab) {
       wcEl("button", { title: "A wildcards folder as a ZIP: one .txt per list, plus _templates/", onclick: wcExportZip }, "⬇ Export ZIP"),
       wcEl("button", { title: "Sync with the wildcards/ folder next to comfy_proxy.py", onclick: () => wcSyncFolder({ interactive: true }) }, "⇅ Sync with folder"),
       wcEl("button", { title: "How lists, syntax and rules work", onclick: () => wcOpenHelp("lists") }, "📖 Help"),
+      typeof wcSplitButton === "function" ? wcSplitButton("template") : null,
       wcEl("button", { class: "primary", onclick: () => wcCloseModal("wcMgrOverlay") }, "Close"));
   }
   if (tab) wcMgrTab = tab;
@@ -1233,26 +1278,46 @@ function wcRenderManager() {
   search.value = m._q || "";
   const tree = wcEl("div", { class: "wc-tree" });
   const groupOf = n => n.includes("/") ? n.slice(0, n.lastIndexOf("/")) : "";
-  const cats = wcListCategories(lists, m._extraCats);
+  const cats = wcListCategories(lists, [...wcLoad(WCS_LISTCATS_KEY, []), ...(m._extraCats || [])]);
+  m._collapsed = m._collapsed || new Set(wcLoad(WCS_LISTCOLLAPSE_KEY, []));
+  const saveCollapsed = () => wcSave(WCS_LISTCOLLAPSE_KEY, Array.from(m._collapsed));
   const drawTree = () => {
     m._q = search.value;
     const q = search.value.trim().toLowerCase();
-    const names = Object.keys(lists).filter(n => !q || n.includes(q) || lists[n].text.toLowerCase().includes(q))
-      .sort((a, b) => groupOf(a).localeCompare(groupOf(b)) || a.localeCompare(b));
-    let lastGroup = null;
+    const names = Object.keys(lists).filter(n => !q || n.includes(q) || lists[n].text.toLowerCase().includes(q)).sort();
+    // Build the folder tree: categories, subcategories, lists.
+    const root = { lists: [], kids: new Map() };
+    const node = path => { let nd = root; if (!path) return nd; for (const seg of path.split("/")) { if (!nd.kids.has(seg)) nd.kids.set(seg, { lists: [], kids: new Map() }); nd = nd.kids.get(seg); } return nd; };
+    if (!q) for (const c of cats) node(c);   // empty categories show too
+    for (const n of names) node(groupOf(n)).lists.push(n);
+    const countIn = nd => nd.lists.length + Array.from(nd.kids.values()).reduce((a, k) => a + countIn(k), 0);
+    const pad = depth => ({ paddingLeft: (8 + depth * 14) + "px" });
     tree.replaceChildren();
-    for (const n of names) {
-      const g = groupOf(n);
-      if (g !== lastGroup) {
-        tree.append(wcEl("div", { class: "wc-tree-g" }, wcEl("span", {}, g ? g + "/" : "No category"),
-          wcEl("button", { class: "wc-tree-add", title: g ? `New list in ${g}/` : "New list without a category", onclick: () => wcMgrNew(g) }, "＋")));
-        lastGroup = g;
-      }
-      const count = WC.parseList(lists[n].text).length;
-      tree.append(wcEl("button", { class: "wc-tree-i" + (n === wcMgrSel ? " on" : "") + (g ? " in" : ""), onclick: () => { wcMgrSel = n; wcRenderManager(); } },
+    const item = (n, depth) => {
+      const g = groupOf(n), count = WC.parseList(lists[n].text).length;
+      tree.append(wcEl("button", { class: "wc-tree-i" + (n === wcMgrSel ? " on" : ""), style: pad(depth), onclick: () => { delete m._new; wcMgrSel = n; wcRenderManager(); } },
         wcEl("span", {}, g ? n.slice(g.length + 1) : n), wcEl("em", {}, String(count) + (lists[n].modified ? (lists[n].builtin ? " ✎" : " ★") : ""))));
-    }
-    if (!names.length) tree.append(wcEl("div", { class: "hint" }, "No lists match."));
+    };
+    const head = (path, label, depth, nd) => {
+      const key = path || "@root", open = !!q || !m._collapsed.has(key);
+      const toggle = () => { if (m._collapsed.has(key)) m._collapsed.delete(key); else m._collapsed.add(key); saveCollapsed(); drawTree(); };
+      tree.append(wcEl("div", { class: "wc-tree-g", style: { paddingLeft: (4 + depth * 14) + "px" } },
+        wcEl("span", { class: "wc-tree-lbl", title: open ? "Collapse" : "Expand", onclick: toggle }, (open ? "▾ " : "▸ ") + label, wcEl("em", {}, " " + countIn(nd))),
+        wcEl("span", {},
+          path ? wcEl("button", { class: "wc-tree-add", title: `New subcategory inside ${path}/`, onclick: () => { const c = wcAskCategory(m, path); if (c !== null) { m._collapsed.delete(path); saveCollapsed(); wcMgrNew(c); } } }, "⊞") : null,
+          wcEl("button", { class: "wc-tree-add", title: path ? `New list in ${path}/` : "New list without a category", onclick: () => wcMgrNew(path) }, "＋"))));
+      return open;
+    };
+    if (root.lists.length && head("", "No category", 0, root)) root.lists.forEach(n => item(n, 1));
+    const walk = (nd, path, depth) => {
+      for (const seg of Array.from(nd.kids.keys()).sort()) {
+        const k = nd.kids.get(seg), pth = path ? path + "/" + seg : seg;
+        if (q && !countIn(k)) continue;
+        if (head(pth, seg + "/", depth, k)) { k.lists.forEach(n => item(n, depth + 1)); walk(k, pth, depth + 1); }
+      }
+    };
+    walk(root, "", 0);
+    if (!names.length) tree.append(wcEl("div", { class: "hint" }, q ? "No lists match." : "No lists yet."));
   };
   search.addEventListener("input", drawTree);
   drawTree();
@@ -1336,26 +1401,29 @@ function wcListCategories(lists, extra) {
   }
   return Array.from(out).sort();
 }
-function wcAskCategory(m) {
-  const raw = prompt("Name of the new category (a folder of lists, e.g. hair or props/handheld):", "");
+function wcAskCategory(m, parent) {
+  const raw = prompt(parent ? `Name of the new subcategory inside ${parent}/ :` : "Name of the new category (a folder of lists, e.g. hair). Use / for a subcategory, e.g. clothes/sport:", "");
   if (raw === null) return null;
-  const c = WC.normName(raw).replace(/\s+/g, "-");
-  if (!c) return null;
+  const leaf = WC.normName(raw).replace(/\s+/g, "-");
+  if (!leaf) return null;
+  const c = parent ? parent + "/" + leaf : leaf;
   m._extraCats = Array.from(new Set([...(m._extraCats || []), c]));
+  wcSave(WCS_LISTCATS_KEY, Array.from(new Set([...wcLoad(WCS_LISTCATS_KEY, []), c])));
   return c;
 }
 function wcCatSelect(cats, value, m) {
   const sel = wcEl("select", { onkeydown: wcStop });
   const fill = v => {
     const all = Array.from(new Set([...cats, ...(m._extraCats || []), ...(v ? [v] : [])])).sort();
-    sel.replaceChildren(wcEl("option", { value: "" }, "(no category)"), ...all.map(c => wcEl("option", { value: c }, c + "/")), wcEl("option", { value: "@new" }, "＋ New category…"));
+    sel.replaceChildren(wcEl("option", { value: "" }, "(no category)"), ...all.map(c => wcEl("option", { value: c }, "\u00a0\u00a0".repeat(c.split("/").length - 1) + c.split("/").pop() + "/")),
+      wcEl("option", { value: "@new" }, "＋ New category…"), ...(v ? [wcEl("option", { value: "@sub" }, `＋ New subcategory in ${v}/…`)] : []));
     sel.value = v || "";
   };
   fill(value);
   let prev = sel.value;
   sel.addEventListener("change", () => {
-    if (sel.value !== "@new") { prev = sel.value; return; }
-    const c = wcAskCategory(m);
+    if (sel.value !== "@new" && sel.value !== "@sub") { prev = sel.value; fill(prev); return; }
+    const c = wcAskCategory(m, sel.value === "@sub" ? prev : "");
     fill(c === null ? prev : c); prev = sel.value;
   });
   return sel;
@@ -1389,7 +1457,8 @@ function wcSyntaxHelp() {
     ["__colours__", "a random line from the colours list"], ["__clothes/hats__  or  __hats__", "a list in a folder"], ["__clothes/*__", "any list in the folder"],
     ["{2$$__colours__}", "two different colours"], ["${c=!__colours__}", "pick once and keep it as c"], ["${c}  ${c:red}", "use c (or red if it isn't set)"],
     ["${v=__moods__}", "v is re-rolled every time it's used"], ["{[time=night] neon|[time!=night] sun}", "guards: the option is only possible when the condition holds (var or list pick; = != ~contains; a=x,y; join with &)"],
-    ["[season=winter] snowfall", "a guard at the start of a list line"], ["\\{  \\}  \\|  \\_", "escape a special character"],
+    ["[season=winter] snowfall", "a guard at the start of a list line"],
+    ["${a=!{1|2|3}} {[a=1] __x__|[a=2] __y__|[a=3] __x__ and __y__}", "if / else: pick a once, then choose by its value (a=3 gives one from x and one from y)"], ["\\{  \\}  \\|  \\_", "escape a special character"],
   ];
   return wcEl("div", {},
     wcEl("table", { class: "wc-syntax" }, rows.map(([a, b]) => wcEl("tr", {}, wcEl("td", {}, wcEl("code", {}, a)), wcEl("td", {}, b)))),
@@ -1726,6 +1795,10 @@ function wcInstallCSS() {
   .wc-tree { flex: 1; overflow: auto; max-height: 56vh; border: 1px solid var(--border); border-radius: 6px; margin-top: 8px; padding: 4px; }
   .wc-tree-g { font-size: 11px; color: var(--faint); padding: 6px 6px 2px; display: flex; justify-content: space-between; align-items: center; }
   .wc-tree-add { border: 0; background: transparent; color: var(--faint); padding: 0 6px; font-size: 13px; line-height: 1.2; }
+  .wc-tree-lbl { cursor: pointer; user-select: none; flex: 1; min-width: 0; }
+  .wc-tree-lbl em { font-style: normal; opacity: .7; }
+  .wc-tplcat { font-size: 11.5px; padding: 2px 6px; max-width: 170px; }
+  .wc-chip-x { opacity: .7; }
   .wc-tree-add:hover { color: var(--text, #e5e7eb); transform: none; }
   .wc-tree-i { display: flex; width: 100%; justify-content: space-between; gap: 8px; border: 0; background: transparent; padding: 4px 8px; font-size: 12.5px; text-align: left; }
   .wc-tree-i.in { padding-left: 18px; } .wc-tree-i.on { background: rgba(243,36,70,.16); } .wc-tree-i em { color: var(--faint); font-style: normal; font-size: 11px; }

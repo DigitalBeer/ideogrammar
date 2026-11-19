@@ -107,6 +107,13 @@
 
 <!-- ============================================================ -->
 <h2 id="templates">Style templates</h2>
+<h3 id="studio">Working on lists and templates together</h3>
+<ul>
+  <li><b>Side by side.</b> In the template editor press <span class="ui">📚 Lists beside</span>: the lists open on the left and the template on the right. <span class="ui">🎭 Hide template</span> (in the Lists window) tucks the template away and <span class="ui">🎭 Show template</span> brings it back with your unsaved changes. Ideogrammar remembers that you like working side by side.</li>
+  <li><b>List lookup.</b> Type <code>__</code> in any field and a list of matching wildcard lists appears as you type (<code>__sho</code> finds <code>clothes/shoes</code>, <code>clothes/sport/shorts</code>…). ↑/↓ to choose, Enter or Tab to insert, Esc to close.</li>
+  <li><b>Template categories.</b> In <span class="ui">🎭 Templates</span>, <span class="ui">＋ Category</span> makes a category. Each template card (and the editor) has a category menu: pick a category to add it, or <i>(no category)</i> to take it out. An empty category you made shows ✕ to remove it.</li>
+  <li><b>List categories and subcategories.</b> In <span class="ui">📚 Lists</span>, ⊞ on a category heading makes a subcategory inside it (e.g. <code>clothes/sport</code>), ＋ makes a list in it, and clicking a heading folds it away.</li>
+</ul>
 <p>A template is a saved <i>look</i>. It can set these fields:</p>
 <table>
   <tr><th>For the whole image</th><th>For each person / object</th></tr>
@@ -236,6 +243,12 @@ __colours__ and gold  ← …including other lists</code></pre>
   <tr><td><code>[sport!=*]</code></td><td>no sport has been chosen at all</td></tr>
   <tr><td><code>[a=x &amp; b=y]</code></td><td>both are true</td></tr>
 </table>
+<h4>If / else: choose the list by a value</h4>
+<p>Pick a value once with <code>${a=!{…}}</code>, then give each option a guard. Only the options whose guard is true can be picked, so the value decides which list is used:</p>
+<pre><code>${a=!{1|2|3}}{[a=1] __x__|[a=2] __y__|[a=3] __x__ and __y__}</code></pre>
+<p>a = 1 picks from <code>x</code>, a = 2 from <code>y</code>, a = 3 one item from each. The value can be a word too, and can come from a template variable (set in the template's <i>Variables</i>, e.g. <code>scene = {beach|city|forest}</code>), so one template can switch whole sets of lists:</p>
+<div class="ex" data-src="${scene=!{beach|city|both}}${scene}: {[scene=beach] __places/nature__|[scene=city] __places/urban__|[scene=both] __places/nature__ and __places/urban__}"><div class="ex-what">One choice decides which list (or lists) the place comes from.</div></div>
+<p>To weight the choice, use weights in the first pick: <code>${a=!{3::1|1::2|1::3}}</code> makes 1 three times as likely.</p>
 <p>The built-in <code>__places/sports__</code> list uses guards: its lines start with <code>[sport=tennis]</code>, <code>[sport=boxing]</code> and so on, so a template that sets <code>sport</code> automatically gets a matching venue. Its last line, <code>[sport!=*] …</code>, covers the case where no sport was chosen.</p>
 <div class="ex" data-src="${sport=!{tennis|boxing|surfing}}${sport}: __places/sports__ / __clothes/sportswear__"><div class="ex-what">The venue and kit follow the sport.</div></div>
 
