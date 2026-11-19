@@ -28,7 +28,7 @@ function wcEl(tag, attrs, ...kids) {
     else if (k in e && typeof v !== "string") e[k] = v;
     else e.setAttribute(k, v === true ? "" : v);
   }
-  for (const k of kids.flat()) if (k != null && k !== false) e.append(k.nodeType ? k : String(k));
+  for (const k of kids.flat(Infinity)) if (k != null && k !== false) e.append(k.nodeType ? k : String(k));
   return e;
 }
 const wcStop = e => e.stopPropagation();   // keep canvas shortcuts out of text inputs
@@ -1310,7 +1310,9 @@ function wcRenderManager() {
         wcEl("button", { onclick: () => {
           const items = WC.parseList(ta.value);
           const r = Array.from({ length: 10 }, () => WC.resolve("__" + wcMgrSel + "__", { lists: { ...wcEngineListsRaw(), [wcMgrSel]: { text: ta.value, opts: { unique: uniq.checked } } }, rules: wcGlobalRules(), seed: WC.newSeed() }));
-          out.textContent = `${items.length} items · 10 samples:\n` + r.map(x => "• " + x.text + (x.errors.length ? "   ⚠ " + x.errors.join("; ") : "")).join("\n");
+          // Under each sample, which list gave which word — shows where every pick came from.
+          const picks = x => (x.trace || []).filter(t => t.list && t.list !== wcMgrSel).map(t => `${t.list}: ${t.value}`);
+          out.textContent = `${items.length} items · 10 samples (↳ = what each list picked):\n` + r.map(x => "• " + x.text + (x.errors.length ? "   ⚠ " + x.errors.join("; ") : "") + (picks(x).length ? "\n    ↳ " + picks(x).join(" · ") : "")).join("\n");
           out.style.display = "block";
         } }, "🎲 Sample 10"),
         L.builtin ? (L.modified ? wcEl("button", { class: "ghost", onclick: () => { if (confirm("Restore the built-in version of this list?")) { wcRestoreList(wcMgrSel); wcRenderManager(); } } }, "Restore built-in") : null) : null,
