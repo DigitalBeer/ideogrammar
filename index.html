@@ -4303,7 +4303,10 @@ let queueStop = false;       // user asked to stop the queue
 let _renderResolve = null;   // resolver for comfyRenderAwait(); only set while the queue drives a render
 let _renderOk = false;       // did the in-flight render complete successfully (vs. fail/cancel)
 let queueLabel = "";   // e.g. "1/2" — shown as a badge while a render queue runs, so the counter survives the per-render status updates
-function setRenderStatus(html, cls) { const s = $("renderStatus"); s.innerHTML = (queueLabel ? '<span class="qbadge" title="Render queue progress">' + queueLabel + '</span> ' : '') + html; s.className = "status" + (cls ? " " + cls : ""); }
+let lastRenderError = "";   // the latest render failure, so a queue can report it instead of overwriting it
+function setRenderStatus(html, cls) {
+  if (cls === "err") { lastRenderError = String(html).replace(/<[^>]+>/g, ""); console.error("[render]", lastRenderError); }
+  const s = $("renderStatus"); s.innerHTML = (queueLabel ? '<span class="qbadge" title="Render queue progress">' + queueLabel + '</span> ' : '') + html; s.className = "status" + (cls ? " " + cls : ""); }
 function setBar(frac) { $("renderBar").style.width = Math.max(0, Math.min(1, frac)) * 100 + "%"; }
 function showCancel(on) { const b = $("renderCancel"); if (b) b.style.display = on ? "inline-block" : "none"; }
 // Resolve a pending comfyRenderAwait() promise. No-op for plain single renders.
@@ -4412,7 +4415,8 @@ async function runRenderQueue() {
   queueActive = true; queueStop = false;
   $("renderBtn").disabled = $("renderBtn2").disabled = true;
 
-  let okCount = 0;
+  let okCount = 0, failCount = 0, sameErr = 0, prevErr = "";
+  lastRenderError = "";
   for (let i = 0; i < count && !queueStop; i++) {
     queueLabel = (i + 1) + "/" + count;    // badge prefix; persists through the per-render status updates
     if (regen) {
@@ -4427,12 +4431,22 @@ async function runRenderQueue() {
     const ok = await comfyRenderAwait();   // resolves when this render finishes
     if (ok) okCount++;
     else if (queueStop) break;             // a cancel (not a transient error) stops the run
+    else {
+      failCount++;
+      sameErr = lastRenderError && lastRenderError === prevErr ? sameErr + 1 : 1;
+      prevErr = lastRenderError;
+      // The same error twice in a row won't fix itself (bad workflow, missing model…): stop and say why.
+      if (sameErr >= 2 && okCount === 0) { queueLabel = ""; setRenderStatus(`Queue stopped after ${i + 1} failed renders — ${escapeHtml(lastRenderError)}`, "err"); toast("Render failed: " + lastRenderError, "bad"); queueActive = false; $("renderBtn").disabled = $("renderBtn2").disabled = false; return; }
+    }
   }
 
   queueLabel = "";
   queueActive = false;
   $("renderBtn").disabled = $("renderBtn2").disabled = false;
-  if (!queueStop) { setRenderStatus(`Queue done ✓ · ${okCount}/${count} rendered`, "ok"); toast(`Queue done ✓ (${okCount}/${count})`, "ok"); }
+  if (!queueStop) {
+    if (failCount) { setRenderStatus(`Queue done · ${okCount}/${count} rendered, ${failCount} failed — last error: ${escapeHtml(lastRenderError || "unknown")}`, okCount ? "" : "err"); toast(`Queue done (${okCount}/${count}); ${failCount} failed`, okCount ? "ok" : "bad"); }
+    else { setRenderStatus(`Queue done ✓ · ${okCount}/${count} rendered`, "ok"); toast(`Queue done ✓ (${okCount}/${count})`, "ok"); }
+  }
 }
 
 function trackRender(base, promptId) {
