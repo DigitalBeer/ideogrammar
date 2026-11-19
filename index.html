@@ -258,11 +258,20 @@
   .ai-target { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 10px; }
   .ai-target-sel { width: auto; padding: 3px 6px; }
   .rv-detail { white-space: pre-wrap; word-break: break-word; font-size: 12.5px; color: var(--muted); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin-bottom: 12px; }
-  .rv-table-wrap { max-height: 360px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
+  .rv-table-wrap { flex: 1 1 auto; min-height: 120px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
+  .modal.rv-modal { max-width: min(1320px, 96vw); height: 92vh; max-height: 92vh; display: flex; flex-direction: column; overflow: hidden; }
+  .rv-modal .rv-body { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(200px, 250px) 1fr; gap: 16px; overflow: hidden; }
+  .rv-side { display: flex; flex-direction: column; gap: 4px; min-height: 0; overflow: auto; }
+  .rv-side label { margin-top: 6px; }
+  .rv-side svg { max-height: 27vh !important; }
+  .rv-legend { font-size: 11.5px; color: var(--faint); line-height: 1.4; margin-top: 6px; }
+  .rv-main { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+  .rv-main .rv-issues { flex: 0 0 auto; max-height: 22vh; }
+  @media (max-width: 760px) { .rv-modal .rv-body { grid-template-columns: 1fr; overflow: auto; } .rv-side svg { max-height: 22vh !important; } .rv-table-wrap { flex: none; } }
   .rv-table { width: 100%; border-collapse: collapse; font-size: 12.5px; table-layout: fixed; }
   .rv-table th, .rv-table td { text-align: left; vertical-align: top; padding: 7px 9px; border-bottom: 1px solid var(--border); white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; line-height: 1.45; }
   .rv-table thead th { position: sticky; top: 0; background: var(--elevated, #161b24); color: var(--muted); font-weight: 600; z-index: 1; }
-  .rv-table thead th:first-child { width: 22%; } .rv-table tbody th { font-weight: 600; }
+  .rv-table thead th:first-child { width: 16%; } .rv-table tbody th { font-weight: 600; }
   .rv-table tbody th span { font-weight: 700; margin-right: 2px; }
   .rv-table tr:last-child th, .rv-table tr:last-child td { border-bottom: 0; }
   .rv-line { margin-bottom: 3px; } .rv-line:last-child { margin-bottom: 0; }
@@ -1013,21 +1022,24 @@
 
 <!-- AI REVIEW MODAL -->
 <div class="overlay" id="reviewOverlay">
-  <div class="modal" style="max-width:860px;">
+  <div class="modal rv-modal">
     <div class="modal-head">
       <h2>Review: <span id="reviewTitle"></span></h2>
       <button class="close" id="reviewClose">×</button>
     </div>
-    <div class="modal-body">
-      <div id="reviewDetail" class="rv-detail"></div>
-      <div class="rv-grid">
-        <div><label>Before</label><div id="reviewBefore"></div></div>
-        <div><label>After <span style="color:var(--faint)">(green = added, amber = changed, dashed = locked)</span></label><div id="reviewAfter"></div></div>
+    <div class="modal-body rv-body">
+      <div class="rv-side">
+        <div id="reviewDetail" class="rv-detail"></div>
+        <label>Layout before</label><div id="reviewBefore"></div>
+        <label>Layout after</label><div id="reviewAfter"></div>
+        <div class="rv-legend">Where each element's box sits on the canvas; numbers match the list. <b style="color:#22c55e">Green</b> = added, <b style="color:#f59e0b">amber</b> = moved or changed, dashed = locked.</div>
       </div>
-      <label style="margin-top:12px;">Changes</label>
-      <div class="rv-table-wrap" id="reviewChanges"></div>
-      <label id="reviewIssuesHead" style="margin-top:12px;">Layout check <span style="color:var(--faint)">(ticked fixes are applied with the change)</span></label>
-      <ul class="rv-list rv-issues" id="reviewIssues"></ul>
+      <div class="rv-main">
+        <label>Changes <span style="color:var(--faint)">(only what changed is shown)</span></label>
+        <div class="rv-table-wrap" id="reviewChanges"></div>
+        <label id="reviewIssuesHead" style="margin-top:10px;">Layout check <span style="color:var(--faint)">(ticked fixes are applied with the change)</span></label>
+        <ul class="rv-list rv-issues" id="reviewIssues"></ul>
+      </div>
     </div>
     <div class="modal-foot">
       <span class="status">Applied changes can be undone with ↶ in the header.</span>
@@ -2888,13 +2900,16 @@ function diffStates(a, b) {
   m.removed.forEach(i => rows.push({ k: "del", what: `${A[i].type} (removed)`, before: elLines(A[i]), after: null }));
   return { rows, match: m };
 }
-function previewSvg(s, highlight) {
+function previewSvg(s, highlight, label) {
   const { width: W, height: H } = computeDims();
   const vw = 1000, vh = Math.round(1000 * H / W);
   const col = { subject: "#f472b6", text: "#60a5fa", logo: "#a78bfa", bg: "#6b7280", obj: "#34d399" };
-  const rects = s.elements.filter(e => e.enabled !== false).map((e, i) => {
+  const fs = Math.round(Math.max(vw, vh) * 0.045);
+  const rects = s.elements.map((e, idx) => ({ e, idx })).filter(({ e }) => e.enabled !== false).map(({ e, idx }, i) => {
     const [x1, y1, x2, y2] = e.bbox, h = highlight ? highlight(e, i) : "";
-    return `<rect x="${x1}" y="${y1 / COORD * vh}" width="${x2 - x1}" height="${(y2 - y1) / COORD * vh}" fill="${col[e.type] || "#34d399"}" fill-opacity="${h === "add" ? .35 : .12}" stroke="${h === "add" ? "#22c55e" : h === "chg" ? "#f59e0b" : col[e.type] || "#34d399"}" stroke-width="${h ? 10 : 5}"${e.locked ? ' stroke-dasharray="24 14"' : ""}/>`;
+    const tag = label ? label(e, idx) : "#" + (idx + 1);
+    const txt = tag ? `<text x="${x1 + fs * 0.3}" y="${y1 / COORD * vh + fs * 1.05}" font-size="${fs}" font-family="system-ui,sans-serif" font-weight="700" fill="${h === "add" ? "#22c55e" : h === "chg" ? "#f59e0b" : "#cbd5e1"}">${escapeHtml(tag)}</text>` : "";
+    return `<rect x="${x1}" y="${y1 / COORD * vh}" width="${x2 - x1}" height="${(y2 - y1) / COORD * vh}" fill="${col[e.type] || "#34d399"}" fill-opacity="${h === "add" ? .35 : .12}" stroke="${h === "add" ? "#22c55e" : h === "chg" ? "#f59e0b" : col[e.type] || "#34d399"}" stroke-width="${h ? 10 : 5}"${e.locked ? ' stroke-dasharray="24 14"' : ""}/>` + txt;
   }).join("");
   return `<svg viewBox="0 0 ${vw} ${vh}" preserveAspectRatio="xMidYMid meet" style="width:100%;max-height:260px;background:#0d1119;border-radius:6px;border:1px solid var(--border)">${rects}</svg>`;
 }
@@ -2905,10 +2920,11 @@ function renderReviewAfter() {
   _reviewIssues.filter(it => it.fix && it.on !== false).forEach(it => it.fix(shown));
   $("reviewAfter").innerHTML = previewSvg(shown, _reviewHi);
 }
-function reviewCell(lines, pal) {
+function reviewCell(lines, pal, onlyChanged) {
   if (pal) return pal.length ? pal.map(c => `<i style="background:${c}" title="${c}"></i>`).join("") : '<span class="rv-none">(none)</span>';
   if (!lines) return '<span class="rv-none">—</span>';
-  return lines.map(([k, v, ch]) => `<div class="rv-line${ch ? " ch" : ""}">${k ? `<b>${escapeHtml(k)}:</b> ` : ""}${escapeHtml(v)}</div>`).join("");
+  if (onlyChanged) lines = lines.filter(l => l[2]);
+  return lines.map(([k, v, ch]) => `<div class="rv-line${ch ? " ch" : ""}">${k ? `<b>${escapeHtml(k)}:</b> ` : ""}${v === "" ? "<span class=\"rv-none\">(none)</span>" : escapeHtml(v)}</div>`).join("");
 }
 function openReview(label, before, after, detail) {
   _reviewLabel = label; _reviewCand = after;
@@ -2919,12 +2935,14 @@ function openReview(label, before, after, detail) {
   $("reviewTitle").textContent = label.replace(/:.*$/, "");
   $("reviewDetail").textContent = detail || "";
   $("reviewDetail").style.display = detail ? "" : "none";
-  $("reviewBefore").innerHTML = previewSvg(before);
+  const afterNo = new Map(d.match.pairs.map(([i, j]) => [i, "#" + (j + 1)]));
+  d.match.removed.forEach(i => afterNo.set(i, "✕"));
+  $("reviewBefore").innerHTML = previewSvg(before, null, (e, idx) => afterNo.get(idx) || "");
   _reviewHi = e => addedIds.has(e._id) ? "add" : changedIds.has(e._id) ? "chg" : "";
   const sym = { add: "＋", del: "－", chg: "✎" };
   $("reviewChanges").innerHTML = d.rows.length
     ? `<table class="rv-table"><thead><tr><th>Change</th><th>Before</th><th>After</th></tr></thead><tbody>` +
-      d.rows.map(r => `<tr class="rv-${r.k}"><th><span>${sym[r.k]}</span> ${escapeHtml(r.what)}</th><td>${reviewCell(r.before, r.beforePal)}</td><td>${reviewCell(r.after, r.afterPal)}</td></tr>`).join("") +
+      d.rows.map(r => `<tr class="rv-${r.k}"><th><span>${sym[r.k]}</span> ${escapeHtml(r.what)}</th><td>${reviewCell(r.before, r.beforePal, r.k === "chg")}</td><td>${reviewCell(r.after, r.afterPal, r.k === "chg")}</td></tr>`).join("") +
       `</tbody></table>`
     : `<div class="rv-none" style="padding:8px">No changes to the setup.</div>`;
   renderReviewIssues();
