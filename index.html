@@ -344,6 +344,10 @@
   .modal-head .close { background: transparent; border: none; color: var(--muted); font-size: 22px; padding: 0 8px; }
   .modal-head .close:hover { color: var(--text); transform: none; }
   .modal-body { padding: 22px; }
+  .llm-test-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+  .llm-test-status { font-size: 12px; color: var(--faint); min-width: 0; overflow-wrap: anywhere; }
+  .llm-test-status.ok { color: #3fb950; }
+  .llm-test-status.bad { color: #f85149; }
   .modal-foot { padding: 16px 22px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
   details.cfg { border: 1px solid var(--border); border-radius: var(--r); padding: 0 14px; margin-bottom: 18px; background: var(--bg); }
   details.cfg summary { cursor: pointer; padding: 12px 0; font-size: 13px; color: var(--text); user-select: none; font-weight: 500; }
@@ -1111,9 +1115,8 @@
         <summary>Text-generation model (LLM)</summary>
         <div class="cfg-inner">
           <label>Saved presets <span style="color:var(--faint)">(provider + URL + key + model)</span></label>
-          <div class="row2" style="grid-template-columns:1fr auto auto; align-items:center; gap:6px;">
+          <div class="row2" style="grid-template-columns:1fr auto; align-items:center; gap:6px;">
             <select id="llmPreset"><option value="">— none —</option></select>
-            <button type="button" id="llmPresetSave">Save…</button>
             <button type="button" id="llmPresetDel" class="ghost">Delete</button>
           </div>
           <label>Provider</label>
@@ -1126,7 +1129,12 @@
           <label>API key <span style="color:var(--faint)">(required for OpenRouter; usually blank for local)</span></label>
           <input type="text" id="cfgApiKey" placeholder="sk-or-..." autocomplete="off">
           <label>Model</label>
-          <input type="text" id="cfgModel" placeholder="anthropic/claude-3.5-sonnet">
+          <input type="text" id="cfgModel" placeholder="anthropic/claude-3.5-sonnet" list="cfgModelList" autocomplete="off">
+          <datalist id="cfgModelList"></datalist>
+          <div class="llm-test-row">
+            <button type="button" id="llmTest">🔌 Test connection</button>
+            <span id="llmTestStatus" class="llm-test-status"></span>
+          </div>
           <div class="row2" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
             <div>
               <label>Detail · elements</label>
@@ -1148,7 +1156,7 @@
           </div>
           <label>Temperature <span id="cfgTempVal" style="color:var(--faint)">0.7</span> <span style="color:var(--faint)">(higher = more varied; some models ignore it)</span></label>
           <input type="range" id="cfgTemp" min="0" max="2" step="0.05" value="0.7" style="width:100%;">
-          <div class="hint">Detail controls how many elements the model breaks the scene into and how verbose each element's description is (applies when generating from text or an image). Saved in this browser only. Save a preset per endpoint so switching providers doesn't lose the model name.</div>
+          <div class="hint">Detail controls how many elements the model breaks the scene into and how verbose each element's description is (applies when generating from text or an image). Saved in this browser only. <b>Done</b> uses these settings as they are; <b>Save &amp; done</b> also stores provider, URL, key and model as a preset you can pick again.</div>
         </div>
       </details>
 
@@ -1196,6 +1204,7 @@
     </div>
     <div class="modal-foot">
       <span class="status" style="flex:1"></span>
+      <button id="settingsSaveDone" title="Store the model settings as a preset, select it and close">Save &amp; done</button>
       <button id="settingsDone" class="primary">Done</button>
     </div>
   </div>
@@ -1301,6 +1310,7 @@ function normElWild(w) {
   w = w && typeof w === "object" ? w : {};
   const o = { key: typeof w.key === "string" && w.key ? w.key : newElKey(), src: normStrMap(w.src), templateId: typeof w.templateId === "string" ? w.templateId : "" };
   if (typeof w.descBase === "string") o.descBase = w.descBase;   // desc before a template's prefix/suffix
+  if (typeof w.palRolled === "string") o.palRolled = w.palRolled;   // palette a roll set (cleared by the next roll)
   return o;
 }
 function normWild(w) {
@@ -1311,7 +1321,8 @@ function normWild(w) {
     seed: w.seed !== null && w.seed !== undefined && w.seed !== "" && Number.isFinite(+w.seed) ? +w.seed : WC.newSeed(),
     locks: normStrMap(w.locks), salts, src: normStrMap(w.src),
     templateId: typeof w.templateId === "string" ? w.templateId : "",
-    ...(typeof w.hldBase === "string" ? { hldBase: w.hldBase } : {})   // high-level text before a template's suffix
+    ...(typeof w.hldBase === "string" ? { hldBase: w.hldBase } : {}),   // high-level text before a template's suffix
+    ...(typeof w.palRolled === "string" ? { palRolled: w.palRolled } : {})
   };
 }
 // Editor-only wildcard data worth saving with an element.
@@ -3920,6 +3931,7 @@ document.querySelectorAll("#providerSeg button").forEach(btn => {
     if (!$("cfgBaseUrl").value.trim() || knownUrls.includes($("cfgBaseUrl").value.trim().replace(/\/+$/, ""))) $("cfgBaseUrl").value = d.baseUrl;
     if (!$("cfgModel").value.trim() || knownModels.includes($("cfgModel").value.trim())) $("cfgModel").value = d.model;
     readCfgFromForm();
+    syncLlmPresetSelection();
   });
 });
 ["cfgBaseUrl", "cfgApiKey", "cfgModel"].forEach(id => $(id).addEventListener("change", readCfgFromForm));
@@ -5261,6 +5273,7 @@ function openSettings() {
   applyCfgToForm();
   applyVecForm();
   refreshLlmPresetList();
+  setLlmTestStatus("", "");
   refreshSetupList();
   $("settingsOverlay").classList.add("show");
 }
@@ -5274,28 +5287,91 @@ function closeSettings() {
 const LLM_PRESETS_KEY = "ideogram_llm_presets";
 function loadLlmPresets() { try { const a = JSON.parse(localStorage.getItem(LLM_PRESETS_KEY)); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
 function storeLlmPresets(a) { localStorage.setItem(LLM_PRESETS_KEY, JSON.stringify(a)); }
+// The preset whose provider, URL, key and model match the form (or -1).
+function matchingLlmPreset(cfg) {
+  const norm = v => String(v || "").trim().replace(/\/+$/, "");
+  return loadLlmPresets().findIndex(p => (p.provider || "") === (cfg.provider || "") && norm(p.baseUrl) === norm(cfg.baseUrl) && norm(p.apiKey) === norm(cfg.apiKey) && norm(p.model) === norm(cfg.model));
+}
+function formLlmCfg() {
+  return { provider: document.querySelector("#providerSeg button.active")?.dataset.p || "openrouter", baseUrl: $("cfgBaseUrl").value.trim().replace(/\/+$/, ""), apiKey: $("cfgApiKey").value.trim(), model: $("cfgModel").value.trim() };
+}
+// Shows the preset that matches the current settings, or "unsaved settings".
 function refreshLlmPresetList() {
   const sel = $("llmPreset"), ps = loadLlmPresets();
-  sel.innerHTML = '<option value="">— none —</option>' + ps.map((p, i) => `<option value="${i}">${escapeHtml(p.name)}</option>`).join("");
+  const i = matchingLlmPreset(formLlmCfg());
+  sel.innerHTML = (i < 0 ? '<option value="">' + (ps.length ? "— unsaved settings —" : "— none —") + '</option>' : "") + ps.map((p, j) => `<option value="${j}">${escapeHtml(p.name)}</option>`).join("");
+  sel.value = i < 0 ? "" : String(i);
+  $("llmPresetDel").disabled = i < 0;
+}
+// Editing a field: keep the dropdown honest about whether a preset still matches.
+function syncLlmPresetSelection() {
+  refreshLlmPresetList();
+  setLlmTestStatus("", "");
 }
 function saveCurrentLlmPreset() {
   const cfg = readCfgFromForm();
-  const name = prompt("Preset name:", cfg.model || cfg.provider || "preset");
-  if (!name) return;
+  const cur = loadLlmPresets()[parseInt($("llmPreset").value, 10)];
+  const name = prompt("Name this preset:", cur ? cur.name : (cfg.model || cfg.provider || "preset"));
+  if (!name || !name.trim()) return false;
   const ps = loadLlmPresets();
   const entry = { name: name.trim(), provider: cfg.provider, baseUrl: cfg.baseUrl, apiKey: cfg.apiKey, model: cfg.model };
   const idx = ps.findIndex(p => p.name === entry.name);
   if (idx >= 0) ps[idx] = entry; else ps.push(entry);
   storeLlmPresets(ps);
   refreshLlmPresetList();
-  $("llmPreset").value = String(ps.findIndex(p => p.name === entry.name));
-  toast("LLM preset saved ✓", "ok");
+  toast("LLM preset “" + entry.name + "” saved ✓", "ok");
+  return true;
+}
+function setLlmTestStatus(text, cls) {
+  const el = $("llmTestStatus");
+  el.textContent = text; el.className = "llm-test-status" + (cls ? " " + cls : "");
+}
+// Asks the endpoint for its model list (cheap, no generation) and checks the
+// model name is on it. Fills the Model field's suggestions as a bonus.
+async function testLlmConnection() {
+  const cfg = formLlmCfg(), btn = $("llmTest");
+  if (!cfg.baseUrl) { setLlmTestStatus("Enter a base URL first.", "bad"); return; }
+  const headers = {};
+  if (cfg.apiKey) headers["Authorization"] = "Bearer " + cfg.apiKey;
+  if (cfg.provider === "openrouter") { headers["HTTP-Referer"] = location.origin; headers["X-Title"] = "Ideogrammar"; }
+  btn.disabled = true; setLlmTestStatus("Connecting…", "");
+  const t0 = performance.now();
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 10000);
+  try {
+    const r = await fetch(cfg.baseUrl + "/models", { headers, signal: ctl.signal });
+    const ms = Math.round(performance.now() - t0);
+    if (!r.ok) {
+      const body = (await r.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 160);
+      setLlmTestStatus(`✗ ${r.status} ${r.statusText}${r.status === 401 || r.status === 403 ? " — check the API key" : ""}${body ? ": " + body : ""}`, "bad");
+      return;
+    }
+    const j = await r.json().catch(() => ({}));
+    const ids = (Array.isArray(j.data) ? j.data : Array.isArray(j.models) ? j.models : []).map(m => m.id || m.name || m.model).filter(Boolean);
+    $("cfgModelList").innerHTML = ids.slice(0, 500).map(id => `<option value="${escapeHtml(id)}">`).join("");
+    if (!ids.length) { setLlmTestStatus(`✓ Connected (${ms} ms), but it listed no models.`, "ok"); return; }
+    const want = cfg.model.toLowerCase(), base = x => x.toLowerCase().split(/[\\/]/).pop();
+    const found = want && ids.some(id => id.toLowerCase() === want || base(id) === base(want));
+    if (!want) setLlmTestStatus(`✓ Connected (${ms} ms) — ${ids.length} model${ids.length > 1 ? "s" : ""} available; pick one in Model.`, "ok");
+    else if (found) setLlmTestStatus(`✓ Connected (${ms} ms) — model “${cfg.model}” is available.`, "ok");
+    else if (ids.length === 1) setLlmTestStatus(`✓ Connected (${ms} ms). It serves “${ids[0]}” — llama.cpp answers with whatever model it has loaded.`, "ok");
+    else setLlmTestStatus(`⚠ Connected (${ms} ms), but “${cfg.model}” isn't one of its ${ids.length} models — pick one from the Model suggestions.`, "bad");
+  } catch (e) {
+    const msg = e && e.name === "AbortError" ? "no answer in 10 s" : (e && e.message) || String(e);
+    setLlmTestStatus(`✗ Couldn't reach ${cfg.baseUrl} (${msg}). Is the server running, and does it allow requests from this page (CORS)?`, "bad");
+  } finally { clearTimeout(timer); btn.disabled = false; }
+}
+// Save & done: store the settings as a preset (unless one already matches), select it, close.
+function saveAndCloseSettings() {
+  if (matchingLlmPreset(formLlmCfg()) < 0 && !saveCurrentLlmPreset()) return;
+  closeSettings();
 }
 function loadLlmPresetByIndex(i) {
   const p = loadLlmPresets()[i];
   if (!p) return;
-  saveCfg({ provider: p.provider, baseUrl: p.baseUrl, apiKey: p.apiKey, model: p.model });
+  saveCfg({ ...loadCfg(), provider: p.provider, baseUrl: p.baseUrl, apiKey: p.apiKey, model: p.model });   // keep detail + temperature
   applyCfgToForm();
+  refreshLlmPresetList();
+  setLlmTestStatus("", "");
 }
 function deleteSelectedLlmPreset() {
   const i = parseInt($("llmPreset").value, 10);
@@ -6030,7 +6106,9 @@ $("settingsClose").addEventListener("click", closeSettings);
 $("settingsDone").addEventListener("click", closeSettings);
 ["vec-backend", "vec-flat"].forEach(id => $(id).addEventListener("change", readVecForm));
 $("llmPreset").addEventListener("change", e => { const v = e.target.value; if (v !== "") loadLlmPresetByIndex(parseInt(v, 10)); });
-$("llmPresetSave").addEventListener("click", saveCurrentLlmPreset);
+$("llmTest").addEventListener("click", testLlmConnection);
+$("settingsSaveDone").addEventListener("click", saveAndCloseSettings);
+["cfgBaseUrl", "cfgApiKey", "cfgModel"].forEach(id => $(id).addEventListener("input", syncLlmPresetSelection));
 $("llmPresetDel").addEventListener("click", deleteSelectedLlmPreset);
 $("quickSaveBtn").addEventListener("click", saveLoadedSetup);
 updateSetupUI();   // set the quick-save tooltip/state before Settings is ever opened
