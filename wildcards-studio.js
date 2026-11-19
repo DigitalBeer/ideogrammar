@@ -1,68 +1,117 @@
 /* Ideogrammar — working on lists and templates together.
-   1. Side by side: the 📚 Lists window and the template editor can share the
-      screen (lists left, template right). The template side can be hidden
-      and brought back without losing what you typed.
+   1. One window: wildcard lists on the left, templates (grid or editor) on
+      the right. The template side can be hidden and brought back without
+      losing what you typed.
    2. List-name lookup: typing __ in any text field suggests wildcard lists;
       ↑/↓ to choose, Enter or Tab to insert, Esc to dismiss.
    Loaded after wildcards-ui.js. */
 
 /* ------------------------------------------------------------------ */
-/*  Side by side                                                       */
+/*  One window: lists on the left, templates on the right              */
 /* ------------------------------------------------------------------ */
-let wcSplit = wcLoad("ideogrammar.wcSplit", false);   // remembered: work side by side
+// The Lists manager, the Templates grid and the template editor are built by
+// wildcards-ui.js as three dialogs. Their panels are moved into one window
+// here; their (now empty) overlays only carry the open/closed state, which
+// wcSyncStudio turns into the layout:
+//   lists pane    — always, while the window is open
+//   template pane — when the grid or the editor is open (the editor wins)
+const WC_STUDIO_IDS = ["wcMgrOverlay", "wcTplOverlay", "wcTplEditOverlay"];
+let wcStudioEl = null, wcStudioSyncing = false;
 const wcSplitBtns = new Set();
 function wcShown(id) { const o = document.getElementById(id); return !!(o && o.classList.contains("show")); }
 function wcTplDraft() { const o = document.getElementById("wcTplEditOverlay"); return !!(o && o._wc && o._wc.draft); }
-function wcSyncSplit() {
-  const both = wcShown("wcMgrOverlay") && wcShown("wcTplEditOverlay");
-  document.body.classList.toggle("wc-split", !!(wcSplit && both));
-  for (const b of wcSplitBtns) {
-    if (!b.isConnected) { wcSplitBtns.delete(b); continue; }
-    if (b.dataset.side === "lists") b.textContent = wcShown("wcMgrOverlay") && wcSplit ? "📚 Hide lists" : "📚 Lists beside";
-    else b.textContent = wcShown("wcTplEditOverlay") ? "🎭 Hide template" : wcTplDraft() ? "🎭 Show template" : "🎭 Template beside";
-  }
+function wcStudio() {
+  if (wcStudioEl) return wcStudioEl;
+  const ov = wcEl("div", { class: "overlay", id: "studioOverlay" });
+  const left = wcEl("div", { class: "wc-pane wc-pane-l" }), right = wcEl("div", { class: "wc-pane wc-pane-r" });
+  const box = wcEl("div", { class: "wc-studio" }, left, right);
+  ov.append(box);
+  document.body.append(ov);
+  wcStudioEl = { ov, box, left, right };
+  return wcStudioEl;
 }
-// side "lists": button in the template editor; side "template": button in the Lists window.
-function wcSplitButton(side) {
-  const b = wcEl("button", { title: side === "lists" ? "Show the wildcard lists next to this template" : "Show the template you're editing next to the lists (or pick one to edit)" });
-  b.dataset.side = side;
-  b.addEventListener("click", () => {
-    if (side === "lists") {
-      if (wcShown("wcMgrOverlay") && wcSplit) { wcCloseModal("wcMgrOverlay"); return; }
-      wcSplit = true; wcSave("ideogrammar.wcSplit", true);
-      wcOpenManager();
-      return;
+// Called by wcModal when one of the three dialogs is first built.
+function wcStudioAdopt(id, modal) {
+  if (!WC_STUDIO_IDS.includes(id)) return;
+  const st = wcStudio();
+  modal.classList.add("wc-in-studio");
+  (id === "wcMgrOverlay" ? st.left : st.right).append(modal);
+}
+function wcSyncStudio() {
+  if (wcStudioSyncing) return;
+  wcStudioSyncing = true;
+  try {
+    const grid = wcShown("wcTplOverlay"), ed = wcShown("wcTplEditOverlay");
+    if ((grid || ed) && !wcShown("wcMgrOverlay")) wcOpenManager();   // templates always come with the lists
+    const mgr = wcShown("wcMgrOverlay");
+    const st = wcStudio();
+    st.ov.classList.toggle("show", mgr || grid || ed);
+    st.box.classList.toggle("tpl-on", grid || ed);
+    const g = document.getElementById("wcTplOverlay"), e = document.getElementById("wcTplEditOverlay");
+    if (g) g._wc.modal.style.display = grid && !ed ? "" : "none";
+    if (e) e._wc.modal.style.display = ed ? "" : "none";
+    for (const b of wcSplitBtns) {
+      if (!b.isConnected) continue;   // may be mid-build; never dropped (there is one per Lists footer)
+      b.textContent = grid || ed ? "🎭 Hide templates" : "🎭 Show templates";
+      b.classList.toggle("on", grid || ed);
     }
-    if (wcShown("wcTplEditOverlay")) { wcCloseModal("wcTplEditOverlay"); return; }   // hide; the draft stays
-    wcSplit = true; wcSave("ideogrammar.wcSplit", true);
-    if (wcTplDraft()) wcOpenModal("wcTplEditOverlay");
-    else { wcOpenTemplates(); toast("Pick a template and press Edit — it opens next to the lists.", ""); }
-  });
+  } finally { wcStudioSyncing = false; }
+}
+// Closing a dialog inside the window.
+function wcStudioOnClose(id) {
+  // Closing the editor (×, Esc, Cancel) drops its draft; only "Hide templates" keeps it.
+  if (id === "wcTplEditOverlay") { const e = document.getElementById(id); if (e && e._wc) e._wc.draft = false; }
+  if (id === "wcMgrOverlay") for (const o of ["wcTplEditOverlay", "wcTplOverlay"]) { const x = document.getElementById(o); if (x) x.classList.remove("show"); }
+}
+// Open the window: lists only, or lists with templates.
+function wcOpenStudio(withTemplates) {
+  if (withTemplates) { wcStudioShowTemplates(); return; }
+  for (const o of ["wcTplEditOverlay", "wcTplOverlay"]) { const x = document.getElementById(o); if (x) x.classList.remove("show"); }
+  wcOpenManager("lists");
+}
+function wcStudioShowTemplates() {
+  wcOpenTemplates();
+  if (wcTplDraft()) wcOpenModal("wcTplEditOverlay");   // bring back the template being edited
+}
+function wcStudioHideTemplates() {
+  for (const o of ["wcTplEditOverlay", "wcTplOverlay"]) { const x = document.getElementById(o); if (x) x.classList.remove("show"); }   // the editor keeps its draft
+  wcSyncStudio();
+}
+// The show/hide templates button (Lists footer). The old "lists" side is gone:
+// the lists are always there.
+function wcSplitButton(side) {
+  if (side !== "template") return null;
+  const b = wcEl("button", { title: "Show or hide the templates next to the lists" });
+  b.addEventListener("click", () => { if (wcShown("wcTplOverlay") || wcShown("wcTplEditOverlay")) wcStudioHideTemplates(); else wcStudioShowTemplates(); });
   wcSplitBtns.add(b);
-  setTimeout(wcSyncSplit, 0);
+  setTimeout(wcSyncStudio, 0);
   return b;
 }
-// Template editor opened from the template grid while the lists are up: go side by side.
 (function () {
   const css = document.createElement("style");
   css.id = "wcStudioCSS";
   css.textContent = `
-  body.wc-split #wcMgrOverlay.show { right: 50%; padding-right: 6px; }
-  body.wc-split #wcTplEditOverlay.show { left: 50%; padding-left: 6px; }
-  body.wc-split #wcMgrOverlay .modal, body.wc-split #wcTplEditOverlay .modal { max-width: none !important; width: 100%; height: calc(100vh - 40px); max-height: calc(100vh - 40px); display: flex; flex-direction: column; overflow: hidden; }
-  body.wc-split #wcMgrOverlay .modal-body, body.wc-split #wcTplEditOverlay .modal-body { flex: 1 1 auto; min-height: 0; overflow: auto; }
-  body.wc-split #wcMgrOverlay .modal-foot, body.wc-split #wcTplEditOverlay .modal-foot { flex-wrap: wrap; row-gap: 6px; }
-  body.wc-split #wcMgrOverlay .modal-foot .status, body.wc-split #wcTplEditOverlay .modal-foot .status { flex-basis: 100%; }
-  body.wc-split #wcMgrOverlay .wc-mgr { grid-template-columns: minmax(170px, 34%) 1fr; }
-  body.wc-split #wcTplEditOverlay .wc-2col { grid-template-columns: 1fr; }
+  #wcMgrOverlay.show, #wcTplOverlay.show, #wcTplEditOverlay.show { display: none !important; }
+  #studioOverlay { padding: 14px; }
+  .wc-studio { display: grid; grid-template-columns: 1fr; gap: 10px; width: 100%; max-width: 1800px; height: calc(100vh - 28px); }
+  .wc-studio.tpl-on { grid-template-columns: minmax(380px, 1fr) minmax(420px, 1.15fr); }
+  .wc-studio:not(.tpl-on) .wc-pane-r { display: none; }
+  .wc-pane { min-width: 0; min-height: 0; display: flex; }
+  .wc-pane > .modal.wc-in-studio { max-width: none !important; width: 100%; height: 100%; max-height: 100%; display: flex; flex-direction: column; overflow: hidden; animation: none; }
+  .wc-pane > .modal.wc-in-studio[style*="display: none"] { display: none !important; }
+  .wc-in-studio .modal-body { flex: 1 1 auto; min-height: 0; overflow: auto; }
+  .wc-in-studio .modal-foot { flex-wrap: wrap; row-gap: 6px; }
+  .wc-studio.tpl-on .wc-pane-l .wc-mgr { grid-template-columns: minmax(170px, 38%) 1fr; }
+  .wc-studio.tpl-on .wc-pane-r .wc-2col { grid-template-columns: 1fr; }
+  .wc-studio.tpl-on .wc-pane-l .modal-foot .status { flex-basis: 100%; }
+  @media (max-width: 900px) { .wc-studio.tpl-on { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; } }
   .wc-ac { position: fixed; z-index: 10000; min-width: 220px; max-width: 420px; max-height: 280px; overflow: auto; background: var(--panel, #11161f); border: 1px solid var(--border-strong, #2a3240); border-radius: 8px; box-shadow: 0 12px 30px rgba(0,0,0,.5); padding: 4px; font-size: 12.5px; }
   .wc-ac div { display: flex; justify-content: space-between; gap: 12px; padding: 5px 8px; border-radius: 5px; cursor: pointer; white-space: nowrap; }
   .wc-ac div.on, .wc-ac div:hover { background: rgba(243,36,70,.16); }
   .wc-ac em { color: var(--faint, #7d8796); font-style: normal; font-size: 11px; }
   .wc-ac b { font-weight: 700; color: var(--text, #e5e7eb); }
   .wc-ac .wc-ac-hint { color: var(--faint, #7d8796); cursor: default; font-size: 11px; }
-  .wc-ac .wc-ac-hint:hover { background: transparent; }
-  @media (max-width: 900px) { body.wc-split #wcMgrOverlay.show { right: 0; bottom: 50%; padding-right: 20px; } body.wc-split #wcTplEditOverlay.show { left: 0; top: 50%; padding-left: 20px; } body.wc-split #wcMgrOverlay .modal, body.wc-split #wcTplEditOverlay .modal { height: calc(50vh - 30px); max-height: calc(50vh - 30px); } }`;
+  .wc-ac .wc-ac-hint:hover { background: transparent; }`;
   document.head.append(css);
 })();
 
