@@ -14,6 +14,7 @@
     "ideogrammar.refinePresets", "ideogrammar.genOptions", "ideogrammar.genTemplates", "ideogrammar.genStyleTpl",
     "ideogrammar.wildcards", "ideogrammar.styleTemplates", "ideogrammar.wcRules", "ideogrammar.wcSync",
     "ideogrammar.wcAutoRoll", "ideogrammar.wcPaletteFollow", "ideogrammar.tplPreviews",
+    "ideogrammar.listCategories", "ideogrammar.listCollapsed", "ideogrammar.tplCategories", "ideogrammar.wcSplit",
     "ideogram_grid_layout", "ideogram_grid_preset", "ideogrammar.thumbSize", "ideogrammar.promptSide",
     "ideogrammar.promptSidePretty", "ideogrammar.viewerSpeed", "ideogram_editor_state",
   ]);
