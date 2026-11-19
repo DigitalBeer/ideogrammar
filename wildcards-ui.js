@@ -258,16 +258,28 @@ function wcApplyRolledPalettes(st, r, written) {
     const pre = "e:" + (el.wild && el.wild.key) + ".";
     if (!written.some(p => p.startsWith(pre))) continue;
     const hex = collect(f => f.startsWith(pre));
-    if (hex.length) el.color_palette = hex.slice(0, 4);
-    else if (WC_DEMO_PALETTES.includes(JSON.stringify(el.color_palette))) el.color_palette = [];   // the example's leftover palette would tint it
+    if (hex.length) { el.color_palette = hex.slice(0, 4); el.wild.palRolled = JSON.stringify(el.color_palette); }
+    else if (wcIsLeftoverPalette(el.color_palette, el.wild.palRolled)) { el.color_palette = []; delete el.wild.palRolled; }   // an old roll's or the example's palette would tint it
   }
   const globalWritten = written.filter(p => !p.startsWith("e:"));
   const tpl = wcGetTemplate(st.wild && st.wild.templateId);
   if (globalWritten.length && !(tpl && tpl.global && Array.isArray(tpl.global.color_palette) && tpl.global.color_palette.length)) {
     const hex = collect(f => !f.startsWith("e:"));
-    if (hex.length) st.style_description.color_palette = hex.slice(0, 5);
-    else if (WC_DEMO_PALETTES.includes(JSON.stringify(st.style_description.color_palette))) st.style_description.color_palette = [];
+    if (hex.length) { st.style_description.color_palette = hex.slice(0, 5); if (st.wild) st.wild.palRolled = JSON.stringify(st.style_description.color_palette); }
+    else if (wcIsLeftoverPalette(st.style_description.color_palette, st.wild && st.wild.palRolled)) { st.style_description.color_palette = []; if (st.wild) delete st.wild.palRolled; }
   }
+}
+// A palette nobody chose by hand: the starting example's, one an earlier roll
+// set (remembered in palRolled, or — for rolls made before that was tracked —
+// made only of starter colour-list hex codes). A roll that picks no colour for
+// that element clears it, so last roll's magenta doesn't dress every new roll.
+function wcIsLeftoverPalette(pal, rolled) {
+  if (!Array.isArray(pal) || !pal.length) return false;
+  const j = JSON.stringify(pal);
+  if (WC_DEMO_PALETTES.includes(j) || (rolled && rolled === j)) return true;
+  if (typeof WC_COLOUR_HEX !== "object") return false;
+  const known = new Set(Object.values(WC_COLOUR_HEX).map(h => String(h).toUpperCase()));
+  return pal.every(h => known.has(String(h).toUpperCase()));
 }
 // Deterministic re-run without writing: the trace of the current state's picks.
 function wcCurrentTrace() {
@@ -475,7 +487,7 @@ function wcApplyTemplateTo(st, tpl, { image = true, elementKeys = null } = {}) {
     for (const k of WC_TPL_GLOBAL_KEYS) if (G[k] !== undefined) setGlobal("style." + k, () => { st.style_description[k] = G[k]; });
     if (G.background !== undefined) setGlobal("background", () => { st.background = G.background; });
     if (Array.isArray(G.color_palette) && G.color_palette.length) st.style_description.color_palette = G.color_palette.map(c => String(c).toUpperCase());
-    else if (WC_DEMO_PALETTES.includes(JSON.stringify(st.style_description.color_palette))) st.style_description.color_palette = [];   // drop the example's palette
+    else if (wcIsLeftoverPalette(st.style_description.color_palette, st.wild && st.wild.palRolled)) { st.style_description.color_palette = []; if (st.wild) delete st.wild.palRolled; }   // drop the example's or an old roll's palette
     if (G.hld_suffix || typeof st.wild.hldBase === "string") {
       const baseText = typeof st.wild.hldBase === "string" ? st.wild.hldBase : st.high_level_description;
       delete st.wild.src.hld;
@@ -499,7 +511,7 @@ function wcApplyTemplateTo(st, tpl, { image = true, elementKeys = null } = {}) {
     const prevT = el.wild.templateId && el.wild.templateId !== tpl.id ? wcGetTemplate(el.wild.templateId) : null;
     if (prevT) for (const k of ELEMENT_STYLE_KEYS) if (prevT.element && prevT.element[k]) { delete el.style[k]; delete el.wild.src["style." + k]; }
     el.wild.templateId = tpl.id;
-    if (WC_DEMO_PALETTES.includes(JSON.stringify(el.color_palette))) el.color_palette = [];   // drop the example's palette
+    if (wcIsLeftoverPalette(el.color_palette, el.wild.palRolled)) { el.color_palette = []; delete el.wild.palRolled; }   // drop the example's or an old roll's palette
     for (const k of ELEMENT_STYLE_KEYS) {
       if (E[k] == null || E[k] === "") continue;
       el.style[k] = E[k];

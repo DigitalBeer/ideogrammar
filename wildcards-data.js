@@ -56,7 +56,7 @@ const WC_BUILTIN_LISTS = {
   "clothes/hats": `baseball cap\nbeanie\nfedora\nbucket hat\nberet\nwide-brim sun hat\nsnapback`,
   "clothes/shoes": `sneakers\ncombat boots\nloafers\nhigh-top trainers\nsandals\nheels\nhiking boots\nslip-ons`,
   "clothes/accessories": `aviator sunglasses\nsilver chain necklace\nwristwatch\nheadphones around the neck\nbackpack\nscarf\nhoop earrings\nleather gloves`,
-  "clothes/sportswear": `[sport=football,basketball,ice hockey,baseball] __colours__ team jersey with a number\n[sport=football] football kit in __colours__ and __colours__\n[sport=tennis] {tennis whites|__colours__ tennis dress|polo shirt and shorts with a sweatband}\n[sport=boxing] {boxing robe|__colours__ boxing shorts and gloves}\n[sport=Formula racing] __colours__ racing suit and helmet\n[sport=surfing] wetsuit\n[sport=sprinting] {__colours__ running vest and shorts|compression top}\n[sport=skateboarding] {hoodie and cargo trousers|graphic tee and ripped jeans}\n[sport=golf] polo shirt and chinos\n[sport=rock climbing] chalk bag and climbing harness\n[sport!=*] {__colours__ team jersey with a number|compression top|tracksuit|boxing robe|racing suit|wetsuit|tennis whites}`,
+  "clothes/sportswear": `[sport=football,basketball,ice hockey,baseball] __colours__ team jersey with a number\n[sport=football] football kit in __colours__ and __colours__\n[sport=tennis] {tennis whites|__colours__ tennis dress|polo shirt and shorts with a sweatband}\n[sport=boxing] {boxing robe|__colours__ boxing shorts and gloves}\n[sport=Formula racing] __colours__ racing suit and helmet\n[sport=surfing] wetsuit\n[sport=sprinting] {__colours__ running vest and shorts|compression top}\n[sport=skateboarding] {__colours__ hoodie and cargo trousers|__colours__ graphic tee and {ripped jeans|baggy chinos|shorts}|oversized __colours__ flannel shirt and __colours__ skate shorts}\n[sport=golf] polo shirt and chinos\n[sport=rock climbing] chalk bag and climbing harness\n[sport!=*] {__colours__ team jersey with a number|compression top|tracksuit|boxing robe|racing suit|wetsuit|tennis whites}`,
   "clothes/outfit": `__colours__ __clothes/tops__, __clothes/bottoms__ and __clothes/shoes__\n__colours__ __clothes/outerwear__ over a __clothes/tops__, __clothes/bottoms__\n{__clothes/hats__, |}__colours__ __clothes/tops__ with __clothes/accessories__`,
 
   // ---- style
@@ -158,7 +158,7 @@ const WC_BUILTIN_TEMPLATES = [
       medium: "motion picture still",
       background: "__places__ at __time-of-day__, __weather__",
     },
-    element: { camera: "__camera/shots__", lighting: "{motivated side light|soft fill with hard back light}", mood: "__moods__" },
+    element: { camera: "__camera/shots__", lighting: "{motivated side light|soft fill with hard back light}", wardrobe: "__clothes/outfit__", mood: "__moods__" },
   },
   {
     id: "film-noir", name: "Film noir", category: "Film", scope: "both",
@@ -227,7 +227,7 @@ const WC_BUILTIN_TEMPLATES = [
       medium: "documentary photograph",
       background: "__places__, __weather__",
     },
-    element: { camera: "__camera/shots__", mood: "{absorbed|weathered|resilient}" },
+    element: { camera: "__camera/shots__", wardrobe: "__clothes/outfit__", mood: "{absorbed|weathered|resilient}" },
   },
   {
     id: "concert", name: "Concert / live", category: "Music", scope: "both",
@@ -238,7 +238,7 @@ const WC_BUILTIN_TEMPLATES = [
       medium: "live music photograph",
       background: "{packed arena|small club stage|festival main stage at night} with silhouetted crowd",
     },
-    element: { lighting: "hard backlight through haze", pose: "{mid-song with mic|guitar raised|leaning into the crowd}", mood: "{euphoric|raw|intense}" },
+    element: { lighting: "hard backlight through haze", wardrobe: "{__colours__ stage outfit|__clothes/outfit__}", pose: "{mid-song with mic|guitar raised|leaning into the crowd}", mood: "{euphoric|raw|intense}" },
   },
 ];
 
