@@ -583,6 +583,122 @@ function wcGenerateIngredients() {
 }
 
 /* ------------------------------------------------------------------ */
+/*  The AI and templates: who decides what                            */
+/* ------------------------------------------------------------------ */
+// The template is in charge of the "how" (light, camera, clothes, place...) and
+// re-rolls it; the AI model is in charge of the "what" (who, doing what, where
+// in the frame). These keep the AI from baking the how into fixed text.
+
+// The style template chosen in Generate (resolving "the image's current template").
+function wcGenTemplate() {
+  const sel = document.getElementById("genStyleTpl");
+  const v = sel ? sel.value : wcLoad(WCS_GENTPL_KEY, "@current");
+  return wcGetTemplate(v === "@current" ? (state.wild && state.wild.templateId) : v);
+}
+// Plain-words list of what a template rolls, for telling the AI to leave it out.
+const WC_TPL_ASPECTS = {
+  aesthetics: "the visual style", medium: "the medium (photo, painting...)", art_style: "the art style", lighting: "the lighting",
+  photo: "camera, lens and framing technique", background: "the setting, location, time of day and weather",
+  camera: "camera angle and shot type", lens: "lens", wardrobe: "clothing, outfit colours and accessories", pose: "the pose",
+  environment: "the surroundings", mood: "the mood and expression", extra: "props and small extras",
+};
+function wcTemplateAspects(tpl) {
+  if (!tpl) return [];
+  const T = wcTemplateFor(tpl, aiTarget()), G = T.global || {}, E = T.element || {};
+  const keys = [...Object.keys(G).filter(k => G[k] && WC_TPL_ASPECTS[k]), ...Object.keys(E).filter(k => E[k] && WC_TPL_ASPECTS[k])];
+  const out = Array.from(new Set(keys.map(k => WC_TPL_ASPECTS[k])));
+  if ((G.color_palette && G.color_palette.length) || E.wardrobe) out.push("colour palette");
+  return Array.from(new Set(out));
+}
+// ✍ Improve description, when a template is chosen: write only the what.
+function wcImproveDirective() {
+  const tpl = wcGenTemplate();
+  const aspects = wcTemplateAspects(tpl);
+  if (!tpl || !aspects.length) return "";
+  return `\n\nIMPORTANT: the “${tpl.name}” style template decides — and re-rolls on every render — ${aspects.join(", ")}. Do NOT mention any of those. Describe ONLY: who or what is in the picture (how many, age range, hair, build), what each is doing, their expression only if the template doesn't set the mood, where each sits in the frame (left/right/centre, near/far, full body or close-up), any props they hold, and any words the image must show, in double quotes. 2 to 4 sentences.`;
+}
+// Generate: link the new setup to the chosen template, so 🎲 Roll and queue
+// re-rolls keep varying it. The template's fields replace the model's fixed
+// wording of them and are rolled right away.
+function wcLinkGenerated(st) {
+  if (st.wild) { delete st.wild.hldBase; if (st.wild.src) delete st.wild.src.hld; }   // the old setup's description text isn't the new one's
+  const tpl = wcGenTemplate();
+  if (!tpl) return false;
+  wcApplyTemplateTo(st, tpl);
+  wcRollInto(st, { newSeed: true, onlyUnresolved: true });
+  return true;
+}
+// Refine: tell the model which fields the template rolls.
+function wcTemplateFieldsOf(st) {
+  const g = WC_GLOBAL_FIELDS.filter(f => st.wild && st.wild.src && st.wild.src[f.path] && f.path !== "hld").map(f => f.path === "background" ? "background" : "style_description." + f.path.slice(6));
+  const e = new Set();
+  for (const el of st.elements) for (const k of ELEMENT_STYLE_KEYS) if (el.wild && el.wild.src && el.wild.src["style." + k]) e.add(k);
+  return { g, e: Array.from(e) };
+}
+function wcRefineDirective(st) {
+  const { g, e } = wcTemplateFieldsOf(st || state);
+  if (!g.length && !e.length) return "";
+  const parts = [...g, ...e.map(k => `the elements' "style.${k}"`)];
+  return `\n\nThese fields come from a style template that re-rolls them automatically: ${parts.join(", ")}. Return them EXACTLY as given unless the change request is specifically about them.`;
+}
+// Words that show a change request is about a field. Used after Refine: a
+// template field the model changed is kept (and stops rolling) only when the
+// request is about it; otherwise the rolled value comes back.
+const WC_FIELD_WORDS = {
+  lighting: "light|lit|shadow|dark|bright|sun|glow|neon|night|dusk|dawn|golden|moody|silhouette|flash",
+  photo: "camera|lens|angle|shot|close|wide|zoom|focus|telephoto|mm\\b|aperture|depth|bokeh|blur",
+  camera: "camera|angle|shot|close|wide|zoom|overhead|low angle|high angle|framing",
+  lens: "lens|mm\\b|aperture|focus|bokeh|telephoto|wide|fisheye|depth",
+  aesthetics: "style|look|aesthetic|grade|vibe|retro|vintage|cinematic|gritty|clean|minimal",
+  medium: "medium|photo|painting|illustration|render|drawing|anime|cartoon|sketch|film|3d",
+  art_style: "style|painting|illustration|anime|cartoon|sketch|art",
+  background: "background|setting|location|place|scene|behind|weather|rain|snow|fog|city|street|indoor|outdoor|park|beach|sky|room|studio|forest|night|day|sunset",
+  environment: "background|setting|surround|location|place|scene|behind|weather|indoor|outdoor",
+  wardrobe: "outfit|cloth|wear|dress|shirt|top|hoodie|jacket|coat|trousers|jeans|shorts|skirt|shoe|trainer|sneaker|boot|hat|cap|uniform|colou?r",
+  pose: "pose|stand|sit|jump|run|arm|hand|kneel|crouch|lean|action|move|ollie|trick|walk",
+  mood: "mood|expression|smil|angry|happy|sad|serious|feel|emotion|face",
+  extra: "hold|prop|accessor|extra|carry|add",
+};
+function wcRequestIsAbout(key, instruction) {
+  const words = WC_FIELD_WORDS[key];
+  if (!words) return false;
+  let re = words;
+  if (key === "wardrobe" && typeof WC_COLOUR_HEX === "object") re += "|" + Object.keys(WC_COLOUR_HEX).map(c => c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+  return new RegExp("\\b(" + re + ")", "i").test(String(instruction || ""));
+}
+// After Refine: for each template-rolled field the model changed, either keep the
+// change (request was about it — the field stops rolling) or put the rolled value back.
+function wcAfterRefine(prev, st, instruction) {
+  const kept = [], restored = [];
+  if (st.wild && st.wild.src) for (const f of WC_GLOBAL_FIELDS) {
+    if (f.path === "hld" || !st.wild.src[f.path]) continue;
+    const before = f.get(prev), now = f.get(st);
+    if (before === now) continue;
+    const key = f.path === "background" ? "background" : f.path.slice(6);
+    if (wcRequestIsAbout(key, instruction)) { delete st.wild.src[f.path]; kept.push(f.label); }
+    else { f.set(st, before); restored.push(f.label); }
+  }
+  for (const el of st.elements) {
+    const src = el.wild && el.wild.src;
+    if (!src) continue;
+    const old = prev.elements.find(p => p.wild && p.wild.key === el.wild.key);
+    if (!old) continue;
+    for (const k of ELEMENT_STYLE_KEYS) {
+      if (!src["style." + k]) continue;
+      const before = (old.style && old.style[k]) || "", now = (el.style && el.style[k]) || "";
+      if (before === now) continue;
+      if (wcRequestIsAbout(k, instruction)) {
+        delete src["style." + k]; kept.push(k);
+        // the rolled colour's palette would tint the new outfit — unless the model chose a new one
+        if (k === "wardrobe" && el.wild.palRolled && JSON.stringify(el.color_palette) === el.wild.palRolled) { el.color_palette = []; delete el.wild.palRolled; }
+      }
+      else { el.style = el.style || {}; if (before) el.style[k] = before; else delete el.style[k]; restored.push(k); }
+    }
+  }
+  return { kept, restored };
+}
+
+/* ------------------------------------------------------------------ */
 /*  Modal plumbing (same look as the app's own modals)                */
 /* ------------------------------------------------------------------ */
 function wcModal(id, title, maxWidth) {
@@ -1467,8 +1583,9 @@ function wcInstallGenerateOption() {
   if (!grid || document.getElementById("genStyleTpl")) return;
   const sel = wcEl("select", { id: "genStyleTpl", title: "Roll a style template and ask the model to follow it" });
   const fill = () => {
-    const v = sel.value || wcLoad(WCS_GENTPL_KEY, "");
-    sel.replaceChildren(wcEl("option", { value: "" }, "None"), wcEl("option", { value: "@current" }, "The image's current template"));
+    const v = sel.value || wcLoad(WCS_GENTPL_KEY, "@current");   // default: follow the image's template
+    const cur = wcGetTemplate(state.wild && state.wild.templateId);
+    sel.replaceChildren(wcEl("option", { value: "" }, "None"), wcEl("option", { value: "@current" }, "The image's current template" + (cur ? " (" + cur.name + ")" : " (none yet)")));
     const cats = {};
     for (const t of wcAllTemplates()) if (t.scope !== "element") (cats[t.category || "Other"] = cats[t.category || "Other"] || []).push(t);
     for (const [c, ts] of Object.entries(cats)) sel.append(wcEl("optgroup", { label: c }, ts.map(t => wcEl("option", { value: t.id }, t.name))));

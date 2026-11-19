@@ -70,6 +70,7 @@
   <a class="sub" href="#wizard">The template wizard</a>
   <a class="sub" href="#match">Make things match</a>
   <a class="sub" href="#subject">Where the subject goes</a>
+  <a class="sub" href="#ai-buttons">Improve, Generate, Refine, Render</a>
   <a class="sub" href="#previews">Preview images</a>
   <a href="#lists">Wildcard lists</a>
   <a class="sub" href="#lists-with-templates">Lists + templates</a>
@@ -171,6 +172,15 @@
   <li><b>Wildcards in the description.</b> Write <code>a __people/ages__ __people/roles__</code> in a person's description. Every roll gives a new subject while the template keeps the look.</li>
   <li><b>In the template.</b> The wizard's <b>Who / what</b> box (step 3) is put in front of each styled element's description, so the template supplies the subject. Leave the description empty, or keep a few words there. <b>Add to the description</b> (step 2) does the same for the high-level description.</li>
 </ol>
+<h3 id="ai-buttons">Improve, Generate, Refine and Render with a template</h3>
+<p>The template decides <i>how</i> the picture looks (clothes, light, camera, setting) and re-rolls it every time. The AI model decides <i>what</i> is in it and where: who, doing what, and the boxes.</p>
+<ul>
+  <li><b>✍ Improve description</b> only rewrites the text in the Generate box. With a style template chosen, it describes the people, what they're doing and where they sit in the frame, and leaves out clothes, light, place and the other things the template rolls.</li>
+  <li><b>Generate</b> has the model build the layout (elements and boxes) from that text, then links the new elements to the template and rolls it. 🎲 Roll and queue re-rolls keep varying the look.</li>
+  <li><b>Refine</b> changes the existing setup. Fields the template rolls are put back unless your request is about them: <i>"move her to the left"</i> keeps the rolled outfit, <i>"make her outfit red"</i> keeps the red outfit, and that field stops rolling until you apply the template again.</li>
+  <li><b>Render</b> sends the setup as it is to ComfyUI. It doesn't use the AI model. <b>Generate &amp; render</b> does both in one go.</li>
+</ul>
+<p>Generate's <span class="ui">Style template</span> option follows the image's current template unless you pick another, or <i>None</i>.</p>
 <p>Keeping subjects out of templates means any template works with any subject. Use <i>Who / what</i> when the template only makes sense with its own subject (e.g. "boxer" for a boxing poster).</p>
 
 <!-- ============================================================ -->

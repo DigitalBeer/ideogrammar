@@ -3216,14 +3216,14 @@ const GEN_OPT_IDS = { people: "genPeople", look: "genLook", text: "genText", pal
 function readGenOptions() { const o = {}; Object.entries(GEN_OPT_IDS).forEach(([k, id]) => { o[k] = $(id).value; }); o.ask = $("genAsk").checked; return o; }
 function writeGenOptions(o) { o = o || {}; Object.entries(GEN_OPT_IDS).forEach(([k, id]) => { $(id).value = o[k] || ""; if ($(id).selectedIndex < 0) $(id).value = ""; }); $("genAsk").checked = !!o.ask; }
 function saveGenOptions() { try { localStorage.setItem(GEN_OPTS_KEY, JSON.stringify(readGenOptions())); } catch (_) {} }
-function genOptionsDirective() {
+function genOptionsDirective(noTemplate) {
   const o = readGenOptions(), req = [];
   if (o.people !== "") req.push(o.people === "0" ? "No people or animals at all." : o.people === "6" ? "Six or more people, each as its own \"subject\" element." : `Exactly ${o.people} ${o.people === "1" ? "person" : "people"} — one "subject" element each, and no other people.`);
   if (o.look) req.push("Look: " + GEN_LOOKS[o.look] + ".");
   if (o.text) req.push(GEN_TEXT[o.text]);
   if (o.palette !== "") { const p = PALETTE_PRESETS[+o.palette]; if (p) req.push(`Use this colour palette (style_description.color_palette and the elements): ${p.colors.join(", ")} (“${p.name}”).`); }
   if (o.layout) req.push(LAYOUT_TEMPLATES[o.layout].guide);
-  if (typeof wcGenerateIngredients === "function") { const ing = wcGenerateIngredients(); if (ing) req.push(ing); }
+  if (!noTemplate && typeof wcGenerateIngredients === "function") { const ing = wcGenerateIngredients(); if (ing) req.push(ing); }
   return req.length ? "\n\nREQUIREMENTS (must be followed exactly):\n- " + req.join("\n- ") : "";
 }
 function loadGenTemplates() { try { const a = JSON.parse(localStorage.getItem(GEN_TEMPLATES_KEY)); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
@@ -3261,15 +3261,16 @@ async function improveGenDescription() {
   if (!text) { setGenStatus("Type a rough idea first, then improve it.", "err"); return; }
   $("genImprove").disabled = true;
   setGenStatus('<span class="spinner"></span>Improving the description…', "");
+  const tplRule = typeof wcImproveDirective === "function" ? wcImproveDirective() : "";   // a style template decides the how: describe only the what
   try {
-    const sys = `You improve image descriptions for a layout designer that will turn them into an image-generation prompt for ${aiTarget() === "moss" ? "the Moss Image model" : "the Ideogram 4 model"}. Rewrite the user's rough idea as one rich, specific description of 3 to 6 sentences: the subject(s) — for people give a clearly distinct look for each (age range, clothing colours, hair, pose, what their hands are doing) and state how many there are — the setting, the composition (what is where in the frame), lighting, colour mood and style/medium, and any words the image must show, in double quotes. Keep everything the user specified; fill gaps with concrete choices. Return ONLY the description as plain text — no preamble, no headings, no lists, no quotes around it.` + genOptionsDirective();
+    const sys = `You improve image descriptions for a layout designer that will turn them into an image-generation prompt for ${aiTarget() === "moss" ? "the Moss Image model" : "the Ideogram 4 model"}. Rewrite the user's rough idea as one rich, specific description of 3 to 6 sentences: the subject(s) — for people give a clearly distinct look for each (age range, clothing colours, hair, pose, what their hands are doing) and state how many there are — the setting, the composition (what is where in the frame), lighting, colour mood and style/medium, and any words the image must show, in double quotes. Keep everything the user specified; fill gaps with concrete choices. Return ONLY the description as plain text — no preamble, no headings, no lists, no quotes around it.` + (tplRule ? genOptionsDirective(true) + tplRule : genOptionsDirective());
     const out = cleanRefinedText(await llmText(sys, text));
     if (!out) throw new Error("The model returned an empty description.");
     _genTextBeforeImprove = text;
     $("genPrompt").value = out;
     $("genImproveUndo").style.display = "";
     resetGenQuestions();
-    setGenStatus("Description improved — edit it if you like, then Generate.", "ok");
+    setGenStatus(tplRule ? "Description improved — it covers who and what; the style template adds clothes, light and setting on every roll." : "Description improved — edit it if you like, then Generate.", "ok");
   } catch (err) { setGenStatus(err.message || String(err), "err"); }
   finally { $("genImprove").disabled = false; }
 }
@@ -3405,7 +3406,7 @@ async function generateSetup(opts = {}) {
   if (extract === "composition" || extract === "style") {
     return proposeChange({ label: extract === "style" ? "Style from image" : "Composition from image", detail: guide || userPrompt, review, builds: results.map(parsed => prev => applyLLMLayout(parsed, prev, true)) });
   }
-  const applied = await proposeChange({ label: "Generate: " + short(userPrompt || "from image", 50), detail: userPrompt || "(from the reference image)", review, builds: results.map(parsed => prev => applyLLMLayout(parsed, prev, false)) });
+  const applied = await proposeChange({ label: "Generate: " + short(userPrompt || "from image", 50), detail: userPrompt || "(from the reference image)", review, builds: results.map(parsed => prev => { applyLLMLayout(parsed, prev, false); if (typeof wcLinkGenerated === "function") wcLinkGenerated(state); }) });
   if (!applied) return false;
   sourceImageDataUrl = image || null;   // remember it so renders can compare against the reference
   sourceImageRef = null;
@@ -3637,7 +3638,7 @@ async function runRefine(opts) {
   const userMsg = "Current setup:\n" + JSON.stringify(current, null, 2) + lockDirective(lockedEls) + "\n\nChange request:\n" + instruction;
   const body = {
     model: cfg.model,
-    messages: [{ role: "system", content: REFINE_SYSTEM_PROMPT + targetDirective() }, { role: "user", content: userMsg }],
+    messages: [{ role: "system", content: REFINE_SYSTEM_PROMPT + targetDirective() + (typeof wcRefineDirective === "function" ? wcRefineDirective(state) : "") }, { role: "user", content: userMsg }],
     temperature: cfg.temperature,
     response_format: { type: "json_object" }
   };
@@ -3645,7 +3646,7 @@ async function runRefine(opts) {
   try {
     const results = await llmLayouts(cfg, headers, body, aiVariations);
     setRefineStatus(results.length > 1 ? "Pick a variation…" : "Review the change…", "");
-    const applied = await proposeChange({ label: "Refine: " + short(instruction, 50), detail: instruction + (_aiScope ? "\n(only the selected elements)" : ""), builds: results.map(parsed => prev => applyLLMLayout(parsed, prev, true)) });
+    const applied = await proposeChange({ label: "Refine: " + short(instruction, 50), detail: instruction + (_aiScope ? "\n(only the selected elements)" : ""), builds: results.map(parsed => prev => { applyLLMLayout(parsed, prev, true); if (typeof wcAfterRefine === "function") wcAfterRefine(prev, state, instruction); }) });
     if (!applied) { setRefineStatus("Discarded — nothing changed.", ""); return; }
     setRefineStatus("Refined ✓", "ok");
     toast("Setup refined ✓", "ok");
