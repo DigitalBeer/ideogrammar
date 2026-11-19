@@ -731,16 +731,24 @@ function wcModal(id, title, maxWidth) {
   ov.addEventListener("click", e => { if (e.target === ov && pressedSelf) wcCloseModal(id); });
   document.body.append(ov);
   ov._wc = { ov, modal, body, foot, status, h2, setStatus: (msg, cls) => { status.innerHTML = msg || ""; status.className = "status " + (cls || ""); } };
+  if (typeof wcStudioAdopt === "function") wcStudioAdopt(id, modal);   // lists + templates share one window
   return ov._wc;
 }
-function wcOpenModal(id) { document.getElementById(id).classList.add("show"); if (typeof wcSyncSplit === "function") wcSyncSplit(); }
-function wcCloseModal(id) { const o = document.getElementById(id); if (o) o.classList.remove("show"); if (typeof wcSyncSplit === "function") wcSyncSplit(); }
+function wcOpenModal(id) { document.getElementById(id).classList.add("show"); if (typeof wcSyncStudio === "function") wcSyncStudio(); }
+function wcCloseModal(id) {
+  const o = document.getElementById(id); if (o) o.classList.remove("show");
+  if (typeof wcStudioOnClose === "function") wcStudioOnClose(id);
+  if (typeof wcSyncStudio === "function") wcSyncStudio();
+}
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
   if (wcPopEl && wcPopEl.style.display !== "none") { wcClosePop(); e.stopPropagation(); return; }
   if (wcMenuEl && wcMenuEl.style.display !== "none") { wcCloseMenu(); return; }
-  const open = Array.from(document.querySelectorAll(".overlay.show")).filter(o => o.id.startsWith("wc"));
-  if (open.length) wcCloseModal(open[open.length - 1].id);
+  // Topmost first; inside the lists + templates window: editor, then grid, then the lists.
+  const rank = { wcMgrOverlay: 1, wcTplOverlay: 2, wcTplEditOverlay: 3 };
+  const open = Array.from(document.querySelectorAll(".overlay.show")).filter(o => o.id.startsWith("wc"))
+    .map((o, i) => [rank[o.id] || 10 + i, o.id]).sort((a, b) => a[0] - b[0]);
+  if (open.length) wcCloseModal(open[open.length - 1][1]);
 }, true);
 
 /* ------------------------------------------------------------------ */
@@ -995,8 +1003,8 @@ function wcInstallHeader() {
   if (!after || document.getElementById("wcRollBtn")) return;
   const roll = wcEl("button", { class: "has-label", id: "wcRollBtn", title: "Roll wildcards: new picks for every 🎲 field (locked picks stay)", "aria-label": "Roll wildcards", onclick: wcRollAll }, wcEl("span", { class: "bico" }, "🎲"), wcEl("span", {}, "Roll"));
   const menu = wcEl("button", { id: "wcMenuBtn", title: "Wildcard options: roll selected, roll ×N, AI polish, batch, seed, lists", "aria-label": "Wildcard menu", onclick: e => wcToggleMenu(e.currentTarget) }, "▾");
-  const tpl = wcEl("button", { class: "has-label", id: "wcTplBtn", title: "Style templates (magazine, sports game, cinematic…)", "aria-label": "Style templates", onclick: () => wcOpenTemplates() }, wcEl("span", { class: "bico" }, "🎭"), wcEl("span", {}, "Templates"));
-  const lists = wcEl("button", { class: "has-label", id: "wcListsBtn", title: "Wildcard lists & rules: edit, add lists and categories, import, sync", "aria-label": "Wildcard lists", onclick: () => wcOpenManager("lists") }, wcEl("span", { class: "bico" }, "📚"), wcEl("span", {}, "Lists"));
+  const tpl = wcEl("button", { class: "has-label", id: "wcTplBtn", title: "Style templates (magazine, sports game, cinematic…)", "aria-label": "Style templates", onclick: () => wcOpenStudio(true) }, wcEl("span", { class: "bico" }, "🎭"), wcEl("span", {}, "Templates"));
+  const lists = wcEl("button", { class: "has-label", id: "wcListsBtn", title: "Wildcard lists & rules: edit, add lists and categories, import, sync", "aria-label": "Wildcard lists", onclick: () => wcOpenStudio(false) }, wcEl("span", { class: "bico" }, "📚"), wcEl("span", {}, "Lists"));
   const help = wcEl("button", { id: "wcHelpBtn", title: "Help: step-by-step guide, templates, wildcards and rolling", "aria-label": "Help", onclick: () => wcOpenHelp() }, "?");
   after.insertAdjacentElement("afterend", help);
   after.insertAdjacentElement("afterend", lists);
@@ -1022,10 +1030,10 @@ function wcOpenTemplates() {
       m.search, m.cats, wcEl("div", { style: { height: "10px" } }), m.grid);
     m.foot.append(
       wcEl("button", { title: "How templates, lists and rolling work", onclick: () => wcOpenHelp("templates") }, "📖 Help"),
-      wcEl("button", { onclick: () => wcOpenManager("lists") }, "📚 Wildcard lists"),
       wcEl("button", { title: "Build a template step by step from the wildcard lists", onclick: () => wcOpenWizard() }, "🧭 Template wizard"),
       wcEl("button", { onclick: () => wcOpenTemplateEditor(null) }, "＋ New template"),
-      wcEl("button", { class: "primary", onclick: () => wcCloseModal("wcTplOverlay") }, "Close"));
+      wcEl("button", { title: "Hide the templates; the lists stay", onclick: () => wcCloseModal("wcTplOverlay") }, "Hide templates"),
+      wcEl("button", { class: "primary", title: "Close lists and templates", onclick: () => wcCloseModal("wcMgrOverlay") }, "Close"));
   }
   wcRenderTemplates();
   wcOpenModal("wcTplOverlay");
@@ -1185,7 +1193,6 @@ function wcOpenTemplateEditor(t) {
   };
   m.foot.replaceChildren(m.status,
     wcEl("button", { onclick: () => { try { wcSampleTemplate(collect(), sampleOut); m.setStatus(""); } catch (err) { m.setStatus(err.message, "err"); } } }, "🎲 Sample"),
-    typeof wcSplitButton === "function" ? wcSplitButton("lists") : null,
     wcEl("button", { onclick: () => { m.draft = false; wcCloseModal("wcTplEditOverlay"); } }, "Cancel"),
     wcEl("button", { class: "primary", onclick: () => {
       try { const out = collect(); wcSaveTemplate(out); m.draft = false; wcCloseModal("wcTplEditOverlay"); if (document.getElementById("wcTplOverlay")) wcRenderTemplates(); toast("Template saved ✓", "ok"); render(); }
