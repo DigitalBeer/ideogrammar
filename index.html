@@ -386,10 +386,42 @@
   .progress > div { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .2s ease; }
   .render-row { display: flex; align-items: center; gap: 10px; }
   .render-img-wrap img { cursor: zoom-in; }
+  /* image + its prompt side by side; stacked when the tile is narrow */
+  .tile-body.output-body { container-type: inline-size; }
+  .render-main { display: flex; gap: 10px; flex: 1; min-height: 0; }
+  .render-main > .render-img-wrap { width: auto; min-width: 0; flex: 1 1 0; }
+  .prompt-side { flex: 0 0 clamp(220px, 38%, 480px); min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--r); }
+  .render-main:not(.ps-on) .prompt-side { display: none; }
+  @container (max-width: 560px) {
+    .render-main { flex-direction: column; }
+    .render-main > .render-img-wrap { flex: 1 1 0; }
+    .prompt-side { flex: 0 0 42%; }
+  }
+  body.comfy-mode #outputControls { display: flex; }
+  .ps-head { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 11.5px; }
+  .ps-fmt { flex-shrink: 0; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 1px 7px; border-radius: 5px; background: var(--accent); color: #fff; }
+  .ps-fmt.moss { background: var(--accent-2); }
+  .ps-fmt:empty { display: none; }
+  .ps-wf { color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .ps-meta { font-size: 11px; color: var(--muted); line-height: 1.4; }
+  .ps-actions { display: flex; align-items: center; gap: 10px; }
+  .ps-actions button { padding: 3px 12px; font-size: 11.5px; }
+  .ps-actions .toggle { margin: 0; font-size: 11px; }
+  .ps-text { flex: 1; min-height: 40px; margin: 0; overflow: auto; white-space: pre-wrap; word-break: break-word; font-size: 11px; line-height: 1.45; padding: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text); }
+  .ps-text.empty { color: var(--faint); font-style: italic; white-space: normal; }
 
-  /* ---------- render gallery ---------- */
-  .gallery { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 7px; width: 100%; max-height: 320px; overflow-y: auto; padding-right: 2px; }
-  .gallery .thumb { position: relative; width: 56px; height: 56px; border-radius: var(--r-sm); overflow: hidden; border: 1px solid var(--border); cursor: pointer; background: var(--panel); flex-shrink: 0; transition: border-color .14s, transform .1s; }
+  /* ---------- render gallery (its own History tile) ---------- */
+  .tile-body.history-body { display: flex; flex-direction: column; gap: 8px; padding: 10px; }
+  .history-bar { flex-wrap: wrap; row-gap: 4px; }
+  .history-bar .count:empty { display: none; }
+  #historyControls { flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+  #historyControls .toggle { gap: 4px; color: var(--faint); }
+  #thumbSize { width: 80px; padding: 0; }
+  .bar-btn { padding: 2px 9px; font-size: 11px; text-transform: none; letter-spacing: 0; }
+  #galleryEmpty { display: none; }
+  .history-body.is-empty #galleryEmpty { display: block; }
+  .gallery { --thumb: 96px; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--thumb), 100%), 1fr)); align-content: start; gap: 7px; width: 100%; }
+  .gallery .thumb { position: relative; aspect-ratio: 1; min-width: 0; border-radius: var(--r-sm); overflow: hidden; border: 1px solid var(--border); cursor: pointer; background: var(--panel); transition: border-color .14s, transform .1s; }
   .gallery .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .gallery .thumb:hover { border-color: var(--border-strong); transform: translateY(-1px); }
   .gallery .thumb.active { border-color: var(--accent); box-shadow: var(--ring); }
@@ -805,33 +837,62 @@
   <!-- OUTPUT -->
   <div class="grid-stack-item" gs-id="output" gs-x="8" gs-y="0" gs-w="4" gs-h="9" gs-min-w="2" gs-min-h="3">
     <div class="grid-stack-item-content tile">
-      <div class="tile-bar"><span class="tile-title">Rendered output</span></div>
+      <div class="tile-bar"><span class="tile-title">Rendered output</span>
+        <div class="tile-bar-controls comfy-only" id="outputControls">
+          <label class="toggle" title="Show the exact prompt that was sent for the image shown here, beside it (below it when the tile is narrow)"><input type="checkbox" id="promptSideToggle"> Prompt</label>
+        </div>
+      </div>
       <div class="tile-body output-body">
         <div class="render-placeholder" id="outputManualNote">Switch to <b>ComfyUI</b> mode (top-right) to render here.</div>
         <div class="render-panel comfy-only" id="renderResult">
-      <div class="render-img-wrap" id="renderImgWrap">
-        <div class="render-placeholder" id="renderPlaceholder">Set parameters on the left and press <b>Render</b>.</div>
-        <img id="renderImg" alt="rendered result" title="Click to enlarge">
+      <div class="render-main" id="renderMain">
+        <div class="render-img-wrap" id="renderImgWrap">
+          <div class="render-placeholder" id="renderPlaceholder">Set parameters on the left and press <b>Render</b>.</div>
+          <img id="renderImg" alt="rendered result" title="Click to enlarge">
+        </div>
+        <aside class="prompt-side" id="promptSide" aria-label="Prompt of the image shown">
+          <div class="ps-head"><span class="ps-fmt" id="psFormat"></span><span class="ps-wf" id="psWorkflow"></span></div>
+          <div class="ps-meta" id="psMeta"></div>
+          <div class="ps-actions">
+            <button id="psCopy" title="Copy the exact prompt text that was sent to ComfyUI for this image">Copy</button>
+            <label class="toggle" title="Show the JSON indented for reading. Copy always gives the exact text that was sent."><input type="checkbox" id="psPretty"> Indented</label>
+          </div>
+          <pre class="ps-text" id="psText"></pre>
+        </aside>
       </div>
       <div class="progress"><div id="renderBar"></div></div>
       <div class="render-row" style="display:flex; align-items:center; gap:8px;"><span class="status" id="renderStatus" style="flex:1;"></span><button id="renderCancel" title="Stop the current render on ComfyUI" style="display:none; padding:6px 12px;">✕ Cancel</button></div>
       <div class="render-row"><button id="vectorizeBtn" title="Trace flat regions (text/logos/flat art) to vector, keep photographic parts as raster">⬡ Vectorize → SVG</button><button id="vecSettingsBtn" title="Vectorizer settings" style="padding:6px 10px;"><span class="bico">⚙</span></button><span class="status" id="vectorizeStatus" style="flex:1;"></span></div>
-      <div id="galleryRow" style="display:none; flex-direction:column; align-items:stretch; gap:6px; width:100%;">
-        <div class="col-title" style="margin:6px 0 0; display:flex; align-items:center; gap:8px;">History <span id="galleryCount" class="count"></span><span style="flex:1"></span><button id="galleryRescan" title="Rebuild the list from ComfyUI's history — recovers permanently-saved renders that dropped off this browser's list (only while that ComfyUI process is still running)" style="padding:2px 9px; font-size:11px; text-transform:none; letter-spacing:0;">⟳ Rescan</button><button id="gallerySortBtn" title="Toggle order by creation date" style="padding:2px 9px; font-size:11px; text-transform:none; letter-spacing:0;">↓ Newest</button><button id="galleryClear" title="Clear gallery list (does not delete files)" style="padding:2px 9px; font-size:11px; text-transform:none; letter-spacing:0;">Clear</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="grid-stack-item" gs-id="history" gs-x="8" gs-y="9" gs-w="4" gs-h="3" gs-min-w="2" gs-min-h="2">
+    <div class="grid-stack-item-content tile">
+      <div class="tile-bar history-bar"><span class="tile-title">History</span><span id="galleryCount" class="count"></span>
+        <div class="tile-bar-controls" id="historyControls">
+          <label class="toggle" title="Thumbnail size"><span aria-hidden="true">▫</span><input type="range" id="thumbSize" min="40" max="320" step="4" aria-label="Thumbnail size"><span aria-hidden="true">◻</span></label>
+          <button id="galleryRescan" class="bar-btn" title="Rebuild the list from ComfyUI's history — recovers permanently-saved renders that dropped off this browser's list (only while that ComfyUI process is still running)">⟳ Rescan</button>
+          <button id="gallerySortBtn" class="bar-btn" title="Toggle order by creation date">↓ Newest</button>
+          <button id="galleryClear" class="bar-btn" title="Clear gallery list (does not delete files)">Clear</button>
+        </div>
+      </div>
+      <div class="tile-body history-body" id="historyBody">
+        <div class="render-placeholder" id="galleryEmpty">No renders yet. Every render lands here — click one to show it in <b>Rendered output</b>, double-click to enlarge.</div>
         <div class="gallery" id="gallery"></div>
-        <div id="galleryPager" style="display:none; align-items:center; justify-content:center; gap:10px; margin-top:4px;">
+        <div id="galleryPager" style="display:none; align-items:center; justify-content:center; gap:10px;">
           <button id="galleryPrev" style="padding:2px 10px; font-size:12px;">‹ Prev</button>
           <span id="galleryPageInfo" class="count" style="min-width:120px; text-align:center;"></span>
           <button id="galleryNext" style="padding:2px 10px; font-size:12px;">Next ›</button>
-        </div>
-      </div>
         </div>
       </div>
     </div>
   </div>
 
   <!-- JSON -->
-  <div class="grid-stack-item" gs-id="json" gs-x="3" gs-y="9" gs-w="9" gs-h="3" gs-min-w="2" gs-min-h="2">
+  <div class="grid-stack-item" gs-id="json" gs-x="3" gs-y="9" gs-w="5" gs-h="3" gs-min-w="2" gs-min-h="2">
     <div class="grid-stack-item-content tile">
       <div class="tile-bar"><span class="tile-title">JSON output</span>
         <label class="toggle" title="Which model's prompt JSON is shown below">Showing <select id="jsonFormat" class="bar-select"><option value="ideogram">Ideogram</option><option value="moss">Moss Image</option></select></label>
@@ -4042,35 +4103,51 @@ const LAYOUT_KEY = "ideogram_grid_layout";
 const PRESET_KEY = "ideogram_grid_preset";
 // Each preset tiles the full 12x12 grid with no gaps (maximizes space).
 const PRESETS = {
-  // builder sidebar | canvas + render side by side | low JSON strip below
+  // builder sidebar | canvas + render side by side | JSON + history strip below
   sidebar: [
     { id: "builder", x: 0, y: 0, w: 3, h: 12 },
     { id: "canvas",  x: 3, y: 0, w: 5, h: 9 },
     { id: "output",  x: 8, y: 0, w: 4, h: 9 },
-    { id: "json",    x: 3, y: 9, w: 9, h: 3 },
+    { id: "json",    x: 3, y: 9, w: 5, h: 3 },
+    { id: "history", x: 8, y: 9, w: 4, h: 3 },
   ],
-  // builder | canvas over render | tall JSON column
+  // builder | canvas over render | JSON over history
   columns: [
     { id: "builder", x: 0, y: 0, w: 3, h: 12 },
     { id: "canvas",  x: 3, y: 0, w: 5, h: 8 },
     { id: "output",  x: 3, y: 8, w: 5, h: 4 },
-    { id: "json",    x: 8, y: 0, w: 4, h: 12 },
+    { id: "json",    x: 8, y: 0, w: 4, h: 7 },
+    { id: "history", x: 8, y: 7, w: 4, h: 5 },
   ],
-  // big render, builder sidebar, canvas + json along the bottom
+  // big render with a history column, builder sidebar, canvas + json along the bottom
   render: [
     { id: "builder", x: 0, y: 0, w: 3, h: 12 },
-    { id: "output",  x: 3, y: 0, w: 9, h: 8 },
+    { id: "output",  x: 3, y: 0, w: 7, h: 8 },
+    { id: "history", x: 10, y: 0, w: 2, h: 8 },
     { id: "canvas",  x: 3, y: 8, w: 5, h: 4 },
     { id: "json",    x: 8, y: 8, w: 4, h: 4 },
   ],
-  // four equal quadrants
+  // quadrants; the render quadrant shares its corner with the history
   quad: [
     { id: "builder", x: 0, y: 0, w: 6, h: 6 },
     { id: "canvas",  x: 6, y: 0, w: 6, h: 6 },
     { id: "json",    x: 0, y: 6, w: 6, h: 6 },
-    { id: "output",  x: 6, y: 6, w: 6, h: 6 },
+    { id: "output",  x: 6, y: 6, w: 4, h: 6 },
+    { id: "history", x: 10, y: 6, w: 2, h: 6 },
   ],
 };
+// Saved layouts from before a tile existed (e.g. History, which used to live
+// inside Rendered output) lack it, and GridStack's load() would drop the tile —
+// so carve it out of the Rendered output tile it came from.
+function migrateLayout(items) {
+  const out = items.map(n => ({ ...n }));
+  if (out.some(n => n.id === "history")) return out;
+  const o = out.find(n => n.id === "output");
+  if (o && o.h >= 6) { const hh = Math.max(3, Math.round(o.h / 3)); o.h -= hh; out.push({ id: "history", x: o.x, y: o.y + o.h, w: o.w, h: hh }); }
+  else if (o && o.w >= 5) { const hw = Math.max(2, Math.round(o.w / 3)); o.w -= hw; out.push({ id: "history", x: o.x + o.w, y: o.y, w: hw, h: o.h }); }
+  else out.push({ id: "history", x: 0, y: out.reduce((m, n) => Math.max(m, (n.y || 0) + (n.h || 1)), 0), w: 6, h: 3 });
+  return out;
+}
 function gridCellHeight() {
   const el = $("grid");
   return Math.max(36, Math.floor(((el ? el.clientHeight : 720) - 8) / 12));
@@ -4086,7 +4163,11 @@ function setupGrid() {
   let savedLayout = null, savedPreset = null;
   try { savedLayout = JSON.parse(localStorage.getItem(LAYOUT_KEY)); } catch (_) {}
   try { savedPreset = localStorage.getItem(PRESET_KEY); } catch (_) {}
-  if (Array.isArray(savedLayout) && savedLayout.length) grid.load(savedLayout);
+  if (Array.isArray(savedLayout) && savedLayout.length) {
+    const migrated = migrateLayout(savedLayout);
+    grid.load(migrated);
+    if (migrated.length !== savedLayout.length) try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(grid.save(false))); } catch (_) {}
+  }
   else applyPreset(savedPreset && PRESETS[savedPreset] ? savedPreset : "sidebar");
   if (savedPreset && PRESETS[savedPreset]) $("layoutPreset").value = savedPreset;
   grid.on("change", () => { try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(grid.save(false))); } catch (_) {} applyCanvasAspect(); });
@@ -4212,7 +4293,8 @@ function readComfyForm() {
 
 let rendering = false;
 let lastRenderSetup = null;
-let lastRenderImage = null;   // {filename,subfolder,type,rotation,aspect} of the most recent render
+let lastRenderSent = null;    // {t, f, wf, w, h} — the exact prompt the in-flight render sent (see sentPromptInfo)
+let lastRenderImage = null;  // {filename,subfolder,type,rotation,aspect} of the most recent render
 let renderWS = null;
 let renderPromptId = null;   // id of the prompt currently on ComfyUI
 let renderStop = null;       // set by trackRender; halts ws/polling without finishing
@@ -4257,6 +4339,7 @@ async function comfyRender() {
 
   rendering = true;
   _renderOk = false;
+  lastRenderSent = null;
   $("renderBtn").disabled = $("renderBtn2").disabled = true;
   showCancel(true);
   setBar(0);
@@ -4265,6 +4348,7 @@ async function comfyRender() {
   let promptId;
   try {
     const wf = typeof cwBuildRenderWorkflow === "function" ? cwBuildRenderWorkflow() : buildWorkflow(buildLayoutJSON());   // your own ComfyUI workflow, or the built-in one
+    lastRenderSent = sentPromptInfo(wf);   // recorded on the history entry when the render lands
     fillMissingRequiredInputs(wf, await getObjectInfo(base, workflowClasses(wf)));   // reconcile with the installed ComfyUI's node defs
     const res = await fetch(base + "/prompt", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: wf, client_id: getClientId() }) });
     if (!res.ok) {
@@ -4418,12 +4502,13 @@ async function showResult(base, promptId) {
   let img = null;
   for (const nodeId of Object.keys(outputs)) { const o = outputs[nodeId]; if (o.images && o.images.length) { img = o.images[o.images.length - 1]; break; } }
   if (!img) throw new Error("Render finished but produced no image.");
-  const entry = { filename: img.filename, subfolder: img.subfolder || "", type: img.type || "output", seed: comfyCfg.seed, aspect: comfyCfg.aspect_ratio, ts: Date.now(), time: new Date().toLocaleTimeString(), rotation: 0, setup: lastRenderSetup, elements: state.elements.map(e => ({ type: e.type, bbox: e.bbox.slice(), vectorize: e.vectorize || "auto" })), _before: sourceImageDataUrl || null, _beforeRef: sourceImageRef || null };
+  const entry = { filename: img.filename, subfolder: img.subfolder || "", type: img.type || "output", seed: comfyCfg.seed, aspect: comfyCfg.aspect_ratio, ts: Date.now(), time: new Date().toLocaleTimeString(), rotation: 0, setup: lastRenderSetup, elements: state.elements.map(e => ({ type: e.type, bbox: e.bbox.slice(), vectorize: e.vectorize || "auto" })), _before: sourceImageDataUrl || null, _beforeRef: sourceImageRef || null, pid: promptId };
+  if (lastRenderSent && lastRenderSent.t) entry.prompt = lastRenderSent;   // the exact prompt text sent (shown beside the render)
   // Remember the produced image so a saved setup can show it again later.
   lastRenderImage = { filename: entry.filename, subfolder: entry.subfolder, type: entry.type, rotation: 0, aspect: entry.aspect };
   if (entry.setup) entry.setup.render = lastRenderImage;
   const el = $("renderImg");
-  el.onload = () => { el.style.display = "block"; $("renderPlaceholder").style.display = "none"; updateBackdrop(); };
+  el.onload = () => { el.style.display = "block"; $("renderPlaceholder").style.display = "none"; updateBackdrop(); psRefreshMeta(); };
   el.onerror = () => setRenderStatus("Image rendered but could not be loaded from " + comfyBase() + "/view", "err");
   el.src = viewUrl(entry);
   previewRenderRef = { filename: entry.filename, subfolder: entry.subfolder || "" };   // inline preview now shows this render
@@ -4431,7 +4516,17 @@ async function showResult(base, promptId) {
   setRenderStatus("Done ✓ · seed " + comfyCfg.seed + (comfyCfg.save ? " · saved" : ""), "ok");
   toast("Render complete ✓", "ok");
   addRenderToHistory(entry);
+  updatePromptPanel();
   ensureRefForEntry(entry);
+}
+// Summarise what a built workflow sends (see cwSentPrompt in comfy-workflows.js)
+// plus the pixel size, compactly: {t: text, f: format, wf: workflow name, w, h}.
+function sentPromptInfo(wf) {
+  let s = null;
+  try { s = typeof cwSentPrompt === "function" ? cwSentPrompt(wf) : { t: wf[NODE.prompt].inputs.text, f: "ideogram", wf: "Built-in: Ideogram 4" }; } catch (_) {}
+  if (!s || typeof s.t !== "string" || !s.t) return null;
+  try { const d = computeDims(); s.w = d.width; s.h = d.height; } catch (_) {}
+  return s;
 }
 // Upload the entry's reference image to the proxy (if not already) so the compare
 // slider persists across reloads via a short key rather than a base64 blob.
@@ -4534,6 +4629,7 @@ window.addEventListener("pagehide", flushStore);
 
 // Persist the render gallery (DB when available, else the original localStorage store).
 const BEFORE_PERSIST = 16;   // (localStorage fallback) how many recent renders keep their (heavy) reference image
+const PROMPT_PERSIST = 60;   // (localStorage fallback) how many recent renders keep their sent-prompt text
 function saveRenderHistory() {
   if (!storeReady) return;
   if (dbOK) scheduleStoreSync("renders");
@@ -4547,10 +4643,13 @@ function legacySaveRenderHistory() {
     if (arr[i]._before) { keep.add(arr[i]); n++; }
   }
   let out = arr.map(e => keep.has(e) ? e : (({ _before, ...x }) => x)(e));
+  // Sent-prompt text (a few KB each) only on the newest PROMPT_PERSIST renders — the DB keeps them all.
+  out = out.map((e, i) => (e.prompt && i < out.length - PROMPT_PERSIST) ? (({ prompt, ...x }) => x)(e) : e);
   while (out.length) {
     try { localStorage.setItem(HIST_KEY, JSON.stringify(out)); return; }
     catch (_) {
       if (out.some(e => e._before)) out = out.map(({ _before, ...x }) => x);   // shed reference images first
+      else if (out.some(e => e.prompt)) out = out.map(({ prompt, ...x }) => x);   // then sent-prompt text
       else out = out.slice(Math.ceil(out.length / 4));                          // then oldest entries
     }
   }
@@ -4631,13 +4730,13 @@ function deleteRenderEntry(i) {
   renderGallery();
 }
 
-const GALLERY_PAGE_SIZE = 48;   // thumbnails rendered per page (avoids loading hundreds of images at once)
+const GALLERY_PAGE_SIZE = 96;   // thumbnails rendered per page (avoids loading hundreds of images at once)
 let galleryPage = 0;
 function renderGallery() {
-  const row = $("galleryRow"), g = $("gallery");
-  if (!renderHistory.length) { row.style.display = "none"; return; }
-  row.style.display = "flex";
-  $("galleryCount").textContent = renderHistory.length;
+  const g = $("gallery");
+  $("historyBody").classList.toggle("is-empty", !renderHistory.length);
+  $("galleryCount").textContent = renderHistory.length || "";
+  if (!renderHistory.length) { g.innerHTML = ""; $("galleryPager").style.display = "none"; return; }
   const btn = $("gallerySortBtn");
   if (btn) btn.textContent = gallerySort === "newest" ? "↓ Newest" : "↑ Oldest";
 
@@ -4652,7 +4751,8 @@ function renderGallery() {
     const it = renderHistory[i];
     const t = document.createElement("div");
     t.className = "thumb" + (i === viewerIndex ? " active" : "") + (it.setupName ? " saved" : "");
-    t.title = (it.setupName ? "Setup: " + it.setupName + " · " : "") + "Seed " + it.seed + " · " + it.aspect + (it.time ? " · " + it.time : "");
+    t.dataset.i = i;
+    t.title = (it.setupName ? "Setup: " + it.setupName + " · " : "") + "Seed " + it.seed + " · " + it.aspect + (it.time ? " · " + it.time : "") + " — click to show, double-click to enlarge";
     const im = document.createElement("img");
     im.src = viewUrl(it); im.alt = "render " + (i + 1); im.loading = "lazy";
     im.addEventListener("error", () => { t.classList.add("broken"); t.title = "Image unavailable — " + t.title; });
@@ -4666,7 +4766,8 @@ function renderGallery() {
     del.title = "Remove this render from the gallery";
     del.addEventListener("click", e => { e.stopPropagation(); deleteRenderEntry(i); });
     t.appendChild(del);
-    t.addEventListener("click", () => openImgModal(i));
+    t.addEventListener("click", () => selectHistoryEntry(i));
+    t.addEventListener("dblclick", () => openImgModal(i));
     g.appendChild(t);
   });
 
@@ -4678,7 +4779,170 @@ function renderGallery() {
     $("galleryNext").disabled = galleryPage >= pages - 1;
   } else pager.style.display = "none";
 }
-function galleryGoTo(page) { galleryPage = page; renderGallery(); $("gallery").scrollTop = 0; }
+function galleryGoTo(page) { galleryPage = page; renderGallery(); $("historyBody").scrollTop = 0; }
+// Show a history render in the Rendered output tile (and its prompt beside it).
+function selectHistoryEntry(i) {
+  const it = renderHistory[i];
+  if (!it) return;
+  viewerIndex = i;
+  showRenderInPreview(it);
+}
+// Move the gallery's highlight to viewerIndex without rebuilding the thumbnails.
+function markActiveThumb() {
+  for (const t of $("gallery").children) t.classList.toggle("active", +t.dataset.i === viewerIndex);
+}
+// Thumbnail size (History tile slider) — the grid reflows to the tile's width.
+const THUMB_KEY = "ideogrammar.thumbSize";
+function applyThumbSize(px) {
+  px = Math.max(40, Math.min(320, +px || 96));
+  $("gallery").style.setProperty("--thumb", px + "px");
+  $("thumbSize").value = px;
+  return px;
+}
+
+/* ---- prompt of the shown render (side panel in Rendered output) ---- */
+const PS_KEY = "ideogrammar.promptSide", PS_PRETTY_KEY = "ideogrammar.promptSidePretty";
+let psEntry = null;   // the history entry whose prompt the panel shows
+const psLookups = new Map();   // entry -> in-flight recovery promise
+const psMissing = new WeakSet();   // entries whose prompt couldn't be recovered (this session)
+function psOn() { return $("renderMain").classList.contains("ps-on"); }
+// Indent the JSON part of a prompt for reading (the built-in prompt is a plain
+// orientation sentence followed by compact JSON). Returns the text unchanged
+// when there's no parsable JSON in it.
+function prettyPromptText(t) {
+  const i = t.indexOf("{");
+  if (i < 0) return t;
+  try { return t.slice(0, i) + JSON.stringify(JSON.parse(t.slice(i)), null, 2); } catch (_) { return t; }
+}
+function promptFormatOf(t) {
+  if (/"compositional_deconstruction"/.test(t)) return "ideogram";
+  return /^\s*\{/.test(t) || /"summary"|"caption"/.test(t) ? "moss" : "";
+}
+function updatePromptPanel() {
+  const idx = historyIndexOf(previewRenderRef);
+  const it = idx >= 0 ? renderHistory[idx] : null;
+  psEntry = it;
+  const fmtEl = $("psFormat"), txt = $("psText");
+  const p = it && it.prompt;
+  $("psCopy").disabled = !(p && p.t);
+  if (!it) {
+    fmtEl.textContent = ""; $("psWorkflow").textContent = ""; $("psMeta").textContent = "";
+    txt.className = "ps-text empty"; txt.textContent = previewRenderRef ? "This image isn't in the History list, so its prompt isn't known." : "Render an image (or pick one in History) to see the prompt that was sent for it.";
+    return;
+  }
+  psRefreshMeta();
+  if (p && p.t) {
+    fmtEl.textContent = p.f === "moss" ? "Moss" : p.f === "ideogram" ? "Ideogram" : "";
+    fmtEl.className = "ps-fmt" + (p.f === "moss" ? " moss" : "");
+    $("psWorkflow").textContent = p.wf || "";
+    $("psWorkflow").title = p.wf || "";
+    txt.className = "ps-text";
+    txt.textContent = $("psPretty").checked ? prettyPromptText(p.t) : p.t;
+    return;
+  }
+  fmtEl.textContent = ""; $("psWorkflow").textContent = "";
+  txt.className = "ps-text empty";
+  txt.textContent = "Looking for this image's prompt in ComfyUI…";
+  if (psOn()) recoverPrompt(it).then(() => { if (psEntry === it) updatePromptPanelText(it); });
+}
+// seed · size · aspect · time. The size comes from the recorded prompt, else from
+// the loaded image itself (older renders), undoing a baked-in 90° rotation.
+function psRefreshMeta() {
+  const it = psEntry;
+  if (!it) return;
+  const p = it.prompt;
+  let size = p && p.w && p.h ? p.w + "×" + p.h : "";
+  const im = $("renderImg");
+  if (!size && im.style.display === "block" && im.naturalWidth) {
+    const swap = ((it.rotation || 0) % 180) === 90;
+    size = (swap ? im.naturalHeight : im.naturalWidth) + "×" + (swap ? im.naturalWidth : im.naturalHeight);
+  }
+  $("psMeta").textContent = ["seed " + it.seed, size, it.aspect || "", it.time || (typeof it.ts === "number" && it.ts > 1e12 ? new Date(it.ts).toLocaleString() : "")].filter(Boolean).join(" · ") + (p && p.rec ? " · recovered from ComfyUI" : "");
+}
+function updatePromptPanelText(it) {
+  if (it.prompt && it.prompt.t) { updatePromptPanel(); return; }
+  const txt = $("psText");
+  txt.className = "ps-text empty";
+  txt.textContent = "Prompt not recorded — this render is older than prompt recording, and ComfyUI no longer has it.";
+}
+// Older history entries carry no prompt: ask ComfyUI's /history for the prompt
+// id when we have one, else read the prompt graph ComfyUI embeds in the PNG.
+function recoverPrompt(it) {
+  if (it.prompt || psMissing.has(it)) return Promise.resolve();
+  if (psLookups.has(it)) return psLookups.get(it);
+  const job = (async () => {
+    const base = comfyBase();
+    if (!base) return;
+    let graph = null;
+    if (it.pid) {
+      try {
+        const r = await fetch(base + "/history/" + encodeURIComponent(it.pid));
+        if (r.ok) { const h = await r.json(); const e = h && h[it.pid]; if (e && Array.isArray(e.prompt)) graph = e.prompt[2]; }
+      } catch (_) {}
+    }
+    if (!graph) graph = await pngPromptGraph(viewUrl(it));
+    const p = promptFromGraph(graph);
+    if (p) { it.prompt = p; saveRenderHistory(); }
+    else psMissing.add(it);   // don't refetch this session
+  })().finally(() => psLookups.delete(it));
+  psLookups.set(it, job);
+  return job;
+}
+// Pull the prompt text, format and size out of a ComfyUI API prompt graph.
+function promptFromGraph(graph) {
+  if (!graph || typeof graph !== "object") return null;
+  let best = null, w = 0, h = 0;
+  const keys = typeof CW_TEXT_KEYS !== "undefined" ? CW_TEXT_KEYS : /^(text|prompt|string|value)$/i;
+  for (const n of Object.values(graph)) {
+    const inp = (n && n.inputs) || {};
+    if (typeof inp.width === "number" && typeof inp.height === "number" && !w) { w = inp.width; h = inp.height; }
+    for (const [k, v] of Object.entries(inp)) {
+      if (!keys.test(k) || typeof v !== "string" || !v.trim()) continue;
+      const score = (v.includes("{") ? 1e7 : 0) + v.length;   // prefer the JSON prompt over stray strings
+      if (!best || score > best.score) best = { t: v, score };
+    }
+  }
+  if (!best) return null;
+  const p = { t: best.t, f: promptFormatOf(best.t), wf: "from ComfyUI", rec: 1 };
+  if (w && h) { p.w = w; p.h = h; }
+  return p;
+}
+// Read the "prompt" text chunk (the API graph) that ComfyUI's SaveImage writes.
+async function pngPromptGraph(url) {
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    const b = new Uint8Array(await r.arrayBuffer());
+    if (b.length < 8 || b[0] !== 0x89 || b[1] !== 0x50) return null;
+    const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+    const latin1 = new TextDecoder("latin1"), utf8 = new TextDecoder("utf-8");
+    for (let o = 8; o + 8 <= b.length;) {
+      const len = dv.getUint32(o), type = latin1.decode(b.subarray(o + 4, o + 8)), d = b.subarray(o + 8, o + 8 + len);
+      if (type === "IDAT" || type === "IEND") break;   // text chunks come before the image data
+      if (type === "tEXt" || type === "iTXt") {
+        const z = d.indexOf(0), kw = latin1.decode(d.subarray(0, z));
+        if (kw === "prompt") {
+          let text;
+          if (type === "tEXt") text = latin1.decode(d.subarray(z + 1));
+          else {
+            if (d[z + 1]) return null;   // compressed iTXt — ComfyUI doesn't write these
+            let q = d.indexOf(0, z + 3); q = d.indexOf(0, q + 1);
+            text = utf8.decode(d.subarray(q + 1));
+          }
+          return JSON.parse(text);
+        }
+      }
+      o += 12 + len;
+    }
+  } catch (_) {}
+  return null;
+}
+function setPromptSide(on) {
+  $("renderMain").classList.toggle("ps-on", on);
+  $("promptSideToggle").checked = on;
+  try { localStorage.setItem(PS_KEY, on ? "1" : "0"); } catch (_) {}
+  if (on) updatePromptPanel();
+}
 
 /* Rebuild the gallery from ComfyUI's own /history. Recovers permanent (output/)
    renders that were dropped from this browser's saved list — including seed,
@@ -4743,7 +5007,8 @@ async function rescanComfyHistory() {
       const h = hist[pid];
       const outs = h && h.outputs;
       if (!outs) continue;
-      const meta = metaFromGraph(Array.isArray(h.prompt) ? h.prompt[2] : null);
+      const graph = Array.isArray(h.prompt) ? h.prompt[2] : null;
+      const meta = metaFromGraph(graph), sent = promptFromGraph(graph);
       const ts = histTimestamp(h);
       for (const nodeId of Object.keys(outs)) {
         const imgs = outs[nodeId] && outs[nodeId].images;
@@ -4753,7 +5018,7 @@ async function rescanComfyHistory() {
           const key = "output|" + (img.subfolder || "") + "|" + img.filename;
           if (seen.has(key)) { order++; continue; }
           seen.add(key);
-          recovered.push({ filename: img.filename, subfolder: img.subfolder || "", type: "output", seed: meta.seed, aspect: meta.aspect, ts: ts || (order + 1), rotation: 0, setup: meta.setup });
+          recovered.push({ filename: img.filename, subfolder: img.subfolder || "", type: "output", seed: meta.seed, aspect: meta.aspect, ts: ts || (order + 1), rotation: 0, setup: meta.setup, pid, ...(sent ? { prompt: sent } : {}) });
           order++;
         }
       }
@@ -4771,8 +5036,8 @@ async function rescanComfyHistory() {
           const key = "output|" + (f.subfolder || "") + "|" + f.filename;
           if (seen.has(key)) continue;
           seen.add(key);
-          const meta = metaFromGraph(f.prompt || null);
-          recovered.push({ filename: f.filename, subfolder: f.subfolder || "", type: "output", seed: meta.seed, aspect: meta.aspect, ts: f.mtime || 1, rotation: 0, setup: meta.setup });
+          const meta = metaFromGraph(f.prompt || null), sent = promptFromGraph(f.prompt || null);
+          recovered.push({ filename: f.filename, subfolder: f.subfolder || "", type: "output", seed: meta.seed, aspect: meta.aspect, ts: f.mtime || 1, rotation: 0, setup: meta.setup, ...(sent ? { prompt: sent } : {}) });
         }
         if (j.truncated) notes.push("disk scan hit its file cap — some older files skipped");
       } else if (j && j.available === false) {
@@ -4851,7 +5116,7 @@ async function rotateViewer(delta) {
   saveRenderHistory();
   await refreshViewerImage(it);
   renderGallery();
-  if (viewerIndex === renderHistory.length - 1) bakeRotated(viewUrl(it), it.rotation).then(u => { $("renderImg").src = u; updateBackdrop(); }).catch(() => {});
+  if (historyIndexOf(previewRenderRef) === viewerIndex) bakeRotated(viewUrl(it), it.rotation).then(u => { $("renderImg").src = u; updateBackdrop(); }).catch(() => {});
 }
 function openImgModal(index) {
   if (!renderHistory.length) return;
@@ -4866,6 +5131,7 @@ function openImgModal(index) {
   $("imgRefine").style.display = it.setup ? "" : "none";
   $("imgOverlay").classList.add("show");
   refreshViewerImage(it);
+  if (historyIndexOf(previewRenderRef) !== viewerIndex) showRenderInPreview(it);   // stepping through the viewer moves the Rendered output tile along
   renderGallery();
 }
 function closeImgModal() { $("imgOverlay").classList.remove("show"); }
@@ -5025,13 +5291,16 @@ function showRenderInPreview(ref) {
   const el = $("renderImg");
   previewRenderRef = (ref && ref.filename) ? { filename: ref.filename, subfolder: ref.subfolder || "" } : null;
   savePreviewRef();   // keep the persisted backdrop in step with what's shown
+  const hi = historyIndexOf(previewRenderRef);
+  if (hi >= 0) { viewerIndex = hi; markActiveThumb(); }
+  updatePromptPanel();   // the side panel follows whatever image is shown
   if (!ref || !ref.filename || !comfyBase()) {
     el.style.display = "none"; el.removeAttribute("src");
     $("renderPlaceholder").style.display = "";
     updateBackdrop();
     return;
   }
-  el.onload = () => { el.style.display = "block"; $("renderPlaceholder").style.display = "none"; updateBackdrop(); };
+  el.onload = () => { el.style.display = "block"; $("renderPlaceholder").style.display = "none"; updateBackdrop(); psRefreshMeta(); };
   el.onerror = () => { el.style.display = "none"; $("renderPlaceholder").style.display = ""; updateBackdrop(); };
   if (ref.rotation) bakeRotated(viewUrl(ref), ref.rotation).then(u => { el.src = u; }).catch(() => { el.src = viewUrl(ref); });
   else el.src = viewUrl(ref);
@@ -5663,6 +5932,13 @@ document.addEventListener("keydown", e => { if (e.key === "Escape" && $("setting
 $("galleryClear").addEventListener("click", () => { if (renderHistory.length && confirm("Clear the render gallery? This only clears the list here — files in ComfyUI's output/ are not deleted.")) clearRenderHistory(); });
 $("gallerySortBtn").addEventListener("click", () => { gallerySort = gallerySort === "newest" ? "oldest" : "newest"; galleryPage = 0; renderGallery(); });
 $("galleryRescan").addEventListener("click", rescanComfyHistory);
+(() => { let v = null; try { v = localStorage.getItem(THUMB_KEY); } catch (_) {} applyThumbSize(v || 96); })();
+$("thumbSize").addEventListener("input", e => { const px = applyThumbSize(e.target.value); try { localStorage.setItem(THUMB_KEY, String(px)); } catch (_) {} });
+(() => { let pretty = "1", on = "1"; try { pretty = localStorage.getItem(PS_PRETTY_KEY) ?? "1"; on = localStorage.getItem(PS_KEY) ?? "1"; } catch (_) {}
+  $("psPretty").checked = pretty === "1"; setPromptSide(on === "1"); })();
+$("promptSideToggle").addEventListener("change", e => setPromptSide(e.target.checked));
+$("psPretty").addEventListener("change", e => { try { localStorage.setItem(PS_PRETTY_KEY, e.target.checked ? "1" : "0"); } catch (_) {} updatePromptPanel(); });
+$("psCopy").addEventListener("click", async () => { const p = psEntry && psEntry.prompt; if (!p || !p.t) return; const ok = await copyText(p.t); toast(ok ? "Prompt copied ✓" : "Couldn't copy the prompt", ok ? "ok" : "bad"); });
 $("galleryPrev").addEventListener("click", () => galleryGoTo(galleryPage - 1));
 $("galleryNext").addEventListener("click", () => galleryGoTo(galleryPage + 1));
 let imgOverlayPressedSelf = false;

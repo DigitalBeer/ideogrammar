@@ -114,6 +114,17 @@ function cwBuildRenderWorkflow() {
   for (const s of w.map.seed || []) if (wf[s.node]) wf[s.node].inputs[s.input] = comfyCfg.seed;
   return wf;
 }
+// What a built render workflow actually sends as its prompt, for the history
+// entry: { t: exact prompt text, f: "ideogram" | "moss", wf: workflow name }.
+function cwSentPrompt(wf) {
+  const w = cwCurrent();
+  if (w && w.map.prompt && wf[w.map.prompt.node]) {
+    const v = wf[w.map.prompt.node].inputs[w.map.prompt.input];
+    return { t: typeof v === "string" ? v : "", f: w.format === "moss" ? "moss" : "ideogram", wf: w.name };
+  }
+  const n = typeof NODE === "object" && wf[NODE.prompt];
+  return { t: n && typeof n.inputs.text === "string" ? n.inputs.text : "", f: "ideogram", wf: "Built-in: Ideogram 4" + (comfyCfg.workflow === "v2" ? " (v2)" : "") };
+}
 
 // ---- UI --------------------------------------------------------------------
 function cwSelectValue() { return cwCurrent() ? comfyCfg.source : "builtin"; }
