@@ -81,6 +81,7 @@
   <a class="sub" href="#rules">Rules</a>
   <a href="#rolling">Rolling, locks and seeds</a>
   <a href="#comfyui">Rendering with ComfyUI</a>
+  <a class="sub" href="#history">History &amp; the prompt panel</a>
   <a class="sub" href="#own-workflow">Your own workflow (Moss)</a>
   <a href="#formats">Ideogram vs Moss output</a>
   <a href="#recipes">Recipes</a>
@@ -265,9 +266,16 @@ then from  lighting/natural  never pick  golden hour sunlight, harsh midday sun<
   <li><b>Open the editor through the proxy:</b> <code>http://localhost:8189/</code>. Not the HTML file directly, and not another web server, or ComfyUI can't be reached.</li>
   <li><b>Switch to ComfyUI mode</b> (top right), leave <span class="ui">Connect directly to ComfyUI</span> unticked, and press <span class="ui">Test connection</span>.</li>
   <li><b>Pick the workflow</b> in the ComfyUI render panel (below).</li>
-  <li><b>Render.</b> The image appears in <span class="ui">Rendered output</span> and in the History gallery.</li>
+  <li><b>Render.</b> The image appears in <span class="ui">Rendered output</span> and in the <span class="ui">History</span> tile.</li>
   <li><b>Make it a template picture:</b> <span class="ui">🎭 Templates → 🖼 → Use the current render</span>.</li>
 </ol>
+<h3 id="history">History and the prompt beside the render</h3>
+<ul>
+  <li><span class="ui">History</span> is its own window: drag it by its title bar, resize it from the edges. The slider in its title bar sets the thumbnail size; the thumbnails fill the window's width.</li>
+  <li><b>Click</b> a thumbnail to show it in <span class="ui">Rendered output</span>. <b>Double-click</b> it (or click the big image) to open the full-size viewer.</li>
+  <li>Tick <span class="ui">Prompt</span> in the <span class="ui">Rendered output</span> title bar to see, next to the image, the exact prompt that was sent for it: Ideogram or Moss, the workflow, seed and size. <span class="ui">Copy</span> copies that exact text, so you can share the image and its prompt together. When the window is narrow the prompt sits below the image.</li>
+  <li>Renders made before this feature show their prompt if ComfyUI still has it (its history, or the prompt saved inside the PNG). Otherwise the panel says <i>prompt not recorded</i>.</li>
+</ul>
 <h3 id="own-workflow">Render with your own ComfyUI workflow (e.g. Moss Image)</h3>
 <p>Ideogrammar can render with any workflow you already use in ComfyUI. The models, sampler, steps and LoRAs stay set <b>in ComfyUI</b>, so there's nothing to re-enter here.</p>
 <ol class="steps">
