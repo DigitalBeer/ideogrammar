@@ -356,10 +356,36 @@ function mossTextFromDesc(desc) {
 // in this order; imports split them back out (splitDescExtras in index.html).
 const ELEMENT_STYLE_FIELDS = [["lighting", "Lighting"], ["camera", "Camera"], ["lens", "Lens"], ["wardrobe", "Wardrobe"],
   ["pose", "Pose"], ["environment", "Environment"], ["mood", "Mood"], ["extra", "Details"]];
+// Plain sentences instead of "Lighting: …" labels (setting in the JSON panel).
+// Labels are what the official builders write; sentences read more like the
+// captions Moss was trained on. Either way the values are the same words.
+let proseCaptions = (() => { try { return localStorage.getItem("ideogrammar.proseCaptions") === "1"; } catch (_) { return false; } })();
+// One style value as a clause, with a lead-in only where the bare value
+// wouldn't read as part of a sentence.
+function proseClause(k, v) {
+  v = String(v || "").trim().replace(/\.$/, "");
+  if (!v) return "";
+  switch (k) {
+    case "lighting": return /^(lit|lighting|light(ed)? by|under|in |backlit|side-?lit|rim-?lit)\b/i.test(v) ? v : "lit by " + v;
+    case "wardrobe": return /^(wearing|dressed|in |clad|with |sporting|outfit)\b/i.test(v) ? v : "wearing " + v;
+    case "mood": return /\b(mood|feel|feeling|atmosphere|vibe|tone|expression)\b/i.test(v) ? v : v + " mood";
+    case "environment": return /^(in|at|on|inside|outside|near|by|under|against|amid|among|beside|surrounded)\b/i.test(v) ? v : "in " + v;
+    default: return v;   // camera, lens, pose, extra, prefix/suffix: written by the template, used as is
+  }
+}
+const capFirst = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 function joinDescExtras(desc, font, style) {
   let d = String(desc || "").trim();
   const add = t => { d = d ? (/[.!?]$/.test(d) ? d + " " : d + ". ") + t : t; };
   if (font) add("Typography: " + font);
+  if (proseCaptions) {
+    // who they are and what they're doing first, how it's lit and shot last
+    const order = ["wardrobe", "pose", "extra", "environment", "mood", "lighting", "camera", "lens"];
+    const keys = [...order.filter(k => ELEMENT_STYLE_FIELDS.some(f => f[0] === k)), ...ELEMENT_STYLE_FIELDS.map(f => f[0]).filter(k => !order.includes(k))];
+    const parts = keys.map(k => proseClause(k, style && style[k])).filter(Boolean);
+    if (parts.length) add(capFirst(parts.join(", ")) + ".");
+    return d;
+  }
   for (const [k, label] of ELEMENT_STYLE_FIELDS) {
     const v = style ? String(style[k] || "").trim().replace(/\.$/, "") : "";
     if (v) add(label + ": " + v);

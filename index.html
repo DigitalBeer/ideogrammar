@@ -358,6 +358,13 @@
   .llm-test-status { font-size: 12px; color: var(--faint); min-width: 0; overflow-wrap: anywhere; }
   .llm-test-status.ok { color: #3fb950; }
   .llm-test-status.bad { color: #f85149; }
+  .tag-check { font-size: 11.5px; line-height: 1.4; margin: 4px 0 8px; }
+  .tag-check .tag-bad { color: #f87171; }
+  .tag-check .tag-soft { color: var(--faint); }
+  .tag-check .tag-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .tag-check .tag-btns button { padding: 2px 8px; font-size: 11px; }
+  .wc-overlap { border: 1px solid #f59e0b; background: rgba(245,158,11,.08); color: #fbbf24; border-radius: 6px; padding: 7px 10px; font-size: 12px; line-height: 1.45; margin: 8px 0; }
+  .wc-overlap ul { margin: 4px 0 0; padding-left: 18px; }
   .modal-foot { padding: 16px 22px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
   details.cfg { border: 1px solid var(--border); border-radius: var(--r); padding: 0 14px; margin-bottom: 18px; background: var(--bg); }
   details.cfg summary { cursor: pointer; padding: 12px 0; font-size: 13px; color: var(--text); user-select: none; font-weight: 500; }
@@ -924,6 +931,7 @@
       <div class="tile-bar"><span class="tile-title">JSON output</span>
         <label class="toggle" title="Which model's prompt JSON is shown below">Showing <select id="jsonFormat" class="bar-select"><option value="ideogram">Ideogram</option><option value="moss">Moss Image</option></select></label>
         <label class="toggle" title="Extra, non-official wording in the Moss export: each caption gets its position in words, and the summary states how many subjects there are, left to right. Off = exactly the official node's output."><input type="checkbox" id="mossHints"> Moss layout hints</label>
+        <label class="toggle" title="Write style fields as plain sentences — 'Wearing a red coat, low angle, lit by window light.' — instead of labels ('Wardrobe: red coat. Camera: low angle. Lighting: window light.'). Same words either way; sentences read more like Moss's training captions. Applies to element descriptions in both formats and to the Moss summary."><input type="checkbox" id="proseCaptions"> Plain sentences</label>
         <label class="toggle" title="Copy and download the prompt indented over several lines (the official nodes' 'pretty' option) instead of compact single-line JSON (their default)."><input type="checkbox" id="indentedCopy"> Indented copy</label>
         <label class="toggle" title="Start the Moss layout with a full-frame 'panel' item holding the background, as mossimage.org's builder does. Moss works out the image frame from how far the boxes reach, so without it the image can come out with borders or black bars. Turn off only for the bare official-node output."><input type="checkbox" id="mossFrame"> Moss frame panel</label>
       </div>
@@ -1724,8 +1732,29 @@ function renderElements() {
     tagsInput.type = "text"; tagsInput.placeholder = "e.g. trainer, man, spotting";
     tagsInput.value = (el.tags || []).join(", ");
     tagsInput.addEventListener("keydown", e => e.stopPropagation());
-    tagsInput.addEventListener("input", () => { el.tags = normalizeTags(tagsInput.value); renderJSON(); });
+    const tagNote = document.createElement("div");
+    tagNote.className = "tag-check";
+    const drawTagNote = () => {
+      const chk = checkTags(el.tags, el.desc);
+      tagNote.replaceChildren();
+      if (!chk.conflicts.length && !chk.unmentioned.length) { tagNote.style.display = "none"; return; }
+      tagNote.style.display = "";
+      const line = (cls, text) => { const d = document.createElement("div"); d.className = cls; d.textContent = text; tagNote.appendChild(d); };
+      if (chk.conflicts.length) line("tag-bad", "⚠ " + chk.conflicts.map(c => `“${c.tag}” contradicts “${c.word}” in the description`).join("; ") + " — Moss will draw both.");
+      if (chk.unmentioned.length) line("tag-soft", "Not in the description: " + chk.unmentioned.join(", ") + " (tags add things on their own).");
+      const row = document.createElement("div"); row.className = "tag-btns";
+      const btn = (label, fn) => { const b = document.createElement("button"); b.type = "button"; b.textContent = label; b.addEventListener("click", fn); row.appendChild(b); };
+      const setTags = t => { el.tags = t; tagsInput.value = t.join(", "); drawTagNote(); renderJSON(); };
+      if (chk.conflicts.length) btn("Remove contradicting", () => setTags(el.tags.filter(t => !chk.conflicts.some(c => c.tag === t))));
+      if (chk.unmentioned.length) btn("Keep only tags in the description", () => setTags(el.tags.filter(t => !chk.unmentioned.includes(t) && !chk.conflicts.some(c => c.tag === t))));
+      btn("Clear tags", () => setTags([]));
+      tagNote.appendChild(row);
+    };
+    tagsInput.addEventListener("input", () => { el.tags = normalizeTags(tagsInput.value); drawTagNote(); renderJSON(); });
+    desc.addEventListener("input", drawTagNote);
     body.appendChild(tagsInput);
+    body.appendChild(tagNote);
+    drawTagNote();
 
     // Style fields, element template and wildcard badges (wildcards-ui.js)
     if (typeof wcElementStyleSection === "function") body.appendChild(wcElementStyleSection(el, { desc, title }));
@@ -2113,6 +2142,39 @@ function buildLayoutJSON() {
 function buildJSON() { return buildPromptObj(buildLayoutJSON()); }  // engine in llmcore.js
 
 // Tags arrive as an array (state/JSON) or a comma-separated string (the input box).
+// Tags vs description. Moss reads tags as strong labels, so a "woman" tag on a
+// caption about a man draws both. Conflicts: words from opposite groups.
+// Unmentioned: tags whose words don't appear in the description at all.
+const TAG_OPPOSITES = [
+  [["woman", "women", "girl", "girls", "lady", "ladies", "female", "mother", "wife", "actress", "queen", "she", "her", "daughter", "sister", "grandmother", "bride"],
+   ["man", "men", "boy", "boys", "gentleman", "gentlemen", "male", "father", "husband", "actor", "king", "he", "his", "him", "son", "brother", "grandfather", "groom", "guy"]],
+  [["child", "children", "kid", "kids", "baby", "toddler", "boy", "girl", "teen", "teenager"],
+   ["adult", "elderly", "old", "senior", "pensioner", "middle-aged", "grandmother", "grandfather"]],
+  [["day", "daytime", "sunny", "noon", "midday"], ["night", "nighttime", "midnight", "moonlit"]],
+  [["indoor", "indoors", "interior"], ["outdoor", "outdoors", "exterior"]],
+];
+function checkTags(tags, desc) {
+  const words = new Set(String(desc || "").toLowerCase().match(/[a-z][a-z'-]*/g) || []);
+  const has = w => words.has(w) || words.has(w + "s");
+  const conflicts = [], unmentioned = [];
+  for (const tag of (tags || []).filter(t => !MOSS_ROLE_TAGS.includes(t))) {
+    const tw = tag.toLowerCase().match(/[a-z][a-z'-]*/g) || [];
+    let clash = null;
+    for (const [a, b] of TAG_OPPOSITES) {
+      for (const [mine, other] of [[a, b], [b, a]]) {
+        if (!tw.some(w => mine.includes(w))) continue;
+        if (tw.some(w => other.includes(w))) continue;               // the tag itself names both
+        if (tw.some(w => has(w))) continue;                           // the description agrees with it
+        const hit = other.find(w => has(w) && !mine.includes(w));
+        if (hit) { clash = hit; break; }
+      }
+      if (clash) break;
+    }
+    if (clash) conflicts.push({ tag, word: clash });
+    else if (words.size && tw.length && !tw.some(w => has(w) || has(w.replace(/(es|s)$/, "")))) unmentioned.push(tag);
+  }
+  return { conflicts, unmentioned };
+}
 function normalizeTags(t) {
   const arr = Array.isArray(t) ? t : (typeof t === "string" ? t.split(",") : []);
   return arr.map(s => String(s).trim()).filter(Boolean);
@@ -2189,7 +2251,15 @@ function buildMossJSON() {
       subjects.map((el, i) => `(${i + 1}) ${shortName(el) || "subject " + (i + 1)}, ${mossPosition(el.bbox)}`).join("; ") + ".";
   }
   // summary.caption = "description of the whole scene and its style".
-  const caption = [
+  const caption = proseCaptions ? [
+    sentence(state.high_level_description),
+    countLine,
+    sentence(!mossFramePanel && state.background && proseClause("environment", state.background).replace(/^in /, "Set in ")),
+    sentence(capFirst([sd.medium, sd.aesthetics].map(x => String(x || "").trim().replace(/\.$/, "")).filter(Boolean).join(", "))),
+    sentence(sd.art_style && !sd.photo && capFirst(sd.art_style)),
+    sentence(sd.lighting && capFirst(proseClause("lighting", sd.lighting))),
+    sentence(sd.photo && capFirst(sd.photo))
+  ].filter(Boolean).join(" ") : [
     sentence(state.high_level_description),
     countLine,
     sentence(!mossFramePanel && state.background && "Background: " + state.background),   // else it's the panel's caption
@@ -3801,6 +3871,12 @@ $("refineCheck").addEventListener("click", async () => { if (await checkCurrentL
 ["genTarget", "refineTarget"].forEach(id => {
   $(id).value = jsonFormat;
   $(id).addEventListener("change", () => setJSONFormat($(id).value));
+});
+$("proseCaptions").checked = proseCaptions;
+$("proseCaptions").addEventListener("change", () => {
+  proseCaptions = $("proseCaptions").checked;
+  try { localStorage.setItem("ideogrammar.proseCaptions", proseCaptions ? "1" : "0"); } catch (_) {}
+  renderJSON();
 });
 $("mossHints").checked = mossLayoutHints;
 $("mossHints").addEventListener("change", () => {
