@@ -113,6 +113,7 @@ Rules:
 - Every person, animal or main character gets its own "subject" element (one per individual, never one box for a group), with a box that covers that individual's whole visible body.
 - All colors are uppercase 6-digit hex like "#1A2B3C". Give each element a small palette (1-4 colors) that matches it.
 - For "text" and "logo" elements you MAY add a "font" describing the typography (weight, serif/sans/script/display, era or mood) — e.g. "elegant high-contrast serif lettering". Omit "font" entirely for non-text elements.
+- high_level_description and background describe ONE scene: the same place, time of day and weather. Never name a setting in one that the other contradicts; when you change the setting, change both.
 - Be concrete and specific. Return valid JSON only.`;
 
 const IMAGE_SYSTEM_PROMPT = SYSTEM_PROMPT + `

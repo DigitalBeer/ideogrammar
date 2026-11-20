@@ -1,67 +1,52 @@
-# Handoff — ideogrammar fork (Moss Image support, style templates & wildcards)
+# Handoff — Ideogrammar (fork DigitalBeer/ideogrammar)
 
-Project: fork `DigitalBeer/ideogrammar` (upstream `rlemson7/ideogrammar`).
-Local clone: `D:\aitools\ideogrammar-fork\ideogrammar-fork`.
-Branches: `moss-image-export` (Moss work, pushed) → `wildcards-templates` (this work, cut from it; local only).
+Folder: `D:\aitools\ideogrammar-fork\ideogrammar-fork` · branch `template-cast` (from `main`, nothing committed yet; left checked out so the user can try it through their proxy)
 
 ## Goal
-Make the Ideogram prompt editor also produce Moss Image JSON prompts, matching the official ComfyUI
-KJNodes builders, and improve the LLM Generate/Refine tools. Then add menu-driven style templates and a
-Dynamic-Prompts-style wildcard system that work in both formats.
+Browser editor for Ideogram 4 / Moss Image JSON prompts, with style templates, Dynamic-Prompts wildcards,
+AI generate/refine, and rendering through the user's own ComfyUI workflows via `comfy_proxy.py`.
 
-## Done on `moss-image-export`
-- Moss export/import, Copy/Download per model, Moss-only aspect ratios, MP control in the layout header.
-  Checked: byte-identical to the KJNodes `Ideogram4PromptBuilderKJ` / `MossImagePromptBuilderKJ` functions on the same boxes.
-- Full-frame Moss `panel` restored (on by default, "Moss frame panel" toggle). This fixed the borders and black bars; user confirmed in ComfyUI.
-- Lossless editor round trips (labelled caption parts, `_editor.elements`, role tags), optional Indented copy.
-- Generate/Refine: target-model guidance, locks, review (Before/After table) + undo, layout check & fixes,
-  variations picker, refine-only-selected, combined quick changes, saved presets, Generate options,
-  improve description, ask-first questions, templates, Subjects-only image mode.
+## State
+- All PRs up to #19 are merged; no open PRs. Untracked `start-proxy.bat` is the user's own file: never commit it.
+- Recent work, all merged and tested in the preview (mocked AI replies where an AI model was needed):
+  - Settings backup to proxy DB (`prefs-sync.js`, `/ideogrammar/prefs` in `comfy_proxy.py`).
+  - Lists + templates in one window, list subcategories, template categories, `__` list autocomplete (`wildcards-studio.js`, `wildcards-ui.js`).
+  - Template-aware Improve/Generate/Refine (`wcLinkGenerated`, `wcAfterRefine`, `wcStripWearing` in `wildcards-ui.js`).
+  - Plain-sentence captions (`proseClause`/`joinDescExtras` in `llmcore.js`, toggle `#proseCaptions`), overlap warnings (`wcTemplateOverlaps`), tag check (`checkTags` in `index.html`).
 
-## Done on `wildcards-templates`
-- `wildcards.js`: engine (Dynamic Prompts syntax + guards, chance, rules, unique lists, per-slot / per-field
-  salts, YAML reader). `node --test tests/*.test.mjs`: 20 tests pass.
-- `wildcards-data.js`: 48 starter lists, 3 rules, 12 templates. Venue and sportswear follow `${sport}` via guards.
-- Data model: per-element `style` (lighting, camera, lens, wardrobe, pose, environment, mood, details) exported
-  as labelled sentences in the Ideogram desc / Moss caption and split back out on import. `wild` (sources, seed,
-  locks, salts) is saved in state, setups and the Ideogram download's `_editor`.
-- `wildcards-ui.js`: Roll button + menu, Templates picker/editor, element Style section, picks popover
-  (lock / re-roll pick or variable / detach), Wildcard manager (lists, rules, syntax, import/export
-  .txt/.yaml/.json/.zip), AI polish, Roll ×N, batch ZIP, auto-roll before copy/download/render,
-  queue re-roll, wildcards in the Generate description, Style template in Generate options, folder sync.
-- `comfy_proxy.py`: `/ideogrammar/wildcards[/<path>]` and `/ideogrammar/templates[/<name>.json]`
-  (`--wildcards-dir`, `--templates-dir`).
-- README: "Style templates & wildcards" section with test steps.
-- Follow-up: built-in Help (`help.html`, header **?**, Help buttons in the modals), 🧭 Template wizard with
-  per-field list suggestions, template preview images (upload / current render; stored in
-  `ideogrammar.tplPreviews`, included in export and folder sync), "Rolls from" list chips on template cards
-  and "Used by templates" in the list editor (`wildcards-wizard.js`).
-- Checked in the browser: template apply + review, roll / lock / re-roll, both exports clean of raw syntax,
-  Ideogram download and Moss round trips, ZIP (stored + deflate) import/export, YAML import, batch ZIP,
-  AI polish with a fake model (review + undo), Roll ×N, template editor, rules editor, and folder sync against a
-  real proxy (push, pull, conflict prompt, deletes both ways, read-only YAML packs, path traversal refused).
+- On branch `template-cast`, uncommitted, tested in the preview (renders and AI replies mocked):
+  - Template casts: `wildcards-cast.js` (new). `cast` array on templates; `wcApplyCast` (called from `wcApplyTemplateTo`),
+    `wcRollCast` (called at the start of `wcRollInto`), `wcCastEdited` (moved/resized/locked = user's own). Editor section in
+    `wcOpenTemplateEditor`; casts on built-ins sports-broadcast, street-photo, concert. Saved via `el.wild.cast` (`normElWild`, `elWildOut`).
+  - Background vs high-level description: `wcSyncSetting` appends/replaces a "Setting: …" sentence from a rolled background
+    (`st.wild.setting`, menu toggle "Description follows rolled background"); `wcStripSetting` after Generate with a template
+    that rolls the background; consistency rule added to `SYSTEM_PROMPT` (llmcore.js); `wcRefineDirective` mentions the sentence.
+  - List categories: click a category name to rename/move/delete it (`wcCategoryEditor`, `wcMoveCategory`, `wcForgetCategory`);
+    renames rewrite `__cat/…__` references in templates, lists and rules.
+  - 🖼 Render previews button (Templates footer, `wcRenderPreviews` in wildcards-wizard.js): applies each template to the current
+    setup, renders through the user's ComfyUI workflow, stores the result as its preview.
+  - help.html updated for all four.
 
 ## Not done
-- No run against the user's real LLM: neither the Moss-era Generate/Refine features nor the wildcard AI polish (fake model only).
-- `wildcards-templates` has no PR (pushed to the fork; later commits may not be). `moss-image-export` has no PR into the fork's `main`.
-- The UI was checked in the desktop layout only, not on a phone-width screen.
+- None of the above run against the user's real ComfyUI or AI model.
+- Template/AI features never run against the user's real AI model (a llama.cpp server on the LAN, port 8080).
 
 ## Next steps
-1. needs user: try the "Style templates & wildcards → Testing it" steps in `README.md`, including AI polish with your model.
-2. Fix anything the real model gets wrong (`WC_POLISH_PROMPT` in `wildcards-ui.js`; `SYSTEM_PROMPT` in `llmcore.js`).
-3. needs user: push `wildcards-templates` and decide on PRs into the fork's `main`.
+1. needs user: try the `template-cast` branch through their proxy (casts, category editing, setting sentence), then say
+   "commit" / "push + PR".
+2. needs user: press 🖼 Render previews in the Templates window (uses their ComfyUI and GPU; one render per template).
+3. needs user: run one Improve → Generate → Refine with their real model and report results.
 
 ## To resume
-- Static preview for manual mode: `python -m http.server 8765` in the clone → http://localhost:8765 (hard refresh).
-  ComfyUI mode and folder sync need `comfy_proxy.py`.
-- Commits/pushes only to the fork's branches; never push upstream; PRs need user approval.
+- Tests: `node --test tests/*.test.mjs` (20 pass; they cover the wildcard engine only, not casts). Syntax check of inline JS: extract `<script>` blocks and run `node --check`.
+- Preview: `.claude/launch.json` → `ideogrammar` (static, port 8791). For proxy features, run `comfy_proxy.py --port 8793 --db-path <scratch db>`;
+  never point tests at the user's real DB (`.ideogrammar.db`) or proxy (port 8189).
+- The user's proxy serves files from this folder: whatever branch is checked out is what they see. Switch back to `main` after work.
+- Work on a feature branch; push and open a PR only when the user says "push + PR"; the user merges.
+  Auto-fix watches PRs. Do not stack PRs (#14 merged into its base branch, not main).
 
 ## Do not redo
-- Moss output follows the KJ nodes, EXCEPT the full-frame `panel` (needed: Moss infers the frame from box extents).
-- Copy is compact JSON by default (official default); indented is opt-in.
-- Ideogram official types are `obj`/`text` only; the editor keeps richer types via `_editor` and subject inference.
-- `js-yaml` couldn't be downloaded (blocked), so `wildcards.js` has its own small YAML reader for wildcard packs.
-- `wildcards-ui.js` runs after the inline script and shares its globals (`state`, `render`, `proposeChange`…);
-  top-level names there must not clash with `index.html` (everything is prefixed `wc`).
-- Python edits via heredoc broke on quoting in this shell — write scripts to a file and run them.
-- Inline `\n` written through Python non-raw strings became real newlines in JS once — check escapes.
+- Lists hold bare values; linking words go in template fields (lists stay reusable).
+- Separate side-by-side dialogs failed (editor opened behind lists); one window (`studioOverlay`) replaced them.
+- Rolls clear palettes set by an earlier roll (`palRolled`); hand-picked palettes stay.
+- Proxy rewrites Origin (ComfyUI 403s otherwise); `/object_info/<class>` per class (the full one is 22 MB).

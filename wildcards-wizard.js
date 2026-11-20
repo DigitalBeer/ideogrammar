@@ -86,6 +86,51 @@ function wcPreviewMenu(t, anchor, onDone) {
   setTimeout(() => document.addEventListener("mousedown", function off(e) { if (wcPvMenu && !wcPvMenu.contains(e.target)) { close(); document.removeEventListener("mousedown", off); } }), 0);
 }
 
+// 🖼 Render previews: each template (without a preview, or all of them) is
+// applied to the current setup, rolled once, rendered with the ComfyUI
+// workflow chosen in the Render tile, and the picture becomes its preview.
+// The setup comes back afterwards; Cancel in the Render tile stops the run.
+async function wcRenderPreviews() {
+  if (typeof comfyRenderAwait !== "function" || typeof comfyBase !== "function") { toast("Rendering isn't available on this page.", "bad"); return; }
+  if (!comfyBase()) { toast("Set your ComfyUI server URL in the Render tile first.", "bad"); return; }
+  if (rendering || queueActive) { toast("A render is already running — wait for it or cancel it first.", "bad"); return; }
+  const all = wcAllTemplates().filter(t => t.scope !== "element");
+  let list = all.filter(t => !wcGetPreview(t.id) && !t.preview);
+  if (!list.length) {
+    if (!confirm(`All ${all.length} templates have a preview. Render new previews for all of them?`)) return;
+    list = all;
+  } else if (!confirm(`Render previews for ${list.length} template${list.length === 1 ? "" : "s"} without one?\n\nEach template is applied to the setup you have now, rolled once and rendered with your ComfyUI workflow; the picture becomes its preview. For a fair comparison, start from a simple setup (e.g. one person in the middle).\n\nYour setup comes back when it's done. The renders also land in History. Cancel in the Render tile stops the run.`)) return;
+  const saved = cloneState(state);
+  const btns = [document.getElementById("renderBtn"), document.getElementById("renderBtn2")].filter(Boolean);
+  queueActive = true; queueStop = false;
+  btns.forEach(b => { b.disabled = true; });
+  let ok = 0, failed = 0;
+  try {
+    for (let i = 0; i < list.length && !queueStop; i++) {
+      const t = list[i];
+      queueLabel = `🖼 ${i + 1}/${list.length} ${t.name}`;
+      const st = cloneState(saved);
+      wcApplyTemplateTo(st, t);
+      wcRollInto(st, { newSeed: true });
+      state = st; render();
+      const good = await comfyRenderAwait();
+      if (good) {
+        const src = wcCurrentRenderSrc();
+        try { if (!src) throw new Error("no picture"); wcSetPreview(t.id, await wcImageToDataURL(src), true); ok++; }
+        catch (_) { failed++; }
+      } else if (queueStop) break;
+      else failed++;
+    }
+  } finally {
+    queueLabel = ""; queueActive = false;
+    btns.forEach(b => { b.disabled = false; });
+    state = saved; render();
+    if (typeof scheduleSaveState === "function") scheduleSaveState();
+    if (document.getElementById("wcTplOverlay")?.classList.contains("show")) wcRenderTemplates();
+  }
+  toast(`Previews: ${ok} set${failed ? `, ${failed} failed` : ""}${queueStop ? " (stopped)" : ""}`, ok && !failed ? "ok" : failed ? "bad" : "");
+}
+
 /* ------------------------------------------------------------------ */
 /*  Which lists a template uses / which templates use a list          */
 /* ------------------------------------------------------------------ */
