@@ -279,6 +279,7 @@ function wcRenderWizard() {
         wcEl("p", {}, "In the prompt they become labelled sentences after the element's description: ", wcEl("code", {}, "A tennis player. Wardrobe: tennis whites. Pose: mid-action swing."), " The label comes from the box, so put things in the box they belong to — anything without its own box goes in ", wcEl("b", {}, "Details"), "."),
         wcEl("p", {}, wcEl("b", {}, "The subject itself"), " (who the person is) normally comes from each element's own description, written by you or by ✨ Generate. Use ", wcEl("b", {}, "Who / what"), " only if this template should supply the subject too.")),
       wcEl("div", { class: "wc-row" }, wcEl("b", {}, "Style these when applied to the image:"), types.map((ty, i) => wcEl("label", { class: "toggle" }, boxes[i], " " + names[ty]))));
+    body.push(wcOverlapBox(t.global, t.element));
     for (const [k, label, ph, help] of WC_WIZ_ELEMENT) body.push(wcWizSlot({ label, help, ph, value: t.element[k], suggest: WC_SLOT_SUGGEST["el." + k], scope: "e", key: k, onInput: v => { if (v) t.element[k] = v; else delete t.element[k]; } }));
   } else if (w.step === 3) {
     t.vars = t.vars || {};
@@ -358,6 +359,7 @@ function wcRenderWizard() {
           wcEl("div", { class: "hint" }, "Tip: save without a picture, apply the template, render, then come back to 🎭 Templates → 🖼 → Use the current render."), file)),
       wcEl("div", { class: "wc-row" }, wcEl("button", { onclick: () => { try { wcSampleTemplate(t, out); } catch (err) { toast(err.message, "bad"); } } }, "🎲 Show 3 sample rolls")),
       out,
+      wcOverlapBox(t.global, t.element),
       hasAny ? null : wcEl("div", { class: "status err" }, "The template is empty — fill some fields in steps 2 and 3."));
   }
   m.body.replaceChildren(steps, wcEl("div", { style: { height: "12px" } }), ...body.filter(Boolean));

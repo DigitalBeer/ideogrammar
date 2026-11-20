@@ -104,12 +104,12 @@ const WC_BUILTIN_TEMPLATES = [
     global: {
       aesthetics: "glossy ${genre} magazine cover, bold masthead typography, clean editorial layout, high-end retouching",
       lighting: "{__lighting/setups__|soft beauty-dish key light with a subtle rim light}",
-      photo: "{medium shot|medium close-up}, {85mm portrait lens|105mm}, f/{2.8|4}, crisp focus on the eyes",
+      photo: "{medium shot|medium close-up} at {eye level|a slightly low angle}, {85mm portrait lens|105mm}, f/{2.8|4}, crisp focus on the eyes",
       medium: "professional magazine cover photograph",
       background: "{seamless __colours__ studio backdrop|softly blurred __places__}",
       hld_suffix: "styled as the cover of a ${genre} magazine",
     },
-    element: { lighting: "flattering beauty lighting", camera: "{eye level|slightly low angle}", wardrobe: "{__clothes/outfit__|designer __colours__ outfit}", pose: "__people/poses__", mood: "{confident|striking|playful}" },
+    element: { wardrobe: "{__clothes/outfit__|designer __colours__ outfit}", pose: "__people/poses__", mood: "{confident|striking|playful}" },
     llmNotes: "Make it read like a real newsstand cover: masthead at the top, a strong cover star, two or three short cover lines.",
   },
   {
@@ -128,13 +128,13 @@ const WC_BUILTIN_TEMPLATES = [
     vars: { sport: "__sports__" },
     global: {
       aesthetics: "AAA ${sport} video game box art, heroic hyper-real athlete, dramatic particles and sweat, bold title treatment, {2020s|2000s} sports game cover style",
-      lighting: "stadium floodlights with strong rim lighting and lens flare",
+      lighting: "stadium floodlights with strong rim lighting, a {__colours__|blue} accent light and lens flare",
       photo: "low angle hero shot, {24mm wide-angle|35mm}, frozen motion, ultra-sharp",
       medium: "digital composite cover art",
       background: "__places/sports__ blurred with crowd and light streaks",
       hld_suffix: "as a ${sport} video game cover",
     },
-    element: { lighting: "hard rim light from behind with {__colours__|blue} accent light", camera: "low angle", wardrobe: "__clothes/sportswear__", pose: "{celebrating with fists raised|mid-action swing|crouching low|jumping in the air}", mood: "{fierce|triumphant|intense}" },
+    element: { wardrobe: "__clothes/sportswear__", pose: "{celebrating with fists raised|mid-action swing|crouching low|jumping in the air}", mood: "{fierce|triumphant|intense}" },
     llmNotes: "Cover star large in the foreground, game title big and readable, publisher/rating marks small in a corner.",
   },
   {
@@ -143,22 +143,22 @@ const WC_BUILTIN_TEMPLATES = [
     global: {
       aesthetics: "${sport} TV broadcast frame, photoreal in-game graphics, {next-gen console|live broadcast} look",
       lighting: "even stadium floodlighting",
-      photo: "{broadcast telephoto from the stands|sideline camera|replay cam}, {400mm super-telephoto|200mm telephoto}, motion blur on the action",
+      photo: "{broadcast telephoto from the stands|sideline camera|replay cam}, {400mm super-telephoto|200mm telephoto}, {panning blur on the action|frozen motion}",
       medium: "sports broadcast frame grab",
       background: "__places/sports__ with a packed crowd",
     },
-    element: { camera: "{panning blur|frozen motion}", wardrobe: "__clothes/sportswear__", pose: "mid-action", extra: "{40%? __game/hud__}" },
+    element: { wardrobe: "__clothes/sportswear__", pose: "mid-action", extra: "{40%? __game/hud__}" },
   },
   {
     id: "cinematic-still", name: "Cinematic film still", category: "Film", scope: "both",
     global: {
       aesthetics: "cinematic film still, {2.39:1 widescreen|anamorphic} framing, {teal and orange grade|bleach bypass grade|warm nostalgic grade}, film grain",
       lighting: "{practical lighting from __lighting/practical__|moody low-key chiaroscuro lighting|__lighting/natural__}",
-      photo: "shot on {ARRI Alexa Mini|RED V-Raptor|__camera/film-stocks__}, {anamorphic lens|35mm|50mm prime}, shallow depth of field",
+      photo: "__camera/shots__, shot on {ARRI Alexa Mini|RED V-Raptor|__camera/film-stocks__}, {anamorphic lens|35mm|50mm prime}, shallow depth of field",
       medium: "motion picture still",
       background: "__places__ at __time-of-day__, __weather__",
     },
-    element: { camera: "__camera/shots__", lighting: "{motivated side light|soft fill with hard back light}", wardrobe: "__clothes/outfit__", mood: "__moods__" },
+    element: { wardrobe: "__clothes/outfit__", mood: "__moods__" },
   },
   {
     id: "film-noir", name: "Film noir", category: "Film", scope: "both",
@@ -177,22 +177,22 @@ const WC_BUILTIN_TEMPLATES = [
     global: {
       aesthetics: "premium product advertising, {minimal|bold graphic} layout, crisp reflections",
       lighting: "{large softbox from the front|rim lighting from behind|gradient strip lights}",
-      photo: "{105mm macro|85mm portrait lens}, f/{8|11}, focus stacked, studio product photography",
+      photo: "{three-quarter view|eye-level view|overhead flat lay}, {105mm macro|85mm portrait lens}, f/{8|11}, focus stacked, studio product photography",
       medium: "commercial product photograph",
       background: "{seamless __colours__ backdrop|__materials__ surface with soft shadow|floating on a __colour-schemes__ gradient}",
     },
-    element: { lighting: "clean specular highlights", camera: "{three-quarter view|eye level|overhead flat lay}", extra: "{surface of __materials__|water droplets|floating ingredients}" },
+    element: { lighting: "clean specular highlights", extra: "{surface of __materials__|water droplets|floating ingredients}" },
   },
   {
     id: "street-photo", name: "Street photography", category: "Documentary", scope: "both",
     global: {
       aesthetics: "candid street photography, decisive moment, {gritty|vibrant} urban texture",
       lighting: "__lighting/natural__",
-      photo: "{Leica M11|Fujifilm X-T5|Contax T2}, 35mm, zone focus, {__camera/film-stocks__|digital} look",
+      photo: "{Leica M11|Fujifilm X-T5|Contax T2}, 35mm, {at eye level|shot from the hip}, zone focus, {__camera/film-stocks__|digital} look",
       medium: "{35mm film photograph|digital photograph}",
       background: "__places/urban__, __weather__",
     },
-    element: { camera: "{eye level|from the hip}", wardrobe: "__clothes/outfit__", mood: "{candid|unposed|absorbed}" },
+    element: { wardrobe: "__clothes/outfit__", mood: "{candid|unposed|absorbed}" },
   },
   {
     id: "retro-80s", name: "80s retro", category: "Retro", scope: "both",
@@ -204,7 +204,7 @@ const WC_BUILTIN_TEMPLATES = [
       background: "{neon grid horizon with a setting sun|palm-lined boulevard at night|arcade interior}",
       color_palette: ["#FF2E97", "#00E5FF", "#1B0B3A", "#FFD319"],
     },
-    element: { wardrobe: "{neon windbreaker|leather jacket with rolled sleeves|aerobics outfit}", lighting: "neon rim light", mood: "{cool|nostalgic|energetic}" },
+    element: { wardrobe: "{neon windbreaker|leather jacket with rolled sleeves|aerobics outfit}", mood: "{cool|nostalgic|energetic}" },
   },
   {
     id: "anime-key-visual", name: "Anime key visual", category: "Illustration", scope: "both",
@@ -223,11 +223,11 @@ const WC_BUILTIN_TEMPLATES = [
     global: {
       aesthetics: "photojournalism, honest and unstaged, {National Geographic|press agency} style",
       lighting: "available light, __lighting/natural__",
-      photo: "{24mm wide-angle|35mm|70-200mm telephoto}, f/{2.8|5.6}, natural colour",
+      photo: "__camera/shots__, {24mm wide-angle|35mm|70-200mm telephoto}, f/{2.8|5.6}, natural colour",
       medium: "documentary photograph",
       background: "__places__, __weather__",
     },
-    element: { camera: "__camera/shots__", wardrobe: "__clothes/outfit__", mood: "{absorbed|weathered|resilient}" },
+    element: { wardrobe: "__clothes/outfit__", mood: "{absorbed|weathered|resilient}" },
   },
   {
     id: "concert", name: "Concert / live", category: "Music", scope: "both",

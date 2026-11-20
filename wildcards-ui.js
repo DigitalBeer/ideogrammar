@@ -1040,6 +1040,24 @@ function wcOpenTemplates() {
   setTimeout(() => m.search.focus(), 30);
 }
 // Template categories: the ones templates use plus empty ones made by hand.
+// Fields that describe the same thing at two levels, so their values can fight
+// in the prompt ("window light" for the image, "neon rim light" per element).
+function wcTemplateOverlaps(G, E) {
+  G = G || {}; E = E || {};
+  const has = (o, k) => !!String(o[k] || "").trim();
+  const out = [];
+  if (has(G, "lighting") && has(E, "lighting")) out.push("Lighting is set for the whole image and for each person/object. Keep the element one only for light on that element (e.g. “rim light on her hair”), or clear one of them.");
+  if (has(G, "photo") && (has(E, "camera") || has(E, "lens"))) out.push("Camera / lens is set for the whole image and Camera or Lens per element. One picture has one camera — keep it in Camera / lens unless an element really is framed differently.");
+  if (has(G, "background") && has(E, "environment")) out.push("Background (whole image) and Environment / surroundings (per element) both describe the place. Use Background for where it is; leave Environment empty unless it adds something near that element.");
+  if (has(G, "art_style") && has(G, "photo")) out.push("Art style is for paintings and illustrations, but this template also sets a camera — it's ignored while Camera / lens is set.");
+  if (has(G, "medium") && has(G, "art_style") && /photo/i.test(G.medium)) out.push("Medium says photograph but an Art style is set too — pick one kind of picture.");
+  return out;
+}
+function wcOverlapBox(G, E) {
+  const list = wcTemplateOverlaps(G, E);
+  if (!list.length) return null;
+  return wcEl("div", { class: "wc-overlap" }, wcEl("b", {}, "⚠ These fields may clash in the prompt:"), wcEl("ul", {}, list.map(x => wcEl("li", {}, x))));
+}
 function wcTemplateCategories() {
   return Array.from(new Set([...wcLoad(WCS_TPLCATS_KEY, []), ...wcAllTemplates().map(t => t.category || "").filter(Boolean)])).sort((a, b) => a.localeCompare(b));
 }
@@ -1158,6 +1176,7 @@ function wcOpenTemplateEditor(t) {
   let rules = JSON.parse(JSON.stringify(t.rules || []));
   wcRulesEditor(rulesBox, rules, r => { rules = r; });
   const sampleOut = wcEl("pre", { class: "wc-pre", style: { display: "none" } });
+  const overlapBox = wcEl("div");
   const insert = wcEl("select", { class: "ai-target-sel wc-insert" }); insert.dataset.ph = "+ insert wildcard"; wcListOptions(insert, "+ insert wildcard");
   let lastTa = gInputs.aesthetics;
   insert.addEventListener("change", () => { if (insert.value) wcInsertAtCursor(lastTa, "__" + insert.value + "__"); insert.value = ""; });
@@ -1175,7 +1194,17 @@ function wcOpenTemplateEditor(t) {
       wcEl("label", {}, "Rules (only while this template is in use)"), rulesBox,
       row("Notes for AI polish / Generate", notes),
       row("Per-format overrides (JSON, optional): {\"moss\": {\"global\": {…}, \"element\": {…}}, \"ideogram\": {…}}", fmts)),
+    overlapBox,
     sampleOut);
+  // Live check for fields that describe the same thing at two levels.
+  const drawOverlaps = () => {
+    const g = {}, e = {};
+    for (const [k] of gDefs) g[k] = gInputs[k].value;
+    for (const k of Object.keys(eInputs)) e[k] = eInputs[k].value;
+    overlapBox.replaceChildren(...(wcOverlapBox(g, e) ? [wcOverlapBox(g, e)] : []));
+  };
+  m.body.addEventListener("input", drawOverlaps);
+  drawOverlaps();
   m.body.querySelectorAll("textarea").forEach(x => x.addEventListener("focus", () => { lastTa = x; }));
   const collect = () => {
     const out = { ...t, name: name.value.trim() || "Untitled", category: cat.value === "@new" ? "" : cat.value, scope: scope.value,

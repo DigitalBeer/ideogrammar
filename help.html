@@ -344,6 +344,24 @@ then from  lighting/natural  never pick  golden hour sunlight, harsh midday sun<
    tennis whites. Pose: mid-action swing." }]</code></pre></div>
 </div>
 <p>The per-person fields become labelled sentences after the description. Importing either format splits them back into the Style fields. A template can also word things differently for each model (<span class="ui">Edit → Per-format overrides</span>), and AI polish uses the guidance for the model you're targeting.</p>
+<h3 id="prose">Plain sentences instead of labels</h3>
+<p>Tick <span class="ui">Plain sentences</span> in the JSON panel to drop the labels. The same words then read as a sentence, closer to the captions Moss learned from:</p>
+<pre><code>Labels:    A man throwing a punch. Lighting: rim light. Camera: low angle.
+           Wardrobe: grey hoodie. Pose: mid-punch. Mood: intense
+Sentences: A man throwing a punch. Wearing grey hoodie, mid-punch, intense
+           mood, lit by rim light, low angle.</code></pre>
+<p>Only Wardrobe (<i>wearing …</i>), Lighting (<i>lit by …</i>), Mood (<i>… mood</i>) and Environment (<i>in …</i>) get a lead-in, and only when the value doesn't already start with one. Everything else is used as written, so for the best result write template fields as phrases: <code>shot from a __camera/angles__ angle on a __camera/lenses__</code> rather than a bare <code>__camera/angles__</code>. Keep the lists themselves as plain values (<i>low</i>, <i>overhead</i>) so they fit any sentence.</p>
+<h3 id="one-owner">One field for each idea</h3>
+<p>Some ideas can be set for the whole image and again per element. When a template sets both, the editor and the wizard warn you:</p>
+<table>
+  <tr><th>Idea</th><th>Whole image</th><th>Per element — use only for…</th></tr>
+  <tr><td>Light</td><td>Lighting</td><td>light on that element (<i>rim light on her hair</i>)</td></tr>
+  <tr><td>Camera</td><td>Camera / lens</td><td>an element framed differently (rare)</td></tr>
+  <tr><td>Place</td><td>Background</td><td>something right next to that element</td></tr>
+  <tr><td>Kind of picture</td><td>Medium (+ Art style for non-photos)</td><td>—</td></tr>
+</table>
+<h3 id="tags">Tags</h3>
+<p>Moss reads each element's tags as strong labels: a <code>woman</code> tag on a caption about a man draws both. Under the Tags box the editor flags tags that contradict the description (man/woman, child/adult, day/night, indoor/outdoor) and tags the description never mentions, with buttons to remove them or clear all tags.</p>
 
 <!-- ============================================================ -->
 <h2 id="recipes">Recipes</h2>
