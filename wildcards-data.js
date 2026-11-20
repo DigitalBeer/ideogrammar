@@ -97,6 +97,7 @@ const WC_BUILTIN_RULES = [
 //   vars: template variables (set first, usable as ${name} anywhere in the template and in guards)
 //   llmNotes: extra direction for "Polish with AI" and Generate
 //   formats.moss / formats.ideogram: optional overrides of global/element per output format
+//   cast: extra elements the template adds by itself (see wildcards-cast.js)
 const WC_BUILTIN_TEMPLATES = [
   {
     id: "magazine-cover", name: "Magazine cover", category: "Editorial", scope: "both",
@@ -148,6 +149,10 @@ const WC_BUILTIN_TEMPLATES = [
       background: "__places/sports__ with a packed crowd",
     },
     element: { wardrobe: "__clothes/sportswear__", pose: "mid-action", extra: "{40%? __game/hud__}" },
+    cast: [
+      { name: "score graphic", type: "text", desc: "${sport} TV score bug graphic with team abbreviations, score and game clock", text: "{HOME|LDN|NYC} {0|1|2|3} - {0|1|2} {AWAY|PAR|TOK}", font: "condensed bold sans-serif broadcast graphics", place: "top-left", chance: 85, min: 1, max: 1 },
+      { name: "opponent", type: "subject", desc: "an opposing ${sport} player chasing the play", styled: true, place: "back", chance: 60, min: 1, max: 2 },
+    ],
   },
   {
     id: "cinematic-still", name: "Cinematic film still", category: "Film", scope: "both",
@@ -193,6 +198,9 @@ const WC_BUILTIN_TEMPLATES = [
       background: "__places/urban__, __weather__",
     },
     element: { wardrobe: "__clothes/outfit__", mood: "{candid|unposed|absorbed}" },
+    cast: [
+      { name: "passer-by", type: "subject", desc: "a passer-by {walking past|waiting to cross|looking at a phone}, slightly out of focus", style: { wardrobe: "__clothes/outfit__" }, place: "anywhere", chance: 55, min: 1, max: 2 },
+    ],
   },
   {
     id: "retro-80s", name: "80s retro", category: "Retro", scope: "both",
@@ -239,6 +247,9 @@ const WC_BUILTIN_TEMPLATES = [
       background: "{packed arena|small club stage|festival main stage at night} with silhouetted crowd",
     },
     element: { lighting: "hard backlight through haze", wardrobe: "{__colours__ stage outfit|__clothes/outfit__}", pose: "{mid-song with mic|guitar raised|leaning into the crowd}", mood: "{euphoric|raw|intense}" },
+    cast: [
+      { name: "crowd", type: "obj", desc: "silhouetted crowd {with raised hands|holding up phones|mid-jump}, heads and arms against the stage light", place: "front", chance: 90, min: 1, max: 1 },
+    ],
   },
 ];
 

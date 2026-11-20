@@ -65,6 +65,8 @@ let wcRulesStore = wcLoad(WCS_RULES_KEY, null);
 let wcAutoRoll = wcLoad(WCS_AUTOROLL_KEY, true) !== false;
 const WCS_PALFOLLOW_KEY = "ideogrammar.wcPaletteFollow";
 let wcPaletteFollow = wcLoad(WCS_PALFOLLOW_KEY, true) !== false;
+const WCS_SETFOLLOW_KEY = "ideogrammar.wcSettingFollow";
+let wcSettingFollow = wcLoad(WCS_SETFOLLOW_KEY, true) !== false;
 // The palette of the starting example: replaced when a template is applied, so it can't tint every render.
 const WC_DEMO_PALETTES = ['["#F5F5F5","#1A1A1A","#6366F1"]', '["#6366F1","#FFFFFF"]', '["#1A1A1A"]'];
 let _wcEngineLists = null;
@@ -201,6 +203,7 @@ function wcTemplateContext(st) {
 function wcRollInto(st, opt = {}) {
   st.wild = st.wild || normWild();
   if (opt.newSeed) st.wild.seed = WC.newSeed();
+  if (!opt.onlyPaths && opt.global !== false && typeof wcRollCast === "function") wcRollCast(st);   // the template's cast: who shows up this roll
   const fields = [], writers = {};
   const inScopeGlobal = path => opt.onlyPaths ? opt.onlyPaths.has(path) : opt.global !== false;
   const inScopeEl = (el, path) => opt.onlyPaths ? opt.onlyPaths.has(path) : (!opt.elementKeys || opt.elementKeys.has(el.wild.key));
@@ -230,9 +233,61 @@ function wcRollInto(st, opt = {}) {
   });
   for (const [p, w] of Object.entries(writers)) w(r.values[p]);
   if (wcPaletteFollow) wcApplyRolledPalettes(st, r, Object.keys(writers));
+  wcSyncSetting(st, Object.keys(writers));
   r.written = Object.keys(writers);
   r.fieldCount = fields.length;
   return r;
+}
+// The high-level description and a rolled background must not name different
+// places. While the background rolls (its text comes from wildcards, usually a
+// style template's), the description carries one "Setting: …" sentence taken
+// from the background, replaced on every roll. st.wild.setting remembers the
+// sentence last written, so it is swapped rather than stacked.
+function wcSettingClause(bg) {
+  let s = String(bg || "").replace(/\s+/g, " ").trim();
+  if (!s) return "";
+  s = s.split(/(?<=[.;!?])\s+/)[0].replace(/[\s.;,!?]+$/, "");
+  const words = s.split(" ");
+  if (words.length > 24) s = words.slice(0, 24).join(" ").replace(/[,;:]$/, "");
+  s = s.replace(/[{}|]|__/g, " ").replace(/\s+/g, " ").trim();   // never wildcard syntax in the description
+  return s ? "Setting: " + s.charAt(0).toLowerCase() + s.slice(1) + "." : "";
+}
+const WC_SETTING_RE = /(?:^|\s)Setting:[^.]*\.(?=\s|$)/g;
+function wcWithoutSetting(h, prev) {
+  h = String(h || "");
+  if (prev) h = h.split(prev).join(" ");
+  return h.replace(WC_SETTING_RE, " ").replace(/\s{2,}/g, " ").trim();
+}
+function wcSyncSetting(st, written) {
+  if (!st || !st.wild) return;
+  const prev = st.wild.setting || "";
+  const h = String(st.high_level_description || "");
+  const rolling = wcSettingFollow && st.wild.src && WC.hasSyntax(st.wild.src.background || "");
+  if (!rolling) {   // nothing rolls the background (any more): take our sentence out again
+    if (prev) { st.high_level_description = wcWithoutSetting(h, prev); delete st.wild.setting; }
+    return;
+  }
+  if (written && !written.includes("background") && !written.includes("hld") && prev && h.includes(prev)) return;
+  const clause = wcSettingClause(st.background);
+  st.high_level_description = (wcWithoutSetting(h, prev) + " " + clause).trim();
+  if (clause) st.wild.setting = clause; else delete st.wild.setting;
+}
+// Safety net for models that describe a place anyway when the background is
+// rolled: drop whole sentences about the setting and ", set in …" clauses.
+function wcStripSetting(text) {
+  if (!text) return text;
+  const lead = /^(?:the\s+)?(?:setting|background|backdrop|scene\s+is\s+set|location)\b|^(?:in|against)\s+the\s+background\b|^behind\s+(?:them|him|her|it)\b|^set\s+(?:in|on|at|against)\b/i;
+  const sentences = String(text).split(/(?<=[.!?])\s+/).filter(s => !lead.test(s.trim()));
+  // "in a sunny park", "on the busy street", "at night", "in the rain": a place or time phrase ending the clause.
+  const places = "park|street|streets|city|town|village|beach|shore|coast|forest|woods|jungle|meadow|field|desert|mountains?|hills?|lake|river|harbou?r|pier|dock|garden|room|bedroom|kitchen|office|studio|caf[eé]|bar|club|diner|restaurant|alley|alleyway|rooftop|warehouse|library|market|station|subway|platform|highway|road|bridge|square|plaza|courtyard|hallway|corridor|classroom|church|temple|castle|ruins|landscape|skyline|backdrop|stadium|arena|gym|skatepark|countryside|suburbs?|neighbou?rhood|downtown|metropolis|interior|exterior";
+  const stop = "(?=\\s*(?:[,.;!?]|$)|\\s+(?:at|in|on|during|under|with|while|as|and|beneath)\\b)";
+  const placeRe = new RegExp("\\s*\\b(?:in|on|at|inside|outside|across|near|by)\\s+(?:a|an|the)\\s+(?:[\\w'-]+\\s+){0,3}?(?:" + places + ")\\b" + stop, "gi");
+  const timeRe = new RegExp("\\s*\\b(?:at\\s+(?:night|dusk|dawn|sunset|sunrise|midnight|noon|twilight)|in\\s+the\\s+(?:rain|snow|fog|mist|night|evening|morning)|during\\s+(?:a|an|the)\\s+(?:[\\w'-]+\\s+){0,2}?(?:storm|sunset|sunrise|night|day|snowfall|downpour|evening|morning))\\b" + stop, "gi");
+  return sentences.join(" ")
+    .replace(/,?\s*\bset\s+(?:in|on|at|against)\s+(?:a|an|the)\b[^.;,]*?(?=[.;]|,\s|$)/gi, "")
+    .replace(/,?\s*\bagainst\s+(?:a|an|the)\s+(?:backdrop|background)\s+of\b[^.;,]*?(?=[.;]|,\s|$)/gi, "")
+    .replace(placeRe, "").replace(timeRe, "")
+    .replace(/\s+,/g, ",").replace(/,\s*\./g, ".").replace(/\s{2,}/g, " ").trim();
 }
 // Colours picked from a colour list become the palette of the element (or the
 // image) they were picked for. Without this, an element's old palette (sent as
@@ -492,7 +547,7 @@ function wcApplyTemplateTo(st, tpl, { image = true, elementKeys = null } = {}) {
     if (Array.isArray(G.color_palette) && G.color_palette.length) st.style_description.color_palette = G.color_palette.map(c => String(c).toUpperCase());
     else if (wcIsLeftoverPalette(st.style_description.color_palette, st.wild && st.wild.palRolled)) { st.style_description.color_palette = []; if (st.wild) delete st.wild.palRolled; }   // drop the example's or an old roll's palette
     if (G.hld_suffix || typeof st.wild.hldBase === "string") {
-      const baseText = typeof st.wild.hldBase === "string" ? st.wild.hldBase : st.high_level_description;
+      const baseText = wcWithoutSetting(typeof st.wild.hldBase === "string" ? st.wild.hldBase : st.high_level_description, st.wild.setting);   // the setting sentence goes back on the end after the roll
       delete st.wild.src.hld;
       if (G.hld_suffix) {
         st.wild.hldBase = baseText;
@@ -506,7 +561,7 @@ function wcApplyTemplateTo(st, tpl, { image = true, elementKeys = null } = {}) {
   if (elementKeys) targets = st.elements.filter(e => elementKeys.has(e.wild.key));
   else if (image && tpl.scope !== "global") {
     const types = Array.isArray(tpl.appliesTo) && tpl.appliesTo.length ? tpl.appliesTo : ["subject"];
-    targets = st.elements.filter(e => e.enabled !== false && types.includes(e.type));
+    targets = st.elements.filter(e => e.enabled !== false && types.includes(e.type) && !(e.wild && e.wild.cast));   // cast members have their own style
   }
   for (const el of targets) {
     el.wild = el.wild || normElWild();
@@ -530,7 +585,9 @@ function wcApplyTemplateTo(st, tpl, { image = true, elementKeys = null } = {}) {
       } else { el.desc = baseText; delete el.wild.descBase; }
     }
   }
-  return wcRollInto(st, { global: image, elementKeys: new Set(targets.map(e => e.wild.key)) });
+  const keys = new Set(targets.map(e => e.wild.key));
+  if (image && typeof wcApplyCast === "function") for (const k of wcApplyCast(st, tpl)) keys.add(k);   // the extra elements this template adds
+  return wcRollInto(st, { global: image, elementKeys: keys });
 }
 async function wcApplyTemplateReview(tpl, where) {
   const keys = where === "selected" ? wcSelectedKeys() : null;
@@ -579,6 +636,8 @@ function wcGenerateIngredients() {
   const aspects = wcTemplateAspects(tpl);
   let s = `Follow the “${tpl.name}” style template` + (feel.length ? ` (${feel.join("; ")})` : "") + ".";
   if (aspects.length) s += ` The template fills in ${aspects.join(", ")} by itself on every render. Do NOT describe any of those anywhere — not in high_level_description, not in background, not in any element's desc, and leave the elements' "style" objects out. In particular never say what anyone is wearing. Each element's desc says only who or what it is, what it is doing, and what it holds.`;
+  const cast = typeof wcCastSummary === "function" ? wcCastSummary(tpl) : "";
+  if (cast) s += ` The template also adds these elements by itself: ${cast}. Do not add them as elements and do not mention them.`;
   if (tpl.llmNotes) s += " " + tpl.llmNotes;
   return s;
 }
@@ -616,7 +675,8 @@ function wcImproveDirective() {
   const tpl = wcGenTemplate();
   const aspects = wcTemplateAspects(tpl);
   if (!tpl || !aspects.length) return "";
-  return `\n\nIMPORTANT: the “${tpl.name}” style template decides — and re-rolls on every render — ${aspects.join(", ")}. Do NOT mention any of those. Describe ONLY: who or what is in the picture (how many, age range, hair, build), what each is doing, their expression only if the template doesn't set the mood, where each sits in the frame (left/right/centre, near/far, full body or close-up), any props they hold, and any words the image must show, in double quotes. 2 to 4 sentences.`;
+  const cast = typeof wcCastSummary === "function" ? wcCastSummary(tpl) : "";
+  return `\n\nIMPORTANT: the “${tpl.name}” style template decides — and re-rolls on every render — ${aspects.join(", ")}. Do NOT mention any of those. Describe ONLY: who or what is in the picture (how many, age range, hair, build), what each is doing, their expression only if the template doesn't set the mood, where each sits in the frame (left/right/centre, near/far, full body or close-up), any props they hold, and any words the image must show, in double quotes. 2 to 4 sentences.` + (cast ? ` The template also adds ${cast} by itself: leave them out.` : "");
 }
 // Generate: link the new setup to the chosen template, so 🎲 Roll and queue
 // re-rolls keep varying it. The template's fields replace the model's fixed
@@ -630,14 +690,15 @@ function wcStripWearing(text) {
   return String(text).replace(re, "").replace(/\s+,/g, ",").replace(/,\s*,/g, ",").replace(/,(\s*(?:is|are|was|were)\b)/gi, "$1").replace(/\s{2,}/g, " ").trim();
 }
 function wcLinkGenerated(st) {
-  if (st.wild) { delete st.wild.hldBase; if (st.wild.src) delete st.wild.src.hld; }   // the old setup's description text isn't the new one's
+  if (st.wild) { delete st.wild.hldBase; delete st.wild.setting; if (st.wild.src) delete st.wild.src.hld; }   // the old setup's description text isn't the new one's
   const tpl = wcGenTemplate();
   if (!tpl) return false;
-  const E = wcTemplateFor(tpl, aiTarget()).element || {};
+  const T = wcTemplateFor(tpl, aiTarget()), E = T.element || {}, G = T.global || {};
   if (E.wardrobe) {
     st.high_level_description = wcStripWearing(st.high_level_description);
     for (const el of st.elements) if (el.type === "subject" && el.desc) el.desc = wcStripWearing(el.desc);
   }
+  if (G.background) st.high_level_description = wcStripSetting(st.high_level_description);   // the rolled background names the place
   wcApplyTemplateTo(st, tpl);
   wcRollInto(st, { newSeed: true, onlyUnresolved: true });
   return true;
@@ -650,10 +711,12 @@ function wcTemplateFieldsOf(st) {
   return { g, e: Array.from(e) };
 }
 function wcRefineDirective(st) {
-  const { g, e } = wcTemplateFieldsOf(st || state);
+  st = st || state;
+  const { g, e } = wcTemplateFieldsOf(st);
   if (!g.length && !e.length) return "";
   const parts = [...g, ...e.map(k => `the elements' "style.${k}"`)];
-  return `\n\nThese fields come from a style template that re-rolls them automatically: ${parts.join(", ")}. Return them EXACTLY as given unless the change request is specifically about them.`;
+  const setting = st.wild && st.wild.setting ? ` The "${st.wild.setting}" sentence at the end of high_level_description is copied from the background by the app; keep it, and never name a different place anywhere else in high_level_description.` : "";
+  return `\n\nThese fields come from a style template that re-rolls them automatically: ${parts.join(", ")}. Return them EXACTLY as given unless the change request is specifically about them.` + setting;
 }
 // Words that show a change request is about a field. Used after Refine: a
 // template field the model changed is kept (and stops rolling) only when the
@@ -709,6 +772,7 @@ function wcAfterRefine(prev, st, instruction) {
       else { el.style = el.style || {}; if (before) el.style[k] = before; else delete el.style[k]; restored.push(k); }
     }
   }
+  wcSyncSetting(st, ["background"]);   // the description's setting sentence matches whatever background stayed
   return { kept, restored };
 }
 
@@ -980,6 +1044,9 @@ function wcBuildMenu() {
     wcEl("label", { class: "toggle wc-mi", title: "When a roll picks a colour (e.g. __colours__ in the clothes), that element's palette becomes those colours, so an old palette can't override the words" },
       (() => { const c = wcEl("input", { type: "checkbox", checked: wcPaletteFollow, onchange: () => { wcPaletteFollow = c.checked; wcSave(WCS_PALFOLLOW_KEY, wcPaletteFollow); } }); return c; })(),
       " Palettes follow rolled colours"),
+    wcEl("label", { class: "toggle wc-mi", title: "When the background is rolled (e.g. by a style template), the high-level description ends with a short “Setting: …” sentence taken from it, so the two never name different places" },
+      (() => { const c = wcEl("input", { type: "checkbox", checked: wcSettingFollow, onchange: () => { wcSettingFollow = c.checked; wcSave(WCS_SETFOLLOW_KEY, wcSettingFollow); const next = cloneState(state); wcSyncSetting(next, ["background"]); wcCommit(next, wcSettingFollow ? "Setting in description" : "No setting in description"); } }); return c; })(),
+      " Description follows rolled background"),
     item("🔓 Clear locked picks", "Unlock every locked pick", wcClearLocks),
     wcEl("hr"),
     item("📚 Wildcard lists & rules…", "Edit, import, export and sync wildcard lists", () => wcOpenManager()),
@@ -1032,6 +1099,7 @@ function wcOpenTemplates() {
       wcEl("button", { title: "How templates, lists and rolling work", onclick: () => wcOpenHelp("templates") }, "📖 Help"),
       wcEl("button", { title: "Build a template step by step from the wildcard lists", onclick: () => wcOpenWizard() }, "🧭 Template wizard"),
       wcEl("button", { onclick: () => wcOpenTemplateEditor(null) }, "＋ New template"),
+      wcEl("button", { title: "Render one picture per template with your ComfyUI workflow and use it as the template's preview", onclick: () => { if (typeof wcRenderPreviews === "function") wcRenderPreviews(); } }, "🖼 Render previews"),
       wcEl("button", { title: "Hide the templates; the lists stay", onclick: () => wcCloseModal("wcTplOverlay") }, "Hide templates"),
       wcEl("button", { class: "primary", title: "Close lists and templates", onclick: () => wcCloseModal("wcMgrOverlay") }, "Close"));
   }
@@ -1111,6 +1179,7 @@ function wcRenderTemplates() {
     wcEl("div", { class: "var-meta wc-row", style: { margin: "2px 0" } }, wcTplCatSelect(t.category || "", c => { wcSetTemplateCategory(t, c); wcRenderTemplates(); }),
       wcEl("span", {}, ({ global: "image only", element: "elements only", both: "image + elements" }[t.scope || "both"]))),
     wcEl("div", { class: "var-desc" }, wcShort((t.global && (t.global.aesthetics || t.global.lighting)) || Object.values(t.element || {})[0] || "", 150)),
+    typeof wcCastSummary === "function" && wcCastSummary(t) ? wcEl("div", { class: "var-meta", title: "Extra elements this template adds by itself" }, "＋ adds: " + wcCastSummary(t)) : null,
     wcListChips(t),
     wcEl("div", { class: "wc-row" },
       t.scope !== "element" ? wcEl("button", { class: "primary", onclick: () => wcApplyTemplateReview(t, "image") }, "Apply to image") : null,
@@ -1133,6 +1202,7 @@ function wcSampleTemplate(t, outEl) {
     const fields = [];
     for (const k of [...WC_TPL_GLOBAL_KEYS, "background", "hld_suffix"]) if (G[k]) fields.push({ path: k, text: G[k] });
     for (const k of [...ELEMENT_STYLE_KEYS, "desc_prefix", "desc_suffix"]) if (E[k]) fields.push({ path: "element " + k, text: E[k] });
+    if (typeof wcCastDefs === "function") wcCastDefs(t).forEach(d => { if (d) fields.push({ path: `cast “${d.name}” (${d.chance}%${d.max > 1 ? `, ${d.min}–${d.max}` : ""})`, text: d.desc || d.text }); });
     const r = WC.resolveFields(fields, { lists: wcEngineLists(), rules: [...wcGlobalRules(), ...(t.rules || [])], varDefs: t.vars || {}, seed: WC.newSeed() });
     lines.push(`— Sample ${i + 1} —\n` + fields.map(f => `${f.path}: ${r.values[f.path]}`).join("\n") + (r.errors.length ? "\n⚠ " + r.errors.join("; ") : ""));
   }
@@ -1177,6 +1247,7 @@ function wcOpenTemplateEditor(t) {
   wcRulesEditor(rulesBox, rules, r => { rules = r; });
   const sampleOut = wcEl("pre", { class: "wc-pre", style: { display: "none" } });
   const overlapBox = wcEl("div");
+  const castEd = typeof wcCastEditor === "function" ? wcCastEditor(t.cast) : null;
   const insert = wcEl("select", { class: "ai-target-sel wc-insert" }); insert.dataset.ph = "+ insert wildcard"; wcListOptions(insert, "+ insert wildcard");
   let lastTa = gInputs.aesthetics;
   insert.addEventListener("change", () => { if (insert.value) wcInsertAtCursor(lastTa, "__" + insert.value + "__"); insert.value = ""; });
@@ -1188,6 +1259,10 @@ function wcOpenTemplateEditor(t) {
     wcEl("div", { class: "wc-2col" }, gDefs.map(([k, l]) => row(l, gInputs[k])), row("Colour palette", pal)),
     wcEl("div", { style: { margin: "12px 0 4px" } }, wcEl("b", {}, "Per element")),
     wcEl("div", { class: "wc-2col" }, ELEMENT_STYLE_FIELDS.map(([k, l]) => row(l, eInputs[k])), row("Description prefix", eInputs.desc_prefix), row("Description suffix", eInputs.desc_suffix)),
+    castEd ? wcEl("details", { class: "gen-options", open: (t.cast || []).length ? true : undefined },
+      wcEl("summary", {}, "Cast — extra elements this template adds by itself" + ((t.cast || []).length ? ` (${t.cast.length})` : "")),
+      wcEl("div", { class: "hint", style: { marginTop: 0 } }, "“Apply to image” adds these as elements (a referee, a crowd, a score graphic…); every roll decides again whether each one shows, how many and — for “Anywhere” — where. Move, resize or lock one on the canvas and it's yours: it stays put and stops rolling."),
+      castEd.el) : null,
     wcEl("details", { class: "gen-options", open: !!(Object.keys(t.vars || {}).length || (t.rules || []).length) || undefined },
       wcEl("summary", {}, "Variables, rules, AI notes, per-format overrides"),
       row("Variables (set once per roll, use as ${name} — also usable in guards like [sport=tennis])", vars),
@@ -1217,6 +1292,7 @@ function wcOpenTemplateEditor(t) {
     for (const line of vars.value.split(/\n/)) { const mm = /^\s*([A-Za-z_][\w.\-]*)\s*=\s*(.*)$/.exec(line); if (mm) out.vars[mm[1]] = mm[2].trim(); }
     if (fmts.value.trim()) { try { out.formats = JSON.parse(fmts.value); } catch (err) { throw new Error("Per-format overrides aren't valid JSON: " + err.message); } }
     else delete out.formats;
+    if (castEd) { const c = castEd.collect(); if (c.length) out.cast = c; else delete out.cast; }
     if (!out.id) out.id = wcNewId(out.name);
     return out;
   };
@@ -1317,6 +1393,8 @@ function wcRenderManager() {
   const groupOf = n => n.includes("/") ? n.slice(0, n.lastIndexOf("/")) : "";
   const cats = wcListCategories(lists, [...wcLoad(WCS_LISTCATS_KEY, []), ...(m._extraCats || [])]);
   m._collapsed = m._collapsed || new Set(wcLoad(WCS_LISTCOLLAPSE_KEY, []));
+  if (wcMgrSel && lists[wcMgrSel]) m._cat = null;   // a list is selected, not a category
+  if (m._cat && !cats.includes(m._cat)) m._cat = null;
   const saveCollapsed = () => wcSave(WCS_LISTCOLLAPSE_KEY, Array.from(m._collapsed));
   const drawTree = () => {
     const keepScroll = tree.scrollTop;
@@ -1333,14 +1411,22 @@ function wcRenderManager() {
     tree.replaceChildren();
     const item = (n, depth) => {
       const g = groupOf(n), count = WC.parseList(lists[n].text).length;
-      tree.append(wcEl("button", { class: "wc-tree-i" + (n === wcMgrSel ? " on" : ""), style: pad(depth), onclick: () => { delete m._new; wcMgrSel = n; wcRenderManager(); } },
+      tree.append(wcEl("button", { class: "wc-tree-i" + (n === wcMgrSel ? " on" : ""), style: pad(depth), onclick: () => { delete m._new; m._cat = null; wcMgrSel = n; wcRenderManager(); } },
         wcEl("span", {}, g ? n.slice(g.length + 1) : n), wcEl("em", {}, String(count) + (lists[n].modified ? (lists[n].builtin ? " ✎" : " ★") : ""))));
     };
     const head = (path, label, depth, nd) => {
       const key = path || "@root", open = !!q || !m._collapsed.has(key);
       const toggle = () => { if (m._collapsed.has(key)) m._collapsed.delete(key); else m._collapsed.add(key); saveCollapsed(); drawTree(); };
-      tree.append(wcEl("div", { class: "wc-tree-g", style: { paddingLeft: (4 + depth * 14) + "px" } },
-        wcEl("span", { class: "wc-tree-lbl", title: open ? "Collapse" : "Expand", onclick: toggle }, (open ? "▾ " : "▸ ") + label, wcEl("em", {}, " " + countIn(nd))),
+      // The arrow folds; the name selects the category (to rename, move or delete it). Clicking a selected name folds it.
+      const pick = () => {
+        if (m._cat === path && wcMgrSel === null && m._new === undefined) { toggle(); return; }
+        delete m._new; wcMgrSel = null; m._cat = path; m._collapsed.delete(key); saveCollapsed(); wcRenderManager();
+      };
+      tree.append(wcEl("div", { class: "wc-tree-g" + (path && path === m._cat && !wcMgrSel ? " on" : ""), style: { paddingLeft: (4 + depth * 14) + "px" } },
+        wcEl("span", { class: "wc-tree-lbl" },
+          wcEl("span", { class: "wc-tree-tw", title: open ? "Collapse" : "Expand", onclick: toggle }, open ? "▾" : "▸"),
+          wcEl("span", { class: path ? "wc-tree-name" : "", title: path ? `Select ${path}/ to rename, move or delete it` : "", onclick: path ? pick : toggle }, label),
+          wcEl("em", {}, " " + countIn(nd))),
         wcEl("span", {},
           path ? wcEl("button", { class: "wc-tree-add", title: `New subcategory inside ${path}/`, onclick: () => { const c = wcAskCategory(m, path); if (c !== null) { m._collapsed.delete(path); saveCollapsed(); wcMgrNew(c); } } }, "＋ sub") : null,
           wcEl("button", { class: "wc-tree-add", title: path ? `New list in ${path}/` : "New list without a category", onclick: () => wcMgrNew(path) }, "＋ list"))));
@@ -1361,9 +1447,11 @@ function wcRenderManager() {
   search.addEventListener("input", drawTree);
   drawTree();
   if (wcMgrSel && !lists[wcMgrSel]) wcMgrSel = null;
-  const curCat = wcMgrSel ? groupOf(wcMgrSel) : (m._new || "");
+  const curCat = wcMgrSel ? groupOf(wcMgrSel) : (m._new !== undefined ? m._new : (m._cat || ""));
   const editor = wcEl("div", { class: "wc-editor" });
-  if (!wcMgrSel && m._new !== undefined) {
+  if (!wcMgrSel && m._new === undefined && m._cat) {
+    wcCategoryEditor(m, editor, m._cat, lists, cats);
+  } else if (!wcMgrSel && m._new !== undefined) {
     // New list form: pick (or make) a category, name it.
     const catSel = wcCatSelect(cats, m._new, m);
     const nameIn = wcEl("input", { type: "text", placeholder: "e.g. hairstyles", onkeydown: e => { wcStop(e); if (e.key === "Enter") create(); } });
@@ -1434,7 +1522,7 @@ function wcRenderManager() {
     editor));
   // Re-rendering rebuilt the tree: put it back where it was, and make sure the selected list is in view.
   tree.scrollTop = m._treeScroll || 0;
-  const on = tree.querySelector(".wc-tree-i.on");
+  const on = tree.querySelector(".wc-tree-i.on, .wc-tree-g.on");
   if (on) { const tr = tree.getBoundingClientRect(), r = on.getBoundingClientRect(); if (r.top < tr.top || r.bottom > tr.bottom) on.scrollIntoView({ block: "nearest" }); m._treeScroll = tree.scrollTop; }
 }
 // Every category (folder) that has a list, including parents of nested ones.
@@ -1456,10 +1544,108 @@ function wcAskCategory(m, parent) {
   wcSave(WCS_LISTCATS_KEY, Array.from(new Set([...wcLoad(WCS_LISTCATS_KEY, []), c])));
   return c;
 }
-function wcCatSelect(cats, value, m) {
+// The panel for a selected category: rename or move it (its lists and subcategories go along), or delete it.
+function wcCatInside(path, name) { return name === path || name.startsWith(path + "/"); }
+function wcCatParent(path) { return path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : ""; }
+function wcCategoryEditor(m, editor, path, lists, cats) {
+  const inside = Object.keys(lists).filter(n => n.startsWith(path + "/"));
+  const subs = cats.filter(c => c.startsWith(path + "/"));
+  const leafOf = p => p.split("/").pop();
+  const parentSel = wcCatSelect(cats, wcCatParent(path), m, c => wcCatInside(path, c));
+  const nameIn = wcEl("input", { type: "text", onkeydown: e => { wcStop(e); if (e.key === "Enter") save(); } });
+  nameIn.value = leafOf(path);
+  const users = wcAllTemplates().filter(t => wcTemplateLists(t).some(x => x.lists.some(n => n.startsWith(path + "/"))));
+  const save = () => {
+    const leaf = WC.normName(nameIn.value).replace(/\//g, "-").replace(/\s+/g, "-");
+    if (!leaf) { wcMgrStatus("Give the category a name.", "err"); nameIn.focus(); return; }
+    const to = (parentSel.value ? parentSel.value + "/" : "") + leaf;
+    if (to === path) { wcMgrStatus("Nothing changed.", ""); return; }
+    const r = wcMoveCategory(m, path, to);
+    if (!r) return;
+    m._cat = to; wcRenderManager();
+    wcMgrStatus(`Moved ${path}/ to ${to}/ ✓ · ${r.moved} list${r.moved === 1 ? "" : "s"}${r.refs ? ` · updated ${r.refs} reference${r.refs === 1 ? "" : "s"}` : ""}`, "ok");
+  };
+  const removeKeep = () => {
+    const up = wcCatParent(path);
+    if (inside.length && !confirm(`Remove the category “${path}/” and move its ${inside.length} list${inside.length === 1 ? "" : "s"} up into ${up ? up + "/" : "no category"}?`)) return;
+    if (inside.length) { const r = wcMoveCategory(m, path, up); if (!r) return; }
+    wcForgetCategory(m, path);
+    m._cat = up || null; wcRenderManager();
+    wcMgrStatus(`Removed ${path}/ ✓`, "ok");
+  };
+  const removeAll = () => {
+    const warn = users.length ? `\n\nUsed by ${users.length} template${users.length === 1 ? "" : "s"}: ${users.map(t => t.name).join(", ")}. They will roll nothing from these lists.` : "";
+    if (!confirm(`Delete the category “${path}/” and the ${inside.length} list${inside.length === 1 ? "" : "s"} in it?${warn}\n\nBuilt-in lists can be brought back later; your own lists cannot.`)) return;
+    for (const n of inside) wcListOverlay[n] = { deleted: true, updatedAt: Date.now() };
+    wcListsChanged();
+    wcForgetCategory(m, path);
+    m._cat = wcCatParent(path) || null; wcRenderManager();
+    wcMgrStatus(`Deleted ${path}/ and ${inside.length} list${inside.length === 1 ? "" : "s"}`, "ok");
+  };
+  editor.append(wcEl("h3", { style: { margin: "0 0 10px" } }, "Category ", wcEl("code", {}, path + "/")),
+    wcEl("div", { class: "wc-row" }, wcEl("span", { class: "wc-ml" }, "Inside"), parentSel),
+    wcEl("div", { class: "wc-row" }, wcEl("span", { class: "wc-ml" }, "Name"), nameIn),
+    wcEl("div", { class: "hint" }, `${inside.length} list${inside.length === 1 ? "" : "s"}`, subs.length ? ` · ${subs.length} subcategor${subs.length === 1 ? "y" : "ies"}` : "", ". ",
+      inside.length ? ["Use ", wcEl("code", {}, "__" + path + "/*__"), " for a pick from any list in it. "] : "Empty: it stays until you delete it or put a list in it. ",
+      users.length ? ["Used by templates: ", users.map(t => t.name).join(", "), ". Renaming updates them."] : null),
+    wcEl("div", { class: "wc-row" },
+      wcEl("button", { class: "primary", onclick: save }, "Save"),
+      wcEl("button", { onclick: () => wcMgrNew(path) }, "＋ List here"),
+      wcEl("button", { onclick: () => { const c = wcAskCategory(m, path); if (c !== null) { m._cat = c; wcRenderManager(); } } }, "＋ Subcategory")),
+    wcEl("div", { class: "wc-row", style: { marginTop: "14px" } },
+      inside.length
+        ? [wcEl("button", { class: "ghost", title: "The lists stay, one level up", onclick: removeKeep }, "Remove category, keep lists"),
+           wcEl("button", { class: "ghost wc-danger", onclick: removeAll }, `Delete category and its ${inside.length} list${inside.length === 1 ? "" : "s"}`)]
+        : wcEl("button", { class: "ghost wc-danger", onclick: removeKeep }, "Delete category")));
+}
+// Forget a category made by hand (and its subcategories), so an empty one disappears.
+function wcForgetCategory(m, path) {
+  const keep = c => !wcCatInside(path, c);
+  wcSave(WCS_LISTCATS_KEY, wcLoad(WCS_LISTCATS_KEY, []).filter(keep));
+  m._extraCats = (m._extraCats || []).filter(keep);
+  if (m._collapsed) { for (const k of Array.from(m._collapsed)) if (wcCatInside(path, k)) m._collapsed.delete(k); wcSave(WCS_LISTCOLLAPSE_KEY, Array.from(m._collapsed)); }
+}
+// Move every list under from/ to to/ (to may be "" for no category). References written with the
+// full path (__from/x__, rule lists) follow. Returns { moved, refs }, or null when cancelled.
+function wcMoveCategory(m, from, to) {
+  const lists = wcAllLists();
+  const re = n => to ? to + "/" + n.slice(from.length + 1) : n.slice(from.length + 1);
+  const moves = Object.keys(lists).filter(n => n.startsWith(from + "/")).map(n => [n, re(n)]);
+  const sources = new Set(moves.map(x => x[0]));
+  const clash = moves.filter(([, b]) => lists[b] && !sources.has(b)).map(x => x[1]);
+  if (clash.length && !confirm(`These lists already exist and would be replaced:\n\n${clash.join("\n")}\n\nGo on?`)) return null;
+  const now = Date.now();
+  for (const [a, b] of moves) { const L = lists[a]; wcListOverlay[b] = { text: L.text, opts: L.opts || {}, updatedAt: now }; }
+  for (const [a] of moves) if (!moves.some(([, b]) => b === a)) wcListOverlay[a] = { deleted: true, updatedAt: now };
+  // Hand-made (possibly empty) subcategories move too.
+  const saved = wcLoad(WCS_LISTCATS_KEY, []);
+  const moveCat = c => wcCatInside(from, c) ? (to ? to + c.slice(from.length) : c.slice(from.length + 1)) : c;
+  wcSave(WCS_LISTCATS_KEY, Array.from(new Set([...saved.map(moveCat), ...(to ? [to] : [])].filter(Boolean))));
+  m._extraCats = Array.from(new Set((m._extraCats || []).map(moveCat).filter(Boolean)));
+  // Rewrite full-path references in templates, lists and rules.
+  const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const refRe = new RegExp("__" + esc(from) + "/", "g"), ruleRe = new RegExp('("list"\\s*:\\s*")' + esc(from) + "/", "g");
+  const toRef = "__" + (to ? to + "/" : "");
+  let refs = 0;
+  const fix = s => s.replace(refRe, () => { refs++; return toRef; }).replace(ruleRe, (_, p) => { refs++; return p + (to ? to + "/" : ""); });
+  for (const t of wcAllTemplates()) {
+    const before = JSON.stringify(t), after = fix(before);
+    if (after !== before) wcSaveTemplate(JSON.parse(after));
+  }
+  for (const [n, L] of Object.entries(wcAllLists())) {
+    if (wcListOverlay[n] && wcListOverlay[n].deleted) continue;
+    const t2 = fix(L.text);
+    if (t2 !== L.text) wcListOverlay[n] = { text: t2, opts: L.opts || {}, updatedAt: now };
+  }
+  const rulesBefore = JSON.stringify(wcGlobalRules()), rulesAfter = fix(rulesBefore);
+  if (rulesAfter !== rulesBefore) wcSetGlobalRules(JSON.parse(rulesAfter));
+  wcListsChanged();
+  return { moved: moves.length, refs };
+}
+function wcCatSelect(cats, value, m, exclude) {
   const sel = wcEl("select", { onkeydown: wcStop });
   const fill = v => {
-    const all = Array.from(new Set([...cats, ...(m._extraCats || []), ...(v ? [v] : [])])).sort();
+    const all = Array.from(new Set([...cats, ...(m._extraCats || []), ...(v ? [v] : [])])).filter(c => !exclude || !exclude(c)).sort();
     sel.replaceChildren(wcEl("option", { value: "" }, "(no category)"), ...all.map(c => wcEl("option", { value: c }, "\u00a0\u00a0".repeat(c.split("/").length - 1) + c.split("/").pop() + "/")),
       wcEl("option", { value: "@new" }, "＋ New category…"), ...(v ? [wcEl("option", { value: "@sub" }, `＋ New subcategory in ${v}/…`)] : []));
     sel.value = v || "";
@@ -1477,6 +1663,7 @@ function wcMgrNew(cat) {
   const o = document.getElementById("wcMgrOverlay");
   if (!o) return;
   o._wc._new = cat || "";
+  o._wc._cat = null;
   wcMgrSel = null; wcMgrTab = "lists";
   wcRenderManager();
 }
@@ -1843,6 +2030,12 @@ function wcInstallCSS() {
   .wc-tree-g:hover .wc-tree-add { border-color: var(--border); }
   .wc-tree-lbl { cursor: pointer; user-select: none; flex: 1; min-width: 0; }
   .wc-tree-lbl em { font-style: normal; opacity: .7; }
+  .wc-tree-tw { display: inline-block; width: 14px; cursor: pointer; }
+  .wc-tree-name { cursor: pointer; border-radius: 3px; padding: 0 2px; }
+  .wc-tree-name:hover { color: var(--text, #e5e7eb); text-decoration: underline; }
+  .wc-tree-g.on { background: rgba(243,36,70,.16); border-radius: 4px; }
+  .wc-tree-g.on .wc-tree-name { color: var(--text, #e5e7eb); font-weight: 600; }
+  .wc-danger { color: #f87171; }
   .wc-tplcat { font-size: 11.5px; padding: 2px 6px; max-width: 170px; }
   .wc-chip-x { opacity: .7; }
   .wc-tree-add:hover { color: var(--text, #e5e7eb); transform: none; }

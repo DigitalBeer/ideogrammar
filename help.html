@@ -165,10 +165,11 @@
   <li><span class="ui">Upload an image…</span>: any picture of the look.</li>
   <li><span class="ui">Use the current render</span>: the image in the Rendered output window (ComfyUI mode). The usual routine: apply the template, render, then set it as the preview.</li>
 </ul>
+<p>To do them all at once, press <span class="ui">🖼 Render previews</span> at the bottom of the templates window. Each template without a preview is applied to the setup you have now, rolled once and rendered with your ComfyUI workflow, and the picture becomes its preview. Start from a simple setup (one person in the middle) so the previews compare fairly. Your setup comes back afterwards; <span class="ui">Cancel</span> in the Render tile stops the run. When every template already has one, it offers to redo them all.</p>
 <p>Previews are scaled down and kept in the browser. They are included in exports and in folder sync.</p>
 
 <h3 id="subject">Where does the subject go?</h3>
-<p>Templates set the <i>look</i>. They don't create people or boxes. The subject belongs to the layout:</p>
+<p>Templates set the <i>look</i>. Apart from their <a href="#cast">cast</a>, they don't create people or boxes. The subject belongs to the layout:</p>
 <ul>
   <li><b>Each person or thing</b> is its own element, and its <b>description</b> says who or what it is: <i>"a tennis player mid-serve"</i>. One element per person.</li>
   <li><b>The high-level description</b> says what the whole picture is: <i>"a tennis player serving on a stadium court"</i>.</li>
@@ -179,6 +180,15 @@
   <li><b>Wildcards in the description.</b> Write <code>a __people/ages__ __people/roles__</code> in a person's description. Every roll gives a new subject while the template keeps the look.</li>
   <li><b>In the template.</b> The wizard's <b>Who / what</b> box (step 3) is put in front of each styled element's description, so the template supplies the subject. Leave the description empty, or keep a few words there. <b>Add to the description</b> (step 2) does the same for the high-level description.</li>
 </ol>
+<h3 id="cast">Cast: extra elements a template adds</h3>
+<p>A template can bring its own extras: a referee, a crowd along the bottom, a score graphic in the corner, a passer-by. Add them in the template editor under <span class="ui">Cast</span>. Each one has:</p>
+<ul>
+  <li><b>Name and type</b> (subject, obj, text, logo, bg) and a <b>description</b>, which can use wildcards and the template's <code>${variables}</code>. Text and logo members also get the words to show and a typography line.</li>
+  <li><b>Where</b>: left, right, centre, in the distance, foreground, a corner, a band along the top or bottom, the sky, the whole frame, or <i>Anywhere</i>, which picks a new spot every roll.</li>
+  <li><b>Chance</b> (%) and <b>how many</b> (e.g. 1–3). Every roll decides again whether it shows and how many; the ones not in this roll are switched off, not deleted.</li>
+  <li><b>Style for this one</b>: its own outfit, pose and so on. Tick <i>Use the template's per-element style too</i> to dress it like the main subjects.</li>
+</ul>
+<p><span class="ui">Apply to image</span> adds the cast; applying another template takes it away again. <b>Move, resize or lock a cast element and it is yours</b>: it stays where you put it, stops rolling in and out, and survives a template change. Generate and Improve tell the AI model about the cast, so it doesn't add a second referee. Built-in examples: <i>Sports broadcast</i> (score graphic, opponents), <i>Street photography</i> (passers-by), <i>Concert</i> (crowd).</p>
 <h3 id="ai-buttons">Improve, Generate, Refine and Render with a template</h3>
 <p>The template decides <i>how</i> the picture looks (clothes, light, camera, setting) and re-rolls it every time. The AI model decides <i>what</i> is in it and where: who, doing what, and the boxes.</p>
 <ul>
@@ -187,13 +197,14 @@
   <li><b>Refine</b> changes the existing setup. Fields the template rolls are put back unless your request is about them: <i>"move her to the left"</i> keeps the rolled outfit, <i>"make her outfit red"</i> keeps the red outfit, and that field stops rolling until you apply the template again.</li>
   <li><b>Render</b> sends the setup as it is to ComfyUI. It doesn't use the AI model. <b>Generate &amp; render</b> does both in one go.</li>
 </ul>
+<p><b>Background and description stay in step.</b> When the background is rolled (usually by a template), the high-level description ends with a short <i>"Setting: …"</i> sentence copied from the rolled background, replaced on every roll, so the two never name different places. When a template rolls the background, Generate also strips place and time phrases the model wrote anyway (<i>"in a sunny park"</i>, <i>"at night"</i>). Turn this off with <span class="ui">Description follows rolled background</span> in the 🎲 menu.</p>
 <p>Generate's <span class="ui">Style template</span> option follows the image's current template unless you pick another, or <i>None</i>.</p>
 <p>Keeping subjects out of templates means any template works with any subject. Use <i>Who / what</i> when the template only makes sense with its own subject (e.g. "boxer" for a boxing poster).</p>
 
 <!-- ============================================================ -->
 <h2 id="lists">Wildcard lists</h2>
 <p>A wildcard list is a set of options, one per line. Writing its name between double underscores, <code>__colours__</code>, means <i>"pick one line from the colours list"</i>. Lists can be in folders: <code>__clothes/hats__</code>. If the name is unique, <code>__hats__</code> works too.</p>
-<p>Open <span class="ui">📚 Lists</span> in the header (or <span class="ui">▾ → 📚 Wildcard lists &amp; rules</span>) to see, edit, add, import or export lists. Lists are grouped in <b>categories</b> (folders): <span class="ui">＋ List</span> makes a list in the selected list's category, the <span class="ui">＋</span> on a category heading makes one in that category, and <span class="ui">＋ Category</span> starts a new one. To move a list, change its <b>Category</b> and press Save. In a list:</p>
+<p>Open <span class="ui">📚 Lists</span> in the header (or <span class="ui">▾ → 📚 Wildcard lists &amp; rules</span>) to see, edit, add, import or export lists. Lists are grouped in <b>categories</b> (folders): <span class="ui">＋ List</span> makes a list in the selected list's category, the <span class="ui">＋</span> on a category heading makes one in that category, and <span class="ui">＋ Category</span> starts a new one. To move a list, change its <b>Category</b> and press Save. <b>Click a category's name</b> (the ▸/▾ arrow folds it) to rename it, move it inside another one, or delete it: an empty one just goes; one with lists offers <span class="ui">Remove category, keep lists</span> (they move up a level) or <span class="ui">Delete category and its lists</span>. Renaming or moving a category updates <code>__category/list__</code> references in templates, lists and rules. In a list:</p>
 <pre><code># lines starting with # are notes
 red
 3::navy blue          ← three times as likely as the others
