@@ -1284,11 +1284,13 @@ function wcRenderManager() {
   const search = wcEl("input", { type: "text", placeholder: "Filter lists…", onkeydown: wcStop });
   search.value = m._q || "";
   const tree = wcEl("div", { class: "wc-tree" });
+  tree.addEventListener("scroll", () => { m._treeScroll = tree.scrollTop; });
   const groupOf = n => n.includes("/") ? n.slice(0, n.lastIndexOf("/")) : "";
   const cats = wcListCategories(lists, [...wcLoad(WCS_LISTCATS_KEY, []), ...(m._extraCats || [])]);
   m._collapsed = m._collapsed || new Set(wcLoad(WCS_LISTCOLLAPSE_KEY, []));
   const saveCollapsed = () => wcSave(WCS_LISTCOLLAPSE_KEY, Array.from(m._collapsed));
   const drawTree = () => {
+    const keepScroll = tree.scrollTop;
     m._q = search.value;
     const q = search.value.trim().toLowerCase();
     const names = Object.keys(lists).filter(n => !q || n.includes(q) || lists[n].text.toLowerCase().includes(q)).sort();
@@ -1311,8 +1313,8 @@ function wcRenderManager() {
       tree.append(wcEl("div", { class: "wc-tree-g", style: { paddingLeft: (4 + depth * 14) + "px" } },
         wcEl("span", { class: "wc-tree-lbl", title: open ? "Collapse" : "Expand", onclick: toggle }, (open ? "▾ " : "▸ ") + label, wcEl("em", {}, " " + countIn(nd))),
         wcEl("span", {},
-          path ? wcEl("button", { class: "wc-tree-add", title: `New subcategory inside ${path}/`, onclick: () => { const c = wcAskCategory(m, path); if (c !== null) { m._collapsed.delete(path); saveCollapsed(); wcMgrNew(c); } } }, "⊞") : null,
-          wcEl("button", { class: "wc-tree-add", title: path ? `New list in ${path}/` : "New list without a category", onclick: () => wcMgrNew(path) }, "＋"))));
+          path ? wcEl("button", { class: "wc-tree-add", title: `New subcategory inside ${path}/`, onclick: () => { const c = wcAskCategory(m, path); if (c !== null) { m._collapsed.delete(path); saveCollapsed(); wcMgrNew(c); } } }, "＋ sub") : null,
+          wcEl("button", { class: "wc-tree-add", title: path ? `New list in ${path}/` : "New list without a category", onclick: () => wcMgrNew(path) }, "＋ list"))));
       return open;
     };
     if (root.lists.length && head("", "No category", 0, root)) root.lists.forEach(n => item(n, 1));
@@ -1325,10 +1327,12 @@ function wcRenderManager() {
     };
     walk(root, "", 0);
     if (!names.length) tree.append(wcEl("div", { class: "hint" }, q ? "No lists match." : "No lists yet."));
+    if (tree.isConnected) tree.scrollTop = keepScroll;   // folding or filtering keeps your place
   };
   search.addEventListener("input", drawTree);
   drawTree();
   if (wcMgrSel && !lists[wcMgrSel]) wcMgrSel = null;
+  const curCat = wcMgrSel ? groupOf(wcMgrSel) : (m._new || "");
   const editor = wcEl("div", { class: "wc-editor" });
   if (!wcMgrSel && m._new !== undefined) {
     // New list form: pick (or make) a category, name it.
@@ -1395,9 +1399,14 @@ function wcRenderManager() {
     wcEl("div", { class: "wc-side" }, wcEl("div", { class: "wc-row" }, search),
       wcEl("div", { class: "wc-row" },
         wcEl("button", { title: "New list (in the selected list's category)", onclick: () => wcMgrNew(wcMgrSel ? groupOf(wcMgrSel) : "") }, "＋ List"),
-        wcEl("button", { title: "New category (a folder of lists)", onclick: () => { const c = wcAskCategory(m); if (c !== null) wcMgrNew(c); } }, "＋ Category")),
+        wcEl("button", { title: "New category (a folder of lists)", onclick: () => { const c = wcAskCategory(m); if (c !== null) wcMgrNew(c); } }, "＋ Category"),
+        wcEl("button", { title: curCat ? `New subcategory inside ${curCat}/` : "Select a list or category first", disabled: !curCat, onclick: () => { const c = wcAskCategory(m, curCat); if (c !== null) { m._collapsed.delete(curCat); saveCollapsed(); wcMgrNew(c); } } }, "＋ Subcategory")),
       tree),
     editor));
+  // Re-rendering rebuilt the tree: put it back where it was, and make sure the selected list is in view.
+  tree.scrollTop = m._treeScroll || 0;
+  const on = tree.querySelector(".wc-tree-i.on");
+  if (on) { const tr = tree.getBoundingClientRect(), r = on.getBoundingClientRect(); if (r.top < tr.top || r.bottom > tr.bottom) on.scrollIntoView({ block: "nearest" }); m._treeScroll = tree.scrollTop; }
 }
 // Every category (folder) that has a list, including parents of nested ones.
 function wcListCategories(lists, extra) {
@@ -1801,7 +1810,8 @@ function wcInstallCSS() {
   .wc-side { display: flex; flex-direction: column; min-height: 0; }
   .wc-tree { flex: 1; overflow: auto; max-height: 56vh; border: 1px solid var(--border); border-radius: 6px; margin-top: 8px; padding: 4px; }
   .wc-tree-g { font-size: 11px; color: var(--faint); padding: 6px 6px 2px; display: flex; justify-content: space-between; align-items: center; }
-  .wc-tree-add { border: 0; background: transparent; color: var(--faint); padding: 0 6px; font-size: 13px; line-height: 1.2; }
+  .wc-tree-add { border: 1px solid transparent; background: transparent; color: var(--faint); padding: 0 5px; margin-left: 2px; font-size: 11px; line-height: 1.5; border-radius: 4px; white-space: nowrap; }
+  .wc-tree-g:hover .wc-tree-add { border-color: var(--border); }
   .wc-tree-lbl { cursor: pointer; user-select: none; flex: 1; min-width: 0; }
   .wc-tree-lbl em { font-style: normal; opacity: .7; }
   .wc-tplcat { font-size: 11.5px; padding: 2px 6px; max-width: 170px; }
