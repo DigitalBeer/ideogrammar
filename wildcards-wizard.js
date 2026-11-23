@@ -106,9 +106,15 @@ async function wcRenderPreviews() {
   const plain = wcStripStyle(wcStripSetting(wcStripWearing(wcWithoutSetting(saved.high_level_description, saved.wild && saved.wild.setting))));
   const subject = prompt("What should every preview show? Only who or what, and what they're doing — each template adds its own look, place and clothes.", plain || "A woman in her forties, standing, looking at the camera.");
   if (subject === null) return;
+  // A clean setup: one person in the middle, nothing left over from the current
+  // scene (its element captions, tags, background and style would leak in).
+  const who = subject.trim().replace(/^./, c => c.toUpperCase());
   const base = cloneState(saved);
-  base.high_level_description = subject.trim();
-  if (base.wild) { delete base.wild.hldBase; delete base.wild.setting; if (base.wild.src) delete base.wild.src.hld; }
+  base.high_level_description = who;
+  base.background = "";
+  for (const k of Object.keys(base.style_description || {})) base.style_description[k] = Array.isArray(base.style_description[k]) ? [] : "";
+  base.elements = [emptyElement({ type: "subject", bbox: [300, 150, 700, 980], desc: who.charAt(0).toUpperCase() + who.slice(1), color_palette: [] })];
+  base.wild = normWild({ seed: saved.wild && saved.wild.seed });
   const btns = [document.getElementById("renderBtn"), document.getElementById("renderBtn2")].filter(Boolean);
   queueActive = true; queueStop = false;
   btns.forEach(b => { b.disabled = true; });

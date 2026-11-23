@@ -269,7 +269,9 @@ function wcSyncSetting(st, written) {
   }
   if (written && !written.includes("background") && !written.includes("hld") && prev && h.includes(prev)) return;
   const clause = wcSettingClause(st.background);
-  st.high_level_description = (wcWithoutSetting(h, prev) + " " + clause).trim();
+  let rest = wcWithoutSetting(h, prev);
+  if (rest && clause && !/[.!?]$/.test(rest)) rest += ".";   // "…clearing. Setting: …", not "…clearing Setting: …"
+  st.high_level_description = (rest + " " + clause).trim();
   if (clause) st.wild.setting = clause; else delete st.wild.setting;
 }
 // Safety net for models that describe a place anyway when the background is
@@ -279,9 +281,9 @@ function wcStripSetting(text) {
   const lead = /^(?:the\s+)?(?:setting|background|backdrop|scene\s+is\s+set|location)\b|^(?:in|against)\s+the\s+background\b|^behind\s+(?:them|him|her|it)\b|^set\s+(?:in|on|at|against)\b/i;
   const sentences = String(text).split(/(?<=[.!?])\s+/).filter(s => !lead.test(s.trim()));
   // "in a sunny park", "on the busy street", "at night", "in the rain": a place or time phrase ending the clause.
-  const places = "park|street|streets|city|town|village|beach|shore|coast|forest|woods|jungle|meadow|field|desert|mountains?|hills?|lake|river|harbou?r|pier|dock|garden|room|bedroom|kitchen|office|studio|caf[eé]|bar|club|diner|restaurant|alley|alleyway|rooftop|warehouse|library|market|station|subway|platform|highway|road|bridge|square|plaza|courtyard|hallway|corridor|classroom|church|temple|castle|ruins|landscape|skyline|backdrop|stadium|arena|gym|skatepark|countryside|suburbs?|neighbou?rhood|downtown|metropolis|interior|exterior";
+  const places = "park|street|streets|city|town|village|beach|shore|coast|forest|woods|jungle|meadow|field|desert|mountains?|hills?|lake|river|harbou?r|pier|dock|garden|room|bedroom|kitchen|office|studio|caf[eé]|bar|club|diner|restaurant|alley|alleyway|rooftop|warehouse|library|market|station|subway|platform|highway|road|bridge|square|plaza|courtyard|hallway|corridor|classroom|church|temple|castle|ruins|landscape|skyline|backdrop|stadium|arena|gym|skatepark|countryside|suburbs?|neighbou?rhood|downtown|metropolis|interior|exterior|clearing|glade|lockers|locker\\s+room|school|schoolyard|playground|mall|shop|store|hospital|airport|hotel|lobby|bathroom|living\\s+room|attic|basement|cave|valley|canyon|cliffs?|island|ocean|sea|swamp|farm|barn|vineyard|orchard|parking\\s+lot|car\\s+park|arcade|cinema|theat(?:re|er)|museum|gallery|nightclub|pub|laborator(?:y|ies)|lab|factory|construction\\s+site|wasteland|ruin|setting|location|environment|surroundings";
   const stop = "(?=\\s*(?:[,.;!?]|$)|\\s+(?:at|in|on|during|under|with|while|as|and|beneath|after|before)\\b)";
-  const placeRe = new RegExp("\\s*\\b(?:in|on|at|inside|outside|across|near|by)\\s+(?:a|an|the)\\s+(?:[\\w'-]+,?\\s+){0,3}?(?:" + places + ")\\b" + stop, "gi");
+  const placeRe = new RegExp("\\s*\\b(?:in|on|at|inside|outside|across|near|by|amid|amidst|among|amongst|within|beside)\\s+(?:a|an|the)\\s+(?:[\\w'-]+,?\\s+){0,3}?(?:" + places + ")\\b" + stop, "gi");
   const timeRe = new RegExp("\\s*\\b(?:at\\s+(?:night|dusk|dawn|sunset|sunrise|midnight|noon|twilight)|(?:in|after)\\s+the\\s+(?:rain|snow|fog|mist|night|evening|morning|storm)|during\\s+(?:a|an|the)\\s+(?:[\\w'-]+\\s+){0,2}?(?:storm|sunset|sunrise|night|day|snowfall|downpour|evening|morning))\\b" + stop, "gi");
   return sentences.join(" ")
     .replace(timeRe, "")
