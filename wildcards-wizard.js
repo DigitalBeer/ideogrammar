@@ -101,6 +101,14 @@ async function wcRenderPreviews() {
     list = all;
   } else if (!confirm(`Render previews for ${list.length} template${list.length === 1 ? "" : "s"} without one?\n\nEach template is applied to the setup you have now, rolled once and rendered with your ComfyUI workflow; the picture becomes its preview. For a fair comparison, start from a simple setup (e.g. one person in the middle).\n\nYour setup comes back when it's done. The renders also land in History. Cancel in the Render tile stops the run.`)) return;
   const saved = cloneState(state);
+  // One plain subject for all of them, so the previews differ only by template:
+  // look, place and clothes words in the description would outvote every template.
+  const plain = wcStripStyle(wcStripSetting(wcStripWearing(wcWithoutSetting(saved.high_level_description, saved.wild && saved.wild.setting))));
+  const subject = prompt("What should every preview show? Only who or what, and what they're doing — each template adds its own look, place and clothes.", plain || "A woman in her forties, standing, looking at the camera.");
+  if (subject === null) return;
+  const base = cloneState(saved);
+  base.high_level_description = subject.trim();
+  if (base.wild) { delete base.wild.hldBase; delete base.wild.setting; if (base.wild.src) delete base.wild.src.hld; }
   const btns = [document.getElementById("renderBtn"), document.getElementById("renderBtn2")].filter(Boolean);
   queueActive = true; queueStop = false;
   btns.forEach(b => { b.disabled = true; });
@@ -109,7 +117,7 @@ async function wcRenderPreviews() {
     for (let i = 0; i < list.length && !queueStop; i++) {
       const t = list[i];
       queueLabel = `🖼 ${i + 1}/${list.length} ${t.name}`;
-      const st = cloneState(saved);
+      const st = cloneState(base);
       wcApplyTemplateTo(st, t);
       wcRollInto(st, { newSeed: true });
       state = st; render();

@@ -280,14 +280,43 @@ function wcStripSetting(text) {
   const sentences = String(text).split(/(?<=[.!?])\s+/).filter(s => !lead.test(s.trim()));
   // "in a sunny park", "on the busy street", "at night", "in the rain": a place or time phrase ending the clause.
   const places = "park|street|streets|city|town|village|beach|shore|coast|forest|woods|jungle|meadow|field|desert|mountains?|hills?|lake|river|harbou?r|pier|dock|garden|room|bedroom|kitchen|office|studio|caf[eé]|bar|club|diner|restaurant|alley|alleyway|rooftop|warehouse|library|market|station|subway|platform|highway|road|bridge|square|plaza|courtyard|hallway|corridor|classroom|church|temple|castle|ruins|landscape|skyline|backdrop|stadium|arena|gym|skatepark|countryside|suburbs?|neighbou?rhood|downtown|metropolis|interior|exterior";
-  const stop = "(?=\\s*(?:[,.;!?]|$)|\\s+(?:at|in|on|during|under|with|while|as|and|beneath)\\b)";
-  const placeRe = new RegExp("\\s*\\b(?:in|on|at|inside|outside|across|near|by)\\s+(?:a|an|the)\\s+(?:[\\w'-]+\\s+){0,3}?(?:" + places + ")\\b" + stop, "gi");
-  const timeRe = new RegExp("\\s*\\b(?:at\\s+(?:night|dusk|dawn|sunset|sunrise|midnight|noon|twilight)|in\\s+the\\s+(?:rain|snow|fog|mist|night|evening|morning)|during\\s+(?:a|an|the)\\s+(?:[\\w'-]+\\s+){0,2}?(?:storm|sunset|sunrise|night|day|snowfall|downpour|evening|morning))\\b" + stop, "gi");
+  const stop = "(?=\\s*(?:[,.;!?]|$)|\\s+(?:at|in|on|during|under|with|while|as|and|beneath|after|before)\\b)";
+  const placeRe = new RegExp("\\s*\\b(?:in|on|at|inside|outside|across|near|by)\\s+(?:a|an|the)\\s+(?:[\\w'-]+,?\\s+){0,3}?(?:" + places + ")\\b" + stop, "gi");
+  const timeRe = new RegExp("\\s*\\b(?:at\\s+(?:night|dusk|dawn|sunset|sunrise|midnight|noon|twilight)|(?:in|after)\\s+the\\s+(?:rain|snow|fog|mist|night|evening|morning|storm)|during\\s+(?:a|an|the)\\s+(?:[\\w'-]+\\s+){0,2}?(?:storm|sunset|sunrise|night|day|snowfall|downpour|evening|morning))\\b" + stop, "gi");
   return sentences.join(" ")
+    .replace(timeRe, "")
     .replace(/,?\s*\bset\s+(?:in|on|at|against)\s+(?:a|an|the)\b[^.;,]*?(?=[.;]|,\s|$)/gi, "")
     .replace(/,?\s*\bagainst\s+(?:a|an|the)\s+(?:backdrop|background)\s+of\b[^.;,]*?(?=[.;]|,\s|$)/gi, "")
     .replace(placeRe, "").replace(timeRe, "")
     .replace(/\s+,/g, ",").replace(/,\s*\./g, ".").replace(/\s{2,}/g, " ").trim();
+}
+// The same for the look: when a template sets the style/medium, words in the
+// description like "a candid street photograph of…", "characterized by a Y2K
+// aesthetic" or "in the style of a 90s anime" outvote it on every roll.
+function wcStripStyle(text) {
+  if (!text) return text;
+  const kind = "photo(?:graph)?|snapshot|shot|image|picture|illustration|painting|drawing|render(?:ing)?|still|portrait|poster|artwork|scene";
+  let s = String(text)
+    // "A candid street photograph captures a woman…" → "A woman…"
+    .replace(new RegExp("^\\s*(?:a|an|the)\\s+(?:[\\w'-]+,?\\s+){0,4}?(?:" + kind + ")\\s+(?:of|that\\s+shows|captures|capturing|shows|showing|depicts|depicting|features|featuring)\\s+", "i"), "")
+    // "…, characterized by blown-out, overexposed Y2K aesthetic" / "in the style of …" / "with a gritty 80s look"
+    .replace(/,?\s*\b(?:characteri[sz]ed|defined|marked)\s+by\b[^.;]*/gi, "")
+    .replace(/,?\s*\bin\s+(?:the|a|an)\s+(?:[\w'-]+\s+){0,3}?style\s+of\b[^.;,]*/gi, "")
+    .replace(/,?\s*\b(?:with|in)\s+(?:a|an|the)\s+(?:[\w'-]+,?\s+){0,5}?(?:aesthetic|look|vibe|style|feel|grade|colour\s+grade|color\s+grade)\b(?=\s*(?:[,.;!?]|$))/gi, "")
+    .replace(/,?\s*\b(?:shot|captured|photographed|rendered|painted|drawn)\s+(?:on|with|in)\s+[^.;,]*/gi, "")
+    .replace(/\s+,/g, ",").replace(/,\s*\./g, ".").replace(/\s{2,}/g, " ").trim();
+  if (s && s !== text) s = s.charAt(0).toUpperCase() + s.slice(1);
+  return s;
+}
+// Before a template takes over: drop from a description what the template decides.
+function wcCleanForTemplate(text, tpl) {
+  if (!text || !tpl) return text;
+  const T = wcTemplateFor(tpl, aiTarget()), G = T.global || {}, E = T.element || {};
+  let s = text;
+  if (E.wardrobe) s = wcStripWearing(s);
+  if (G.background) s = wcStripSetting(s);
+  if (G.aesthetics || G.medium || G.art_style || G.photo) s = wcStripStyle(s);
+  return s;
 }
 // Colours picked from a colour list become the palette of the element (or the
 // image) they were picked for. Without this, an element's old palette (sent as
@@ -546,6 +575,11 @@ function wcApplyTemplateTo(st, tpl, { image = true, elementKeys = null } = {}) {
     if (G.background !== undefined) setGlobal("background", () => { st.background = G.background; });
     if (Array.isArray(G.color_palette) && G.color_palette.length) st.style_description.color_palette = G.color_palette.map(c => String(c).toUpperCase());
     else if (wcIsLeftoverPalette(st.style_description.color_palette, st.wild && st.wild.palRolled)) { st.style_description.color_palette = []; if (st.wild) delete st.wild.palRolled; }   // drop the example's or an old roll's palette
+    // The template owns the look, the place and the clothes: take them out of the description so they can't outvote it.
+    if (!st.wild.src.hld) {
+      if (typeof st.wild.hldBase === "string") st.wild.hldBase = wcCleanForTemplate(wcWithoutSetting(st.wild.hldBase, st.wild.setting), tpl);
+      else st.high_level_description = wcCleanForTemplate(wcWithoutSetting(st.high_level_description, st.wild.setting), tpl);
+    }
     if (G.hld_suffix || typeof st.wild.hldBase === "string") {
       const baseText = wcWithoutSetting(typeof st.wild.hldBase === "string" ? st.wild.hldBase : st.high_level_description, st.wild.setting);   // the setting sentence goes back on the end after the roll
       delete st.wild.src.hld;
@@ -574,6 +608,10 @@ function wcApplyTemplateTo(st, tpl, { image = true, elementKeys = null } = {}) {
       if (E[k] == null || E[k] === "") continue;
       el.style[k] = E[k];
       delete el.wild.src["style." + k];
+    }
+    if (!el.wild.src.desc) {   // the same for each styled element's own description
+      if (typeof el.wild.descBase === "string") el.wild.descBase = wcCleanForTemplate(el.wild.descBase, tpl);
+      else if (el.desc) el.desc = wcCleanForTemplate(el.desc, tpl);
     }
     if (E.desc_prefix || E.desc_suffix || typeof el.wild.descBase === "string") {
       const baseText = typeof el.wild.descBase === "string" ? el.wild.descBase : el.desc;
@@ -693,13 +731,7 @@ function wcLinkGenerated(st) {
   if (st.wild) { delete st.wild.hldBase; delete st.wild.setting; if (st.wild.src) delete st.wild.src.hld; }   // the old setup's description text isn't the new one's
   const tpl = wcGenTemplate();
   if (!tpl) return false;
-  const T = wcTemplateFor(tpl, aiTarget()), E = T.element || {}, G = T.global || {};
-  if (E.wardrobe) {
-    st.high_level_description = wcStripWearing(st.high_level_description);
-    for (const el of st.elements) if (el.type === "subject" && el.desc) el.desc = wcStripWearing(el.desc);
-  }
-  if (G.background) st.high_level_description = wcStripSetting(st.high_level_description);   // the rolled background names the place
-  wcApplyTemplateTo(st, tpl);
+  wcApplyTemplateTo(st, tpl);   // also strips clothes, place and look words the model wrote anyway (wcCleanForTemplate)
   wcRollInto(st, { newSeed: true, onlyUnresolved: true });
   return true;
 }
