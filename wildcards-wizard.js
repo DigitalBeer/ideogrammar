@@ -14,8 +14,10 @@ let wcPreviews = wcLoad(WCS_PREV_KEY, {});
 function wcGetPreview(id) { const p = wcPreviews[id]; return p && p.data ? p.data : null; }
 function wcPreviewTime(id) { const p = wcPreviews[id]; return p ? p.updatedAt || 0 : 0; }
 function wcPreviewMap() { const o = {}; for (const [id, p] of Object.entries(wcPreviews)) if (p && p.data) o[id] = p.data; return o; }
-function wcSetPreview(id, data, quiet, at) {
-  if (data) wcPreviews[id] = { data, updatedAt: at != null ? at : Date.now() };
+// full: link to the full-size image (the render it came from), for the viewer.
+function wcPreviewFull(id) { const p = wcPreviews[id]; return p ? p.full || p.data || null : null; }
+function wcSetPreview(id, data, quiet, at, full) {
+  if (data) wcPreviews[id] = { data, updatedAt: at != null ? at : Date.now(), ...(full && full !== data && !/^(data|blob):/.test(full) ? { full } : {}) };
   else wcPreviews[id] = { data: null, updatedAt: Date.now() };   // keep the time so sync pushes the removal
   wcSave(WCS_PREV_KEY, wcPreviews);
   if (!quiet && document.getElementById("wcTplOverlay")?.classList.contains("show")) wcRenderTemplates();
@@ -94,13 +96,62 @@ const WC_CAT_LOOK = {
 };
 function wcTemplateThumb(t, opts = {}) {
   const pv = wcGetPreview(t.id) || t.preview;
-  if (pv) return wcEl("div", { class: "wc-thumb" + (opts.big ? " big" : "") }, wcEl("img", { src: pv, alt: t.name + " preview", loading: "lazy" }));
+  if (pv) return wcEl("div", { class: "wc-thumb wc-thumb-zoom" + (opts.big ? " big" : ""), title: "Click to see it full size", onclick: () => wcViewPreview(t.id) }, wcEl("img", { src: pv, alt: t.name + " preview", loading: "lazy" }));
   const [emoji, cat] = WC_CAT_LOOK[t.category] || ["🎭", ["#283341", "#f32446", "#121822"]];
   const pal = (t.global && Array.isArray(t.global.color_palette) && t.global.color_palette.length >= 2) ? t.global.color_palette : cat;
   const bg = `linear-gradient(135deg, ${pal.map((c, i) => `${c} ${Math.round(i / Math.max(1, pal.length - 1) * 100)}%`).join(", ")})`;
   return wcEl("div", { class: "wc-thumb empty" + (opts.big ? " big" : ""), style: { background: bg }, title: "No preview image yet — use 🖼 to add one" },
     wcEl("span", { class: "wc-thumb-emoji" }, emoji), wcEl("span", { class: "wc-thumb-note" }, "no preview yet"));
 }
+// Full-size viewer for template previews: ←/→ steps through the templates
+// that have one (in the order the grid shows them), Esc or a click closes.
+let wcPvView = null;
+function wcViewPreview(id) {
+  const list = wcAllTemplates().filter(t => t.id === id || wcGetPreview(t.id) || t.preview);
+  let i = Math.max(0, list.findIndex(t => t.id === id));
+  if (!wcPvView) {
+    const img = wcEl("img", { alt: "" }), cap = wcEl("div", { class: "wc-pvv-cap" });
+    const prev = wcEl("button", { class: "wc-pvv-nav", title: "Previous (←)" }, "‹"), next = wcEl("button", { class: "wc-pvv-nav", title: "Next (→)" }, "›");
+    const ov = wcEl("div", { class: "wc-pvv" }, prev, wcEl("figure", {}, img, cap), next);
+    document.body.append(ov);
+    wcPvView = { ov, img, cap, prev, next };
+    ov.addEventListener("click", e => { if (e.target === ov || e.target === img) wcPvView.close(); });
+    window.addEventListener("keydown", e => {
+      if (!wcPvView || wcPvView.ov.style.display !== "flex") return;
+      if (e.key === "Escape") wcPvView.close();
+      else if (e.key === "ArrowLeft") wcPvView.step(-1);
+      else if (e.key === "ArrowRight") wcPvView.step(1);
+      else return;
+      e.preventDefault(); e.stopPropagation();
+    }, true);
+  }
+  const v = wcPvView;
+  const draw = () => {
+    const t = list[i];
+    const small = wcGetPreview(t.id) || t.preview, full = wcPreviewFull(t.id) || small;
+    v.img.onerror = () => { if (v.img.src !== small) v.img.src = small; };   // the render may have been deleted from ComfyUI
+    v.img.src = full;
+    v.cap.textContent = `${t.name}${list.length > 1 ? `  ·  ${i + 1}/${list.length}  ·  ← → to browse` : ""}${full === small && /^data:/.test(small) ? "  ·  small copy only" : ""}`;
+    v.prev.style.visibility = v.next.style.visibility = list.length > 1 ? "visible" : "hidden";
+  };
+  v.step = d => { i = (i + d + list.length) % list.length; draw(); };
+  v.close = () => { v.ov.style.display = "none"; };
+  v.prev.onclick = () => v.step(-1); v.next.onclick = () => v.step(1);
+  draw();
+  v.ov.style.display = "flex";
+}
+(function () {
+  const css = document.createElement("style");
+  css.textContent = `
+  .wc-thumb-zoom { cursor: zoom-in; }
+  .wc-pvv { position: fixed; inset: 0; z-index: 10050; display: none; align-items: center; justify-content: center; gap: 12px; background: rgba(5,8,12,.92); padding: 16px; }
+  .wc-pvv figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; max-width: calc(100vw - 140px); max-height: calc(100vh - 32px); }
+  .wc-pvv img { max-width: 100%; max-height: calc(100vh - 70px); object-fit: contain; border-radius: 6px; cursor: zoom-out; box-shadow: 0 12px 40px rgba(0,0,0,.6); }
+  .wc-pvv-cap { color: var(--text, #e5e7eb); font-size: 13px; text-align: center; }
+  .wc-pvv-nav { font-size: 34px; line-height: 1; width: 48px; height: 64px; border-radius: 8px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); color: #fff; }
+  @media (max-width: 600px) { .wc-pvv figure { max-width: calc(100vw - 32px); } .wc-pvv-nav { position: absolute; bottom: 16px; } .wc-pvv-nav:first-child { left: 16px; } .wc-pvv-nav:last-child { right: 16px; } }`;
+  document.head.append(css);
+})();
 let wcPvMenu = null;
 function wcPreviewMenu(t, anchor, onDone) {
   if (wcPvMenu) wcPvMenu.remove();
@@ -114,7 +165,7 @@ function wcPreviewMenu(t, anchor, onDone) {
   wcPvMenu = wcEl("div", { class: "wc-menu wc-pvmenu" },
     wcEl("div", { class: "hint", style: { margin: "2px 8px 6px" } }, "Preview for “" + t.name + "”"),
     item("⬆ Upload an image…", "Any picture that shows the look — e.g. a render made with this template", () => file.click()),
-    item("🖼 Use the current render", render ? "The image in the Rendered output window" : "Render something first (ComfyUI mode), then come back", () => wcImageToDataURL(render).then(d => { wcSetPreview(t.id, d); done("Preview set from the current render ✓"); }).catch(fail), !render),
+    item("🖼 Use the current render", render ? "The image in the Rendered output window" : "Render something first (ComfyUI mode), then come back", () => wcImageToDataURL(render).then(d => { wcSetPreview(t.id, d, false, null, render); done("Preview set from the current render ✓"); }).catch(fail), !render),
     wcGetPreview(t.id) ? item("✕ Remove the preview", "", () => { wcSetPreview(t.id, null); done("Preview removed"); }) : null,
     file);
   document.body.append(wcPvMenu);
@@ -141,6 +192,9 @@ async function wcRenderPreviews() {
     list = all;
   } else if (!confirm(`Render previews for ${list.length} template${list.length === 1 ? "" : "s"} without one?\n\nEach template is applied to the setup you have now, rolled once and rendered with your ComfyUI workflow; the picture becomes its preview. For a fair comparison, start from a simple setup (e.g. one person in the middle).\n\nYour setup comes back when it's done. The renders also land in History. Cancel in the Render tile stops the run.`)) return;
   const saved = cloneState(state);
+  // The render on show now: it comes back with the setup, so the picture and
+  // the prompt beside it still belong together afterwards.
+  const shownRender = typeof previewRenderRef !== "undefined" && previewRenderRef ? { ...previewRenderRef } : null;
   // One plain subject for all of them, so the previews differ only by template:
   // look, place and clothes words in the description would outvote every template.
   const plain = wcStripStyle(wcStripSetting(wcStripWearing(wcWithoutSetting(saved.high_level_description, saved.wild && saved.wild.setting))));
@@ -170,7 +224,7 @@ async function wcRenderPreviews() {
       const good = await comfyRenderAwait();
       if (good) {
         const src = wcCurrentRenderSrc();
-        try { if (!src) throw new Error("no picture"); wcSetPreview(t.id, await wcImageToDataURL(src), true); ok++; }
+        try { if (!src) throw new Error("no picture"); wcSetPreview(t.id, await wcImageToDataURL(src), true, null, src); ok++; }
         catch (_) { failed++; }
       } else if (queueStop) break;
       else failed++;
@@ -179,6 +233,7 @@ async function wcRenderPreviews() {
     queueLabel = ""; queueActive = false;
     btns.forEach(b => { b.disabled = false; });
     state = saved; render();
+    if (typeof showRenderInPreview === "function") showRenderInPreview(shownRender);   // and the render that went with it
     if (typeof scheduleSaveState === "function") scheduleSaveState();
     if (document.getElementById("wcTplOverlay")?.classList.contains("show")) wcRenderTemplates();
   }
