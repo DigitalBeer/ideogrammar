@@ -166,7 +166,7 @@
   <li><span class="ui">Use the current render</span>: the image in the Rendered output window (ComfyUI mode). The usual routine: apply the template, render, then set it as the preview.</li>
 </ul>
 <p>To do them all at once, press <span class="ui">🖼 Render previews</span> at the bottom of the templates window. Each template without a preview is applied to the setup you have now, rolled once and rendered with your ComfyUI workflow, and the picture becomes its preview. Start from a simple setup (one person in the middle) so the previews compare fairly. Your setup comes back afterwards; <span class="ui">Cancel</span> in the Render tile stops the run. When every template already has one, it offers to redo them all.</p>
-<p>Previews are scaled down and kept in the browser. They are included in exports and in folder sync.</p>
+<p>Previews are scaled down and kept in the browser. They are included in exports and in folder sync. Some browsers' privacy protection (Brave shields, Firefox "resist fingerprinting", canvas-blocker add-ons) gives the page fake pixels when it shrinks an image, which turns previews into coloured stripes. The editor checks for this; when it happens, a render preview is kept as a link to the image on ComfyUI instead, and an upload is kept as it is (up to 1.5 MB).</p>
 
 <h3 id="subject">Where does the subject go?</h3>
 <p>Templates set the <i>look</i>. Apart from their <a href="#cast">cast</a>, they don't create people or boxes. The subject belongs to the layout:</p>
