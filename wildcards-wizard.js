@@ -20,8 +20,48 @@ function wcSetPreview(id, data, quiet, at) {
   wcSave(WCS_PREV_KEY, wcPreviews);
   if (!quiet && document.getElementById("wcTplOverlay")?.classList.contains("show")) wcRenderTemplates();
 }
+// Some browsers' privacy protection (Brave shields, Firefox "resist
+// fingerprinting", canvas-blocker add-ons) hands pages fake pixels when they
+// read a canvas back: a scaled-down preview comes out as coloured stripes.
+// Checked once: draw known colours, export, load the export, read it back.
+let _wcCanvasHonest = null;
+function wcCanvasHonest() {
+  if (_wcCanvasHonest) return _wcCanvasHonest;
+  _wcCanvasHonest = new Promise(resolve => {
+    try {
+      const cols = [[255, 0, 0], [0, 200, 0], [0, 0, 255], [240, 240, 40]];
+      const c = document.createElement("canvas"); c.width = 8; c.height = 8;
+      const g = c.getContext("2d");
+      cols.forEach(([r, gg, b], i) => { g.fillStyle = `rgb(${r},${gg},${b})`; g.fillRect((i % 2) * 4, Math.floor(i / 2) * 4, 4, 4); });
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const c2 = document.createElement("canvas"); c2.width = 8; c2.height = 8;
+          const g2 = c2.getContext("2d"); g2.drawImage(img, 0, 0);
+          const d = g2.getImageData(0, 0, 8, 8).data;
+          const ok = cols.every(([r, gg, b], i) => { const x = (i % 2) * 4 + 1, y = Math.floor(i / 2) * 4 + 1, o = (y * 8 + x) * 4; return Math.abs(d[o] - r) + Math.abs(d[o + 1] - gg) + Math.abs(d[o + 2] - b) < 24; });
+          resolve(ok);
+        } catch (_) { resolve(false); }
+      };
+      img.onerror = () => resolve(false);
+      img.src = c.toDataURL("image/png");
+    } catch (_) { resolve(false); }
+  });
+  return _wcCanvasHonest;
+}
+// When the canvas can't be trusted: keep the picture without redrawing it.
+// A render stays a link to the image on ComfyUI; an upload is kept as it is
+// (if it isn't too big for browser storage).
+function wcImageWithoutCanvas(src) {
+  if (src instanceof Blob) {
+    if (src.size > 1.5e6) return Promise.reject(new Error("this browser's privacy protection stops the page from shrinking images, and this one is too big to keep as it is (over 1.5 MB). Pick a smaller image, or allow canvas access for this page"));
+    return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error("couldn't read the file")); r.readAsDataURL(src); });
+  }
+  return Promise.resolve(String(src));
+}
 // Scale an image (URL or File) down to a small JPEG data URL.
-function wcImageToDataURL(src, max = 480) {
+async function wcImageToDataURL(src, max = 480) {
+  if (!(await wcCanvasHonest())) return wcImageWithoutCanvas(src);
   return new Promise((resolve, reject) => {
     const go = url => {
       const img = new Image();
