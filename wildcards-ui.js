@@ -180,7 +180,7 @@ function wcTemplateFor(fmtTpl, fmt) {
 }
 function wcTemplateContext(st) {
   const ids = [st.wild && st.wild.templateId, ...st.elements.map(e => e.wild && e.wild.templateId)].filter(Boolean);
-  const varDefs = {}, rules = [], notes = [], names = [];
+  const varDefs = { ...((st.wild && st.wild.autoVars) || {}) }, rules = [], notes = [], names = [];   // autoVars: one pick shared by Background and Environment
   for (const id of Array.from(new Set(ids))) {
     const t = wcGetTemplate(id);
     if (!t) continue;
@@ -572,9 +572,23 @@ function wcApplyTemplateTo(st, tpl, { image = true, elementKeys = null } = {}) {
   const G = T.global || {}, E = T.element || {};
   st.wild = st.wild || normWild();
   const setGlobal = (path, apply) => { delete st.wild.src[path]; apply(); };
+  // A list rolled both for the Background and for each person's Environment
+  // would name two different places: roll it once and use it in both.
+  const shared = image ? wcSharedPlaceRefs(G.background, E.environment) : {};
+  const share = text => { let s = String(text || ""); for (const [ref, v] of Object.entries(shared)) s = s.split("__" + ref + "__").join("${" + v + "}"); return s; };
   if (image) {
+    // Fields an earlier template (or an earlier version of this one) rolled that this one doesn't set: clear them, or they keep rolling.
+    for (const path of wcTemplateOwned(st.wild, "global")) {
+      const k = path === "background" ? "background" : path.slice(6);
+      if (path === "background" ? G.background !== undefined : G[k] !== undefined) continue;
+      delete st.wild.src[path];
+      if (path === "background") st.background = ""; else st.style_description[k] = "";
+    }
+    st.wild.autoVars = {};
+    for (const [ref, v] of Object.entries(shared)) st.wild.autoVars[v] = "__" + ref + "__";
     for (const k of WC_TPL_GLOBAL_KEYS) if (G[k] !== undefined) setGlobal("style." + k, () => { st.style_description[k] = G[k]; });
-    if (G.background !== undefined) setGlobal("background", () => { st.background = G.background; });
+    if (G.background !== undefined) setGlobal("background", () => { st.background = share(G.background); });
+    st.wild.owned = [...WC_TPL_GLOBAL_KEYS.filter(k => G[k]).map(k => "style." + k), ...(G.background ? ["background"] : [])];
     if (Array.isArray(G.color_palette) && G.color_palette.length) st.style_description.color_palette = G.color_palette.map(c => String(c).toUpperCase());
     else if (wcIsLeftoverPalette(st.style_description.color_palette, st.wild && st.wild.palRolled)) { st.style_description.color_palette = []; if (st.wild) delete st.wild.palRolled; }   // drop the example's or an old roll's palette
     // The template owns the look, the place and the clothes: take them out of the description so they can't outvote it.
@@ -604,13 +618,17 @@ function wcApplyTemplateTo(st, tpl, { image = true, elementKeys = null } = {}) {
     // Switching templates: drop the fields the previous template filled in.
     const prevT = el.wild.templateId && el.wild.templateId !== tpl.id ? wcGetTemplate(el.wild.templateId) : null;
     if (prevT) for (const k of ELEMENT_STYLE_KEYS) if (prevT.element && prevT.element[k]) { delete el.style[k]; delete el.wild.src["style." + k]; }
+    for (const path of wcTemplateOwned(el.wild, "element")) { const k = path.slice(6); if (!E[k]) { delete el.style[k]; delete el.wild.src[path]; } }   // also an earlier version of this template
     el.wild.templateId = tpl.id;
     if (wcIsLeftoverPalette(el.color_palette, el.wild.palRolled)) { el.color_palette = []; delete el.wild.palRolled; }   // drop the example's or an old roll's palette
     for (const k of ELEMENT_STYLE_KEYS) {
       if (E[k] == null || E[k] === "") continue;
-      el.style[k] = E[k];
+      el.style[k] = k === "environment" ? share(E[k]) : E[k];
       delete el.wild.src["style." + k];
     }
+    el.wild.owned = ELEMENT_STYLE_KEYS.filter(k => E[k]).map(k => "style." + k);
+    // Tags from an earlier scene that name a place ("school setting") fight the rolled background.
+    if (G.background && Array.isArray(el.tags)) el.tags = el.tags.filter(t => !wcIsPlaceTag(t));
     if (!el.wild.src.desc) {   // the same for each styled element's own description
       if (typeof el.wild.descBase === "string") el.wild.descBase = wcCleanForTemplate(el.wild.descBase, tpl);
       else if (el.desc) el.desc = wcCleanForTemplate(el.desc, tpl);
@@ -620,14 +638,58 @@ function wcApplyTemplateTo(st, tpl, { image = true, elementKeys = null } = {}) {
       delete el.wild.src.desc;
       if (E.desc_prefix || E.desc_suffix) {
         el.wild.descBase = baseText;
-        const b = String(baseText || "").trim();
-        el.desc = (E.desc_prefix ? E.desc_prefix + " " : "") + wcEsc(b) + (E.desc_suffix ? (b ? (/[.!?]$/.test(b) ? " " : ", ") : "") + E.desc_suffix : "");
+        el.desc = wcJoinDesc(E.desc_prefix, wcEsc(String(baseText || "").trim()), E.desc_suffix);
       } else { el.desc = baseText; delete el.wild.descBase; }
     }
   }
   const keys = new Set(targets.map(e => e.wild.key));
   if (image && typeof wcApplyCast === "function") for (const k of wcApplyCast(st, tpl)) keys.add(k);   // the extra elements this template adds
   return wcRollInto(st, { global: image, elementKeys: keys });
+}
+// Which fields a template filled in last time it was applied (st.wild / el.wild).
+// For setups made before that was recorded: a field whose wildcard source is
+// word for word what some template puts in that field.
+function wcTemplateOwned(w, level) {
+  if (Array.isArray(w.owned)) return w.owned;
+  const src = w.src || {}, out = [];
+  const tpls = wcAllTemplates();
+  for (const [path, v] of Object.entries(src)) {
+    if (level === "global" && !(path === "background" || path.startsWith("style."))) continue;
+    if (level === "element" && !path.startsWith("style.")) continue;
+    const k = path === "background" ? "background" : path.slice(6);
+    if (tpls.some(t => [t.global, t.element, ...Object.values(t.formats || {}).flatMap(f => [f.global, f.element])].some(o => o && o[k] === v))) out.push(path);
+  }
+  return out;
+}
+// Lists used in both the Background and the per-person Environment → { ref: variable name }.
+function wcSharedPlaceRefs(bg, env) {
+  if (!bg || !env) return {};
+  const a = new Set(WC.listRefs(String(bg))), b = new Set(WC.listRefs(String(env))), out = {};
+  let i = 0;
+  for (const r of a) if (b.has(r)) out[r] = "_place" + (i++ ? i : "");
+  return out;
+}
+function wcIsPlaceTag(t) {
+  t = String(t || "").trim();
+  if (!t) return false;
+  if (/\b(setting|background|location|backdrop|scenery|indoors?|outdoors?)\b/i.test(t)) return true;
+  const probe = "x in a " + t + ".";
+  return wcStripSetting(probe) !== probe;
+}
+// Template prefix + description + suffix, with tidy punctuation:
+// "still frame," + "A woman stands." + ", VHS look" → "still frame, a woman stands, VHS look".
+function wcJoinDesc(prefix, body, suffix) {
+  const p = String(prefix || "").trim(), s = String(suffix || "").trim();
+  let b = String(body || "").trim();
+  if (p && /[,:;]$/.test(p) && /^[A-Z](?:[a-z]|\s)/.test(b)) b = b.charAt(0).toLowerCase() + b.slice(1);
+  let out = p ? (b ? p + " " + b : p) : b;
+  if (s) {
+    const lead = /^[,;]/.test(s), rest = s.replace(/^[,;\s]+/, "");
+    if (!out) out = rest;
+    else if (lead || !/[.!?]$/.test(out)) out = out.replace(/[\s.,;]+$/, "") + ", " + rest;
+    else out += " " + rest;
+  }
+  return out;
 }
 async function wcApplyTemplateReview(tpl, where) {
   const keys = where === "selected" ? wcSelectedKeys() : null;

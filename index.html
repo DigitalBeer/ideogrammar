@@ -1332,7 +1332,8 @@ function normElWild(w) {
   const o = { key: typeof w.key === "string" && w.key ? w.key : newElKey(), src: normStrMap(w.src), templateId: typeof w.templateId === "string" ? w.templateId : "" };
   if (typeof w.descBase === "string") o.descBase = w.descBase;   // desc before a template's prefix/suffix
   if (typeof w.palRolled === "string") o.palRolled = w.palRolled;   // palette a roll set (cleared by the next roll)
-  if (w.cast && typeof w.cast === "object" && typeof w.cast.tpl === "string") o.cast = { ...w.cast };   // added by a template's cast (wildcards-cast.js)
+  if (w.cast && typeof w.cast === "object" && typeof w.cast.tpl === "string") o.cast = { ...w.cast };
+  if (Array.isArray(w.owned)) o.owned = w.owned.filter(p => typeof p === "string");   // style fields the applied template filled in   // added by a template's cast (wildcards-cast.js)
   return o;
 }
 function normWild(w) {
@@ -1345,7 +1346,9 @@ function normWild(w) {
     templateId: typeof w.templateId === "string" ? w.templateId : "",
     ...(typeof w.hldBase === "string" ? { hldBase: w.hldBase } : {}),   // high-level text before a template's suffix
     ...(typeof w.palRolled === "string" ? { palRolled: w.palRolled } : {}),
-    ...(typeof w.setting === "string" ? { setting: w.setting } : {})   // "Setting: …" sentence copied from a rolled background
+    ...(typeof w.setting === "string" ? { setting: w.setting } : {}),   // "Setting: …" sentence copied from a rolled background
+    ...(Array.isArray(w.owned) ? { owned: w.owned.filter(p => typeof p === "string") } : {}),   // fields the applied template filled in
+    ...(w.autoVars && typeof w.autoVars === "object" ? { autoVars: normStrMap(w.autoVars) } : {})   // a list rolled once for Background and Environment
   };
 }
 // Editor-only wildcard data worth saving with an element.
