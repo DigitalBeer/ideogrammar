@@ -166,6 +166,8 @@ function wcPreviewMenu(t, anchor, onDone) {
     wcEl("div", { class: "hint", style: { margin: "2px 8px 6px" } }, "Preview for “" + t.name + "”"),
     item("⬆ Upload an image…", "Any picture that shows the look — e.g. a render made with this template", () => file.click()),
     item("🖼 Use the current render", render ? "The image in the Rendered output window" : "Render something first (ComfyUI mode), then come back", () => wcImageToDataURL(render).then(d => { wcSetPreview(t.id, d, false, null, render); done("Preview set from the current render ✓"); }).catch(fail), !render),
+    item("🎬 Render a preview…", "Render this template on a plain subject (you type it) with your ComfyUI workflow; the picture becomes its preview", () => { close(); wcRenderPreviews([t]); }),
+    item("▶ Try it on a subject…", "Put this template on a plain subject (you type it) as the current setup, to look at, roll or render — Undo goes back", () => { close(); wcTryTemplate(t); }),
     wcGetPreview(t.id) ? item("✕ Remove the preview", "", () => { wcSetPreview(t.id, null); done("Preview removed"); }) : null,
     file);
   document.body.append(wcPvMenu);
@@ -177,38 +179,75 @@ function wcPreviewMenu(t, anchor, onDone) {
   setTimeout(() => document.addEventListener("mousedown", function off(e) { if (wcPvMenu && !wcPvMenu.contains(e.target)) { close(); document.removeEventListener("mousedown", off); } }), 0);
 }
 
-// 🖼 Render previews: each template (without a preview, or all of them) is
-// applied to the current setup, rolled once, rendered with the ComfyUI
-// workflow chosen in the Render tile, and the picture becomes its preview.
-// The setup comes back afterwards; Cancel in the Render tile stops the run.
-async function wcRenderPreviews() {
+// The plain subject previews and "Try it" use. Remembered between runs, so it
+// isn't taken from whatever description is on screen (the starting example's
+// "product poster" text, or an earlier scene's place and look).
+const WCS_PVSUBJ_KEY = "ideogrammar.previewSubject";
+const WC_PV_DEFAULT_SUBJECT = "A woman in her forties, standing, looking at the camera.";
+function wcAskSubject(question) {
+  const last = wcLoad(WCS_PVSUBJ_KEY, "");
+  const subject = prompt(question + "\n\nOnly who or what, and what they're doing: the template adds its own look, place and clothes.", last || WC_PV_DEFAULT_SUBJECT);
+  if (subject === null) return null;
+  const who = wcStripStyle(wcStripSetting(wcStripWearing(subject.trim()))) || subject.trim() || WC_PV_DEFAULT_SUBJECT;
+  wcSave(WCS_PVSUBJ_KEY, subject.trim());
+  return who.replace(/^./, c => c.toUpperCase());
+}
+// A clean setup: one subject in the middle, nothing left over from the current
+// scene (its element captions, tags, background and style would leak in).
+function wcPlainSetup(from, who) {
+  const base = cloneState(from);
+  base.high_level_description = who;
+  base.background = "";
+  for (const k of Object.keys(base.style_description || {})) base.style_description[k] = Array.isArray(base.style_description[k]) ? [] : "";
+  base.elements = [emptyElement({ type: "subject", bbox: [300, 150, 700, 980], desc: who, color_palette: [] })];
+  base.wild = normWild({ seed: from.wild && from.wild.seed });
+  return base;
+}
+// ▶ Try it: the template on a plain subject, as the current setup (one undo step),
+// ready to look at, roll or render.
+function wcTryTemplate(t) {
+  const who = wcAskSubject(`Try “${t.name}” on:`);
+  if (who === null) return;
+  const next = wcPlainSetup(state, who);
+  const r = wcApplyTemplateTo(next, t);
+  wcRollInto(next, { newSeed: true });
+  if (document.getElementById("wcMgrOverlay")) wcCloseModal("wcMgrOverlay");   // close lists + templates to show the result
+  wcCommit(next, "Try template: " + t.name);
+  if (r.errors && r.errors.length) wcReport({ errors: r.errors });
+  else toast(`“${t.name}” on a plain subject — 🎲 Roll for another variation, Render to see it, Undo to go back`, "ok");
+}
+
+// 🖼 Render previews: each template (those without a preview, or all of them,
+// or just the ones passed in) is applied to one plain subject, rolled once,
+// rendered with the ComfyUI workflow chosen in the Render tile, and the picture
+// becomes its preview. The setup and the render on show come back afterwards;
+// Cancel in the Render tile stops the run.
+async function wcRenderPreviews(only) {
   if (typeof comfyRenderAwait !== "function" || typeof comfyBase !== "function") { toast("Rendering isn't available on this page.", "bad"); return; }
   if (!comfyBase()) { toast("Set your ComfyUI server URL in the Render tile first.", "bad"); return; }
   if (rendering || queueActive) { toast("A render is already running — wait for it or cancel it first.", "bad"); return; }
-  const all = wcAllTemplates().filter(t => t.scope !== "element");
-  let list = all.filter(t => !wcGetPreview(t.id) && !t.preview);
-  if (!list.length) {
-    if (!confirm(`All ${all.length} templates have a preview. Render new previews for all of them?`)) return;
-    list = all;
-  } else if (!confirm(`Render previews for ${list.length} template${list.length === 1 ? "" : "s"} without one?\n\nEach template is applied to the setup you have now, rolled once and rendered with your ComfyUI workflow; the picture becomes its preview. For a fair comparison, start from a simple setup (e.g. one person in the middle).\n\nYour setup comes back when it's done. The renders also land in History. Cancel in the Render tile stops the run.`)) return;
+  let list;
+  if (only && only.length) list = only;
+  else {
+    const all = wcAllTemplates().filter(t => t.scope !== "element");
+    list = all.filter(t => !wcGetPreview(t.id) && !t.preview);
+    if (!list.length) {
+      if (!confirm(`All ${all.length} templates have a preview. Render new previews for all of them?`)) return;
+      list = all;
+    } else if (!confirm(`Render previews for ${list.length} template${list.length === 1 ? "" : "s"} without one?
+
+Each template is applied to one plain subject (you choose it next), rolled once and rendered with your ComfyUI workflow; the picture becomes its preview.
+
+Your setup comes back when it's done. The renders also land in History. Cancel in the Render tile stops the run.`)) return;
+  }
+  const who = wcAskSubject(list.length === 1 ? `Render a preview of “${list[0].name}” showing:` : "What should every preview show?");
+  if (who === null) return;
   const saved = cloneState(state);
   // The render on show now: it comes back with the setup, so the picture and
   // the prompt beside it still belong together afterwards.
   const shownRender = typeof previewRenderRef !== "undefined" && previewRenderRef ? { ...previewRenderRef } : null;
-  // One plain subject for all of them, so the previews differ only by template:
-  // look, place and clothes words in the description would outvote every template.
-  const plain = wcStripStyle(wcStripSetting(wcStripWearing(wcWithoutSetting(saved.high_level_description, saved.wild && saved.wild.setting))));
-  const subject = prompt("What should every preview show? Only who or what, and what they're doing — each template adds its own look, place and clothes.", plain || "A woman in her forties, standing, looking at the camera.");
-  if (subject === null) return;
-  // A clean setup: one person in the middle, nothing left over from the current
-  // scene (its element captions, tags, background and style would leak in).
-  const who = subject.trim().replace(/^./, c => c.toUpperCase());
-  const base = cloneState(saved);
-  base.high_level_description = who;
-  base.background = "";
-  for (const k of Object.keys(base.style_description || {})) base.style_description[k] = Array.isArray(base.style_description[k]) ? [] : "";
-  base.elements = [emptyElement({ type: "subject", bbox: [300, 150, 700, 980], desc: who.charAt(0).toUpperCase() + who.slice(1), color_palette: [] })];
-  base.wild = normWild({ seed: saved.wild && saved.wild.seed });
+  const base = wcPlainSetup(saved, who);
+  if (list.length === 1 && document.getElementById("wcMgrOverlay")) wcCloseModal("wcMgrOverlay");   // one preview: watch it render
   const btns = [document.getElementById("renderBtn"), document.getElementById("renderBtn2")].filter(Boolean);
   queueActive = true; queueStop = false;
   btns.forEach(b => { b.disabled = true; });
@@ -216,7 +255,7 @@ async function wcRenderPreviews() {
   try {
     for (let i = 0; i < list.length && !queueStop; i++) {
       const t = list[i];
-      queueLabel = `🖼 ${i + 1}/${list.length} ${t.name}`;
+      queueLabel = list.length > 1 ? `🖼 ${i + 1}/${list.length} ${t.name}` : `🖼 ${t.name}`;
       const st = cloneState(base);
       wcApplyTemplateTo(st, t);
       wcRollInto(st, { newSeed: true });
@@ -232,12 +271,17 @@ async function wcRenderPreviews() {
   } finally {
     queueLabel = ""; queueActive = false;
     btns.forEach(b => { b.disabled = false; });
-    state = saved; render();
-    if (typeof showRenderInPreview === "function") showRenderInPreview(shownRender);   // and the render that went with it
+    // One preview: keep it on screen with its setup, so you can look at what made it (Undo goes back).
+    if (list.length === 1 && ok === 1 && typeof wcCommit === "function") { const done = state; state = saved; wcCommit(done, "Preview: " + list[0].name); }
+    else {
+      state = saved; render();
+      if (typeof showRenderInPreview === "function") showRenderInPreview(shownRender);   // and the render that went with it
+    }
     if (typeof scheduleSaveState === "function") scheduleSaveState();
     if (document.getElementById("wcTplOverlay")?.classList.contains("show")) wcRenderTemplates();
   }
-  toast(`Previews: ${ok} set${failed ? `, ${failed} failed` : ""}${queueStop ? " (stopped)" : ""}`, ok && !failed ? "ok" : failed ? "bad" : "");
+  toast(list.length === 1 ? (ok ? `Preview of “${list[0].name}” set ✓ — its setup is on screen; Undo goes back to yours` : "The preview render failed") :
+    `Previews: ${ok} set${failed ? `, ${failed} failed` : ""}${queueStop ? " (stopped)" : ""}`, ok && !failed ? "ok" : failed ? "bad" : "");
 }
 
 /* ------------------------------------------------------------------ */

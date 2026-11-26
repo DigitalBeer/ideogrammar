@@ -306,6 +306,8 @@ function wcStripStyle(text) {
     .replace(/,?\s*\bin\s+(?:the|a|an)\s+(?:[\w'-]+\s+){0,3}?style\s+of\b[^.;,]*/gi, "")
     .replace(/,?\s*\b(?:with|in)\s+(?:a|an|the)\s+(?:[\w'-]+,?\s+){0,5}?(?:aesthetic|look|vibe|style|feel|grade|colour\s+grade|color\s+grade)\b(?=\s*(?:[,.;!?]|$))/gi, "")
     .replace(/,?\s*\b(?:shot|captured|photographed|rendered|painted|drawn)\s+(?:on|with|in)\s+[^.;,]*/gi, "")
+    // a bare ", Y2K aesthetic" / ", grunge vibe" / ", anime style" clause
+    .replace(/,\s*[^,.;]{0,40}?\b(?:aesthetics?|vibes?|style)\b(?=\s*(?:[,.;!?]|$))/gi, "")
     .replace(/\s+,/g, ",").replace(/,\s*\./g, ".").replace(/\s{2,}/g, " ").trim();
   if (s && s !== text) s = s.charAt(0).toUpperCase() + s.slice(1);
   return s;
@@ -632,7 +634,7 @@ function wcApplyTemplateTo(st, tpl, { image = true, elementKeys = null } = {}) {
 async function wcApplyTemplateReview(tpl, where) {
   const keys = where === "selected" ? wcSelectedKeys() : null;
   if (where === "selected" && !keys.size) { toast("Select one or more elements first.", "bad"); return; }
-  wcCloseModal("wcTplOverlay");
+  wcCloseModal("wcMgrOverlay");   // the whole lists + templates window, so the review of the change isn't hidden behind the lists
   let errs = [];
   await proposeChange({
     label: `Apply template “${tpl.name}”` + (where === "selected" ? " to selected" : ""),
