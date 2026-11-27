@@ -13,7 +13,7 @@
     "ideogram_llm_cfg", "ideogram_llm_presets", "ideogram_comfy_cfg", "ideogrammar.comfyWorkflows", "ideogram_vec_cfg",
     "ideogrammar.refinePresets", "ideogrammar.genOptions", "ideogrammar.genTemplates", "ideogrammar.genStyleTpl",
     "ideogrammar.wildcards", "ideogrammar.styleTemplates", "ideogrammar.wcRules", "ideogrammar.wcSync",
-    "ideogrammar.wcAutoRoll", "ideogrammar.wcPaletteFollow", "ideogrammar.tplPreviews",
+    "ideogrammar.wcAutoRoll", "ideogrammar.wcPaletteFollow", "ideogrammar.wcSettingFollow", "ideogrammar.wcStripWords", "ideogrammar.previewSubject", "ideogrammar.tplPreviews",
     "ideogrammar.listCategories", "ideogrammar.proseCaptions", "ideogrammar.mossHints", "ideogrammar.mossFrame", "ideogrammar.listCollapsed", "ideogrammar.tplCategories",
     "ideogram_grid_layout", "ideogram_grid_preset", "ideogrammar.thumbSize", "ideogrammar.promptSide",
     "ideogrammar.promptSidePretty", "ideogrammar.viewerSpeed", "ideogram_editor_state",

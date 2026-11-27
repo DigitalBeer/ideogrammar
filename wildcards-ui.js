@@ -67,6 +67,8 @@ const WCS_PALFOLLOW_KEY = "ideogrammar.wcPaletteFollow";
 let wcPaletteFollow = wcLoad(WCS_PALFOLLOW_KEY, true) !== false;
 const WCS_SETFOLLOW_KEY = "ideogrammar.wcSettingFollow";
 let wcSettingFollow = wcLoad(WCS_SETFOLLOW_KEY, true) !== false;
+const WCS_STRIP_KEY = "ideogrammar.wcStripWords";
+let wcStripWords = wcLoad(WCS_STRIP_KEY, true) !== false;
 // The palette of the starting example: replaced when a template is applied, so it can't tint every render.
 const WC_DEMO_PALETTES = ['["#F5F5F5","#1A1A1A","#6366F1"]', '["#6366F1","#FFFFFF"]', '["#1A1A1A"]'];
 let _wcEngineLists = null;
@@ -312,14 +314,27 @@ function wcStripStyle(text) {
   if (s && s !== text) s = s.charAt(0).toUpperCase() + s.slice(1);
   return s;
 }
+// The same for the pose, when the template rolls it: "A woman standing,
+// punching the air jubilantly" fights a rolled "hands tucked into coat pockets".
+// Action clauses go; what they hold or carry stays (that's a prop, not a pose).
+function wcStripPose(text) {
+  if (!text) return text;
+  const keep = "holding|carrying|clutching|gripping|wielding|wearing|dressed|with|showing|reading|playing";
+  const action = new RegExp(",\\s*(?!(?:" + keep + ")\\b)(?:[\\w'-]+ly\\s+)?[a-z][\\w'-]*ing\\b[^,.;]*", "gi");
+  const posture = /\s+\b(?:standing|sitting|seated|kneeling|crouching|squatting|lying|leaning|posing|perched)(?:\s+(?:up|down|upright|still|tall|alone|proudly|casually))?(?=\s*(?:[,.;!?]|$))/gi;
+  let s = String(text).replace(action, "").replace(posture, "");
+  s = s.replace(/\s+,/g, ",").replace(/,\s*\./g, ".").replace(/\s{2,}/g, " ").trim();
+  return s || text;
+}
 // Before a template takes over: drop from a description what the template decides.
 function wcCleanForTemplate(text, tpl) {
-  if (!text || !tpl) return text;
+  if (!text || !tpl || !wcStripWords) return text;
   const T = wcTemplateFor(tpl, aiTarget()), G = T.global || {}, E = T.element || {};
   let s = text;
   if (E.wardrobe) s = wcStripWearing(s);
   if (G.background) s = wcStripSetting(s);
   if (G.aesthetics || G.medium || G.art_style || G.photo) s = wcStripStyle(s);
+  if (E.pose) s = wcStripPose(s);
   return s;
 }
 // Colours picked from a colour list become the palette of the element (or the
@@ -1134,6 +1149,7 @@ function wcBuildMenu() {
     item("🔁 Roll ×N and pick", "Roll N times and choose one", () => wcRollBatchPick(+nPick.value), nPick),
     item("✨ Roll + polish with AI", "Roll, then have your AI model turn the picks into one coherent prompt", () => wcPolish({ roll: true })),
     item("✨ Polish current with AI", "Keep the current picks; have your AI model make them read as one coherent prompt", () => wcPolish({ roll: false })),
+    item("🔍 Check for clashes with AI", "Your AI model reads the prompt and lists fields that contradict each other (two places, a pose that needs a coat the outfit doesn't have…), with a fix for each", () => { wcCloseMenu(); if (typeof wcCheckClashes === "function") wcCheckClashes(); }),
     item("📦 Download batch (ZIP)", "N rolled prompts in the format the JSON tile shows", () => wcBatchDownload(+nBatch.value), nBatch),
     wcEl("hr"),
     wcEl("div", { class: "wc-mi" }, wcEl("span", { class: "wc-ml" }, "Seed"), seed,
@@ -1145,6 +1161,9 @@ function wcBuildMenu() {
     wcEl("label", { class: "toggle wc-mi", title: "When the background is rolled (e.g. by a style template), the high-level description ends with a short “Setting: …” sentence taken from it, so the two never name different places" },
       (() => { const c = wcEl("input", { type: "checkbox", checked: wcSettingFollow, onchange: () => { wcSettingFollow = c.checked; wcSave(WCS_SETFOLLOW_KEY, wcSettingFollow); const next = cloneState(state); wcSyncSetting(next, ["background"]); wcCommit(next, wcSettingFollow ? "Setting in description" : "No setting in description"); } }); return c; })(),
       " Description follows rolled background"),
+    wcEl("label", { class: "toggle wc-mi", title: "When a template is applied, remove place, look, clothes and pose words it decides from the descriptions, by simple word matching. Off: descriptions are left as written — use 🔍 Check for clashes instead" },
+      (() => { const c = wcEl("input", { type: "checkbox", checked: wcStripWords, onchange: () => { wcStripWords = c.checked; wcSave(WCS_STRIP_KEY, wcStripWords); } }); return c; })(),
+      " Strip words the template decides"),
     item("🔓 Clear locked picks", "Unlock every locked pick", wcClearLocks),
     wcEl("hr"),
     item("📚 Wildcard lists & rules…", "Edit, import, export and sync wildcard lists", () => wcOpenManager()),

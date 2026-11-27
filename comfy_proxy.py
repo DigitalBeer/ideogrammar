@@ -54,6 +54,32 @@ import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit, unquote, urlencode
 
+
+# The browser often drops a request before the answer is sent (a reload, or a
+# newer request replacing it). That is normal; print nothing for it instead of
+# a traceback per request.
+_CLIENT_GONE = (ConnectionAbortedError, ConnectionResetError, BrokenPipeError)
+
+
+class QuietServer(ThreadingHTTPServer):
+    def handle_error(self, request, client_address):
+        exc = sys.exc_info()[1]
+        if isinstance(exc, _CLIENT_GONE):
+            return
+        super().handle_error(request, client_address)
+
+
+# ComfyUI down or restarting: say so once a minute, not once per request.
+_upstream_down_at = [0.0]
+
+
+def _note_upstream_down(host, port):
+    import time
+    now = time.time()
+    if now - _upstream_down_at[0] > 60:
+        _upstream_down_at[0] = now
+        print("ComfyUI is not reachable at %s:%s (not running, or restarting). Requests to it fail until it is back." % (host, port), flush=True)
+
 WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 HOP_BY_HOP = {
     "connection", "keep-alive", "proxy-authenticate", "proxy-authorization",
@@ -933,8 +959,18 @@ class Handler(BaseHTTPRequestHandler):
             conn.request(self.command, self.path, body=body, headers=fwd)
             resp = conn.getresponse()
             data = resp.read()
+        except ConnectionRefusedError:
+            _note_upstream_down(host, port)
+            try:
+                self.send_error(502, "ComfyUI is not reachable at %s:%s (is it running?)" % (host, port))
+            except OSError:
+                pass   # the browser already gave up on this request
+            return
         except Exception as e:
-            self.send_error(502, "Upstream error: %s" % e)
+            try:
+                self.send_error(502, "Upstream error: %s" % e)
+            except OSError:
+                pass
             return
 
         self.send_response(resp.status)
@@ -1798,7 +1834,7 @@ def main():
     ARGS.wildcards_dir = os.path.abspath(ARGS.wildcards_dir)
     ARGS.templates_dir = os.path.abspath(ARGS.templates_dir or os.path.join(ARGS.wildcards_dir, "_templates"))
 
-    srv = ThreadingHTTPServer((ARGS.host, ARGS.port), Handler)
+    srv = QuietServer((ARGS.host, ARGS.port), Handler)
     srv.daemon_threads = True
     url = "http://%s:%s/" % ("localhost" if ARGS.host in ("127.0.0.1", "0.0.0.0") else ARGS.host, ARGS.port)
     print("Ideogrammar proxy running")
